@@ -19,6 +19,7 @@ The Algorithm Codex is organized into several major parts, designed to take you 
 * **Searching and Sorting**: We establish the core intuitions of algorithmic efficiency by exploring how to find and organize data in linear and logarithmic time.
 * **Fundamental Data Structures**: We implement essential abstractions—including linked lists, stacks, queues, and hash tables—that serve as the building blocks for more complex systems.
 * **Trees**: This part covers hierarchical data, from binary search trees to self-balancing structures and specialized variants like heaps and tries.
+* **String Algorithms**: We focus on pattern matching and text processing, covering algorithms from exact matching (KMP, Boyer-Moore) to advanced suffix structures.
 * **Graphs**: A significant section dedicated to relational data, covering traversals, shortest paths, spanning trees, and flow networks.
 * **Dynamic Programming and Greedy Algorithms**: We delve into powerful paradigms for solving optimization problems by exploiting subproblem structure and local optimality.
 * **Specialized Domains**: We explore deep subregions of Computer Science, including computational geometry, number theory, and game theory.

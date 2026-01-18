@@ -14,6 +14,8 @@ book:
       chapters: []
     - part: Trees
       chapters: []
+    - part: String Matching
+      chapters: []
     - part: Graphs
       chapters: []
     - part: Dynamic Programming and Greedy Algorithms
