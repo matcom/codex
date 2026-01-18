@@ -151,78 +151,78 @@
   {
     "objectID": "03_sort.html",
     "href": "03_sort.html",
-    "title": "3  basic Sorting",
+    "title": "3  Basic Sorting",
     "section": "",
     "text": "3.1 Selection Sort\nAs we discovered in the previous chapter, structure is the secret ingredient that makes computation efficient. Searching through an unordered collection is a tedious, linear process, but searching through an ordered one is exponentially faster.\nSorting is the process of establishing this order. Formally, we want to take a sequence of items and rearrange them into a new sequence where, for any two indices \\(i\\) and \\(j\\), if \\(i &lt; j\\), then \\(x_i &lt; x_j\\). In this chapter, we explore the most fundamental ways to achieve this, building our intuition from simple observation to a deeper structural analysis of the sorting problem itself.\nThe most intuitive way to sort a list is to think about the destination. If we are building a sorted sequence, the very first element (index 0) must be the minimum element of the entire collection. Once that is in place, the second element (index 1) must be the minimum of everything that remains, and so on.\nIn Selection Sort, we stand at each position in the array and ask: “Which element belongs here?” To answer, we scan the unsorted portion of the list, find the minimum, and swap it into our current position.\nWe implement this by directly searching for the minimum index in each iteration rather than calling a helper function, keeping the logic self-contained. Because we must scan the remaining items for every single position in the list, we perform roughly \\(1 + 2 + 3 + ... (n-1) = n(n-1)/2\\) comparisons, leading to a time complexity of \\(O(n^2)\\).",
     "crumbs": [
       "Searching and Sorting",
-      "<span class='chapter-number'>3</span>  <span class='chapter-title'>basic Sorting</span>"
+      "<span class='chapter-number'>3</span>  <span class='chapter-title'>Basic Sorting</span>"
     ]
   },
   {
     "objectID": "03_sort.html#selection-sort",
     "href": "03_sort.html#selection-sort",
-    "title": "3  basic Sorting",
+    "title": "3  Basic Sorting",
     "section": "",
     "text": "from typing import MutableSequence\nfrom codex.types import Ordering, default_order\n\ndef selection_sort[T](\n    items: MutableSequence[T], f: Ordering[T] = None\n) -&gt; None:\n    if f is None:\n        f = default_order\n\n    n = len(items)\n    for i in range(n):\n        # Find the index of the minimum element in the unsorted suffix\n        min_idx = i\n        for j in range(i + 1, n):\n            if f(items[j], items[min_idx]) &lt; 0:\n                min_idx = j\n\n        # Swap it into the current position\n        items[i], items[min_idx] = items[min_idx], items[i]",
     "crumbs": [
       "Searching and Sorting",
-      "<span class='chapter-number'>3</span>  <span class='chapter-title'>basic Sorting</span>"
+      "<span class='chapter-number'>3</span>  <span class='chapter-title'>Basic Sorting</span>"
     ]
   },
   {
     "objectID": "03_sort.html#insertion-sort",
     "href": "03_sort.html#insertion-sort",
-    "title": "3  basic Sorting",
+    "title": "3  Basic Sorting",
     "section": "3.2 Insertion Sort",
     "text": "3.2 Insertion Sort\nWe can flip the narrative of Selection Sort. Instead of standing at a position and looking for the right element, we can take an element and look for its right position. This is how most people sort a hand of cards.\nWe assume that everything behind our current position is already sorted. We take the next element and ask: “How far back must I move this element so that the sequence remains sorted?” We shift it backward, swapping it with its predecessor, until it finds its rightful place.\ndef insertion_sort[T](\n    items: MutableSequence[T], f: Ordering[T] = None\n) -&gt; None:\n    if f is None:\n        f = default_order\n\n    for i in range(1, len(items)):\n        j = i\n        # Move the element backward as long as it is smaller than its predecessor\n        while j &gt; 0 and f(items[j], items[j-1]) &lt; 0:\n            items[j], items[j-1] = items[j-1], items[j]\n            j -= 1\nThe first element is sorted by definition. The second element either stays put or moves before the first. The third moves until it is in the correct spot relative to the first two. In the worst case (a reverse-sorted list), this also results again in \\(O(n^2)\\) operations, but it is remarkably efficient for lists that are already “nearly sorted.”",
     "crumbs": [
       "Searching and Sorting",
-      "<span class='chapter-number'>3</span>  <span class='chapter-title'>basic Sorting</span>"
+      "<span class='chapter-number'>3</span>  <span class='chapter-title'>Basic Sorting</span>"
     ]
   },
   {
     "objectID": "03_sort.html#the-geometry-of-inversions",
     "href": "03_sort.html#the-geometry-of-inversions",
-    "title": "3  basic Sorting",
+    "title": "3  Basic Sorting",
     "section": "3.3 The Geometry of Inversions",
     "text": "3.3 The Geometry of Inversions\nTo understand why these algorithms are all quadratic in complexity, we need to look at the structure of “unsortedness.” Whenever a list in unsorted, is because we can find at least a couple of elements that are out of place. This means some \\(x_i &gt; x_j\\) where \\(i &lt; j\\). We define an inversion as any pair of such items. A sorted list has zero inversions.\nWith this idea in place, we can see sorting as “just” the problem of reducing the number of inversions down to zero. Any algorithm that does progress towards reducing the number of inversions is actually sorting. And a crucial insight is that there can be at most \\(O(n^2)\\) inversions in any sequence of size \\(n\\).\nSelection sort reduces up to \\(n\\) inversions with each swap, that is, all inversions relative to the current minimum element. But every swap requires up to \\(n\\) comparisons, so we get \\(O(n^2)\\) steps. Insertion sort reduces at most one inversion each step, by moving one item forward, thus it will require \\(O(n^2)\\) steps to eliminate that many inversions.",
     "crumbs": [
       "Searching and Sorting",
-      "<span class='chapter-number'>3</span>  <span class='chapter-title'>basic Sorting</span>"
+      "<span class='chapter-number'>3</span>  <span class='chapter-title'>Basic Sorting</span>"
     ]
   },
   {
     "objectID": "03_sort.html#bubble-sort",
     "href": "03_sort.html#bubble-sort",
-    "title": "3  basic Sorting",
+    "title": "3  Basic Sorting",
     "section": "3.4 Bubble Sort",
     "text": "3.4 Bubble Sort\nLet’s now build an algorithm based on this idea of eliminating inversions directly. A first guess could be, lets try to find a pair of inverted items and swap them. But we must be careful, if we do indiscrimantely, we might end up fixing one inversion but creating other inversions.\nHowever, a powerful idea that we won’t formally proof is that if a list has any inversions, there must be at least one inversion between two consecutive elements. If we fix these local inversions, we eventually fix them all. And fixing an inversion between consecutive elements cannot create new inversions. This is the heart of Bubble Sort: we repeatedly step through the list and swap adjacent items that are out of order.\ndef bubble_sort[T](\n    items: MutableSequence[T], f: Ordering[T] = None\n) -&gt; None:\n    if f is None:\n        f = default_order\n\n    n = len(items)\n    for i in range(n):\n        swapped = False\n        for j in range(0, n - i - 1):\n            # If we find a consecutive inversion, fix it\n            if f(items[j+1], items[j]) &lt; 0:\n                items[j], items[j+1] = items[j+1], items[j]\n                swapped = True\n\n        # If no swaps occurred, the list is already sorted\n        if not swapped:\n            break",
     "crumbs": [
       "Searching and Sorting",
-      "<span class='chapter-number'>3</span>  <span class='chapter-title'>basic Sorting</span>"
+      "<span class='chapter-number'>3</span>  <span class='chapter-title'>Basic Sorting</span>"
     ]
   },
   {
     "objectID": "03_sort.html#verification",
     "href": "03_sort.html#verification",
-    "title": "3  basic Sorting",
+    "title": "3  Basic Sorting",
     "section": "3.5 Verification",
     "text": "3.5 Verification\nTo ensure these three fundamental sorting approaches work as intended, we can run them against a set of standard cases.\nimport pytest\nfrom codex.sort.basic import selection_sort, insertion_sort, bubble_sort\n\n@pytest.mark.parametrize(\"sort_fn\", [selection_sort, insertion_sort, bubble_sort])\ndef test_sorting_algorithms(sort_fn):\n    items = [4, 2, 7, 1, 3]\n    sort_fn(items)\n    assert items == [1, 2, 3, 4, 7]\n\n    # Already sorted\n    items = [1, 2, 3]\n    sort_fn(items)\n    assert items == [1, 2, 3]\n\n    # Reverse sorted\n    items = [3, 2, 1]\n    sort_fn(items)\n    assert items == [1, 2, 3]",
     "crumbs": [
       "Searching and Sorting",
-      "<span class='chapter-number'>3</span>  <span class='chapter-title'>basic Sorting</span>"
+      "<span class='chapter-number'>3</span>  <span class='chapter-title'>Basic Sorting</span>"
     ]
   },
   {
     "objectID": "03_sort.html#conclusion",
     "href": "03_sort.html#conclusion",
-    "title": "3  basic Sorting",
+    "title": "3  Basic Sorting",
     "section": "3.6 Conclusion",
     "text": "3.6 Conclusion\nSelection, Insertion, and Bubble sort are all \\(O(n^2)\\) algorithms. The reason is structural: in the worst case, a list of size can have \\(O(n^2)\\) inversions. Since each swap in these algorithms only fixes one inversion at a time–in the best case–we are forced to perform a quadratic number of operations.\nTo break this ceiling and reach the theoretical limit of \\(O(n^2)\\), we need to be more clever. We need algorithms that can fix many inversions with a single operation. This “divide and conquer” approach will be the focus of our next chapter: Efficient Sorting.",
     "crumbs": [
       "Searching and Sorting",
-      "<span class='chapter-number'>3</span>  <span class='chapter-title'>basic Sorting</span>"
+      "<span class='chapter-number'>3</span>  <span class='chapter-title'>Basic Sorting</span>"
     ]
   }
 ]
