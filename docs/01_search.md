@@ -1,4 +1,16 @@
-# Linear Search
+# Search
+
+Searching is arguably the most important problem in Computer Science. In a very simplistic way, searching is at the core of critical applications like databases, and is the cornerstone of how the internet works.
+
+However, beyond this simple, superficial view of searching as an end in itself, you can also view search as means for general-purpose problem solving. When you are, for example, playing chess, what your brain is doing is, in a very fundamental way, _searching_ for the optimal move--the only that most likely leads to winning.
+
+In this sense, you can view almost all of Computer Science problems as search problem. In fact, a large part of this book will be devoted to search, in one way or another.
+
+In this first chapter, we will look at the most explicit form of search: where we are explicitly given a set or collection of items, and asked to find one specific item.
+
+We will start with the simplest, and most expensive kind of search, and progress towards increasingly more refined algorithms that exploit characteristics of the input items to minimize the time required to find the desired item, or determine if it's not there at all.
+
+## Linear Search
 
 Let's start by analyzing the simplest algorithm that does something non-trivial: linear search. Most of these algorithms work on the simplest data structure that we will see, the sequence.
 

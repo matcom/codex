@@ -1,5 +1,33 @@
 # Preface {.unnumbered}
 
-This is a Quarto book.
+Welcome to The Algorithm Codex.
 
-To learn more about Quarto books visit <https://quarto.org/docs/books>.
+This book is a repository of common algorithms used in all areas of computer science. It contains reference implementations in Python for many well-known (and some not-so-much) algorithms spanning from simple linear search to sorting, graphs, computational geometry, data structures, flow networks, game theory, number theory, optimization, and many other fields.
+
+The algorithms are presented in a literate programming format. You will understand exactly what this means as soon as you start reading, but the gist is that we combine code and prose in the--to our knowledge and capacity--best possible way to maximize understanding.
+
+Accompanying this book, you will find an [open source repository](https://github.com/matcom/codex) with the exact implementations in this book. Actually, the source code is generated from the book source, and not the other way around--that is what literate programming is, after all.
+
+## About the coding style
+
+The code in this book is written in Python 3, especifically the 3.12 version. At the moment of writing, Python 3.12 is the most common Python version used around the world, and it has all the features we need. In particular, we make extensive use of Python's generic syntax to write clean but fully typed methods that leverage the best and most modern practices in software development.
+
+Other than that, the code is often written in the simplest possible way that works. This means we don't make unnecessary optimizations like taking bounds out of a loop to evaluate them only once. On the other hand, our code is optimized in the algorithmic sense. That is, we write code that is fast because it exploits the inherent structure of the problem, not because it exploits the characteristics of the programming language or runtime.
+
+Since most of our code is pure, functional algorithms, we often rely on public, plain Python functions. We thus have very few classes, and the ones we have are very simple, often nothing but data stores. However, we do make heavy use of protocols and abstract classes, especially those in the Python standard library like sequences, maps, queues, etc.
+
+## Support The Algorithm Codex
+
+This book is free, as in free beer and free speech, and it will always be.
+
+The book content is licensed CC-BY-NC-SA, that means you are free to share the book in any format (HTML, ePUB, PDF) with anyone, and produce any derivatives you want, as long as you also share those freely for posterity.
+
+The source code is licensed MIT, and thus you can use the algorithms implemented here for anything, including classes, academic work, but also writing commercial software.
+
+The only thing you cannot do is resell the book itself or any derivative work like lecture notes, translations, etc.
+
+However, writing and maintaining this book is anything but cheap. There is a lot of time and effort put into writing, coding, debugging, and formatting. If you want to support this effort, the best way to do is to [buy the official PDF](https://store.apiad.net/l/codex).
+
+## Stay in touch
+
+Most of the chapters in this book, and subsequent modifications, are first published as standalone articles in [The Computist Journal](https://blog.apiad.net). Subscribing there is the best way to stay in the loop and get early access to most of the material.

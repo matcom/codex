@@ -7,7 +7,7 @@ book:
   date: "1/17/2026"
   chapters:
     - index.qmd
-    - 01_basic.md
+    - 01_search.md
 
 format:
   html:
