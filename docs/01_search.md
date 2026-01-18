@@ -240,7 +240,9 @@ This is the problem of **bisection**. We define two variants: `bisect_left` and 
 The `bisect_left` function finds the first index where an element `x` could be inserted while maintaining the sorted order of the sequence. If `x` is already present, the insertion point will be before (to the left of) any existing entries. Effectively, it returns the index of the first element that is not "less than" `x`.
 
 ```python {export=src/codex/search/binary.py}
-def bisect_left[T](x: T, items: Sequence[T], f: Ordering[T] = None) -> int:
+def bisect_left[T](
+    x: T, items: Sequence[T], f: Ordering[T] = None
+) -> int:
     if f is None:
         f = default_order
 
@@ -262,7 +264,9 @@ The logic here is subtle: instead of returning immediately when an element match
 Conversely, `bisect_right` (sometimes called `bisect_upper`) finds the last possible insertion point. If `x` is present, the index returned will be after (to the right of) all existing entries. This is useful for finding the index of the first element that is strictly "greater than" `x`.
 
 ```python {export=src/codex/search/binary.py}
-def bisect_right[T](x: T, items: Sequence[T], f: Ordering[T] = None) -> int:
+def bisect_right[T](
+    x: T, items: Sequence[T], f: Ordering[T] = None
+) -> int:
     if f is None:
         f = default_order
 
