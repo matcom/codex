@@ -147,6 +147,86 @@ def test_bisection_extremes():
 
 ```
 
+## Binary Search on Predicates
+
+The true power of binary search extends far beyond finding a number in a list. We can generalize the algorithm to find the "boundary" of any **monotonic predicate**.
+
+A predicate  is monotonic if, once it becomes true for some index , it remains true for all . Formally, if , we can use binary search to find the smallest index  such that  is true. This is often called "Binary Search on the Answer."
+
+Instead of searching through a physical collection of items, we are searching through an abstract **decision space**.
+
+```python {export=src/codex/search/binary.py}
+from typing import Callable
+
+def find_first(
+    low: int, high: int, p: Callable[[int], bool]
+) -> int | None:
+    """
+    Finds the first index in [low, high] for which p(index) is True.
+    Assumes p is monotonic: if p(i) is True, p(i+1) is also True.
+    """
+    ans = None
+    l, r = low, high
+
+    while l <= r:
+        m = (l + r) // 2
+        if p(m):
+            ans = m
+            r = m - 1
+        else:
+            l = m + 1
+
+    return ans
+
+```
+
+Consider the problem of finding the integer square root of a very large number —that is, the largest integer  such that . While we could use `math.sqrt`, binary search allows us to find this value using only integer arithmetic, which is vital in fields like cryptography or when dealing with arbitrary-precision integers.
+
+Our predicate  is: **"Is ?"** This is monotonic: if , then  is certainly . By finding the *first*  where , we know that  is our desired integer square root.
+
+```python {export=src/codex/search/binary.py}
+def integer_sqrt(n: int) -> int:
+    if n < 0:
+        raise ValueError("Square root not defined for negative numbers")
+    if n < 2:
+        return n
+
+    # Find the first x such that x*x > n
+    first_too_big = find_first(1, n, lambda x: x * x > n)
+
+    return first_too_big - 1
+
+```
+
+This approach reveals a deep connection between **searching and optimization**. Many problems that ask for a "minimum possible  such that  is possible" can be solved by binary searching over the value of , provided that the possibility  is monotonic relative to .
+
+Whenever you encounter a problem where a "yes" answer for a value  implies a "yes" for all values larger than , you are no longer looking for an item—you are looking for a **threshold**. Binary search is the most efficient way to discover it.
+
+### Verification
+
+We can verify this generalized search and its application to the integer square root problem with the following tests.
+
+```python {export=tests/search/test_binary.py}
+from codex.search.binary import find_first, integer_sqrt
+
+def test_find_first():
+    # Predicate: is the number >= 7?
+    nums = [1, 3, 5, 7, 9, 11]
+    # find_first returns the index
+    idx = find_first(0, len(nums) - 1, lambda i: nums[i] >= 7)
+    assert idx == 3
+    assert nums[idx] == 7
+
+def test_integer_sqrt():
+    assert integer_sqrt(16) == 4
+    assert integer_sqrt(15) == 3
+    assert integer_sqrt(17) == 4
+    assert integer_sqrt(0) == 0
+    assert integer_sqrt(1) == 1
+    assert integer_sqrt(10**20) == 10**10
+
+```
+
 ## Conclusion
 
 Searching is arguably the most important problem in Computer Science. In this first chapter, we have only scratched the surface of this vast field, but in doing so, we have discovered one of the fundamental truths of computation: structure matters--a lot.

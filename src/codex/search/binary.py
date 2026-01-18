@@ -54,3 +54,36 @@ def bisect_right[T](
 
     return l
 
+from typing import Callable
+
+def find_first(
+    low: int, high: int, p: Callable[[int], bool]
+) -> int | None:
+    """
+    Finds the first index in [low, high] for which p(index) is True.
+    Assumes p is monotonic: if p(i) is True, p(i+1) is also True.
+    """
+    ans = None
+    l, r = low, high
+
+    while l <= r:
+        m = (l + r) // 2
+        if p(m):
+            ans = m
+            r = m - 1
+        else:
+            l = m + 1
+
+    return ans
+
+def integer_sqrt(n: int) -> int:
+    if n < 0:
+        raise ValueError("Square root not defined for negative numbers")
+    if n < 2:
+        return n
+
+    # Find the first x such that x*x > n
+    first_too_big = find_first(1, n, lambda x: x * x > n)
+
+    return first_too_big - 1
+

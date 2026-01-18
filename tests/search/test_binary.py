@@ -27,3 +27,21 @@ def test_bisection_extremes():
     assert bisect_left(0, items) == 0
     assert bisect_right(4, items) == 3
 
+from codex.search.binary import find_first, integer_sqrt
+
+def test_find_first():
+    # Predicate: is the number >= 7?
+    nums = [1, 3, 5, 7, 9, 11]
+    # find_first returns the index
+    idx = find_first(0, len(nums) - 1, lambda i: nums[i] >= 7)
+    assert idx == 3
+    assert nums[idx] == 7
+
+def test_integer_sqrt():
+    assert integer_sqrt(16) == 4
+    assert integer_sqrt(15) == 3
+    assert integer_sqrt(17) == 4
+    assert integer_sqrt(0) == 0
+    assert integer_sqrt(1) == 1
+    assert integer_sqrt(10**20) == 10**10
+

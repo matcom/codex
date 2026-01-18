@@ -8,12 +8,16 @@ book:
   chapters:
     - index.qmd
     - 00_intro.md
-    - part: Searching and Sorting
+    - part: part1.md
       chapters:
       - 01_search.md
       - 02_binary.md
       - 03_sort.md
-    - part: Fundamental Data Structures
+      - 04_sort_fast.md
+      - 05_rankings.md
+      - 06_linear_sort.md
+      - 07_lessons_1.md
+    - part: part2.md
       chapters: []
     - part: Trees
       chapters: []
