@@ -1,4 +1,4 @@
-# Foundations
+# Foundations {.unnumbered}
 
 Before we begin our journey through specific algorithms, we must establish the ground on which we stand. To study algorithms is to study the limits of what can be computed and the cost of doing so.
 
