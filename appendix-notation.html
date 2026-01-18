@@ -7,7 +7,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
 
-<title>2&nbsp; Sorting Fundamentals – The Algorithm Codex</title>
+<title>Appendix B — Asymptotic Notation and Analysis – The Algorithm Codex</title>
 <style>
 code{white-space: pre-wrap;}
 span.smallcaps{font-variant: small-caps;}
@@ -20,41 +20,6 @@ ul.task-list li input[type="checkbox"] {
   margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
   vertical-align: middle;
 }
-/* CSS for syntax highlighting */
-html { -webkit-text-size-adjust: 100%; }
-pre > code.sourceCode { white-space: pre; position: relative; }
-pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
-pre > code.sourceCode > span:empty { height: 1.2em; }
-.sourceCode { overflow: visible; }
-code.sourceCode > span { color: inherit; text-decoration: inherit; }
-div.sourceCode { margin: 1em 0; }
-pre.sourceCode { margin: 0; }
-@media screen {
-div.sourceCode { overflow: auto; }
-}
-@media print {
-pre > code.sourceCode { white-space: pre-wrap; }
-pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
-}
-pre.numberSource code
-  { counter-reset: source-line 0; }
-pre.numberSource code > span
-  { position: relative; left: -4em; counter-increment: source-line; }
-pre.numberSource code > span > a:first-child::before
-  { content: counter(source-line);
-    position: relative; left: -1em; text-align: right; vertical-align: baseline;
-    border: none; display: inline-block;
-    -webkit-touch-callout: none; -webkit-user-select: none;
-    -khtml-user-select: none; -moz-user-select: none;
-    -ms-user-select: none; user-select: none;
-    padding: 0 4px; width: 4em;
-  }
-pre.numberSource { margin-left: 3em;  padding-left: 4px; }
-div.sourceCode
-  {   }
-@media screen {
-pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
-}
 </style>
 
 
@@ -65,7 +30,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <script src="site_libs/quarto-search/fuse.min.js"></script>
 <script src="site_libs/quarto-search/quarto-search.js"></script>
 <meta name="quarto:offset" content="./">
-<link href="./01_search.html" rel="prev">
+<link href="./appendix-python.html" rel="prev">
 <script src="site_libs/quarto-html/quarto.js" type="module"></script>
 <script src="site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
 <script src="site_libs/quarto-html/popper.min.js"></script>
@@ -145,7 +110,7 @@ window.Quarto = {
       <button type="button" class="quarto-btn-toggle btn" data-bs-toggle="collapse" role="button" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
         <i class="bi bi-layout-text-sidebar-reverse"></i>
       </button>
-        <nav class="quarto-page-breadcrumbs" aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="./01_search.html">Searching and Sorting</a></li><li class="breadcrumb-item"><a href="./02_sort.html"><span class="chapter-number">2</span>&nbsp; <span class="chapter-title">Sorting Fundamentals</span></a></li></ol></nav>
+        <nav class="quarto-page-breadcrumbs" aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="./appendix-python.html">Appendices</a></li><li class="breadcrumb-item"><a href="./appendix-notation.html"><span class="chapter-number">B</span>&nbsp; <span class="chapter-title">Asymptotic Notation and Analysis</span></a></li></ol></nav>
         <a class="flex-grow-1" role="navigation" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">      
         </a>
       <button type="button" class="btn quarto-search-button" aria-label="Search" onclick="window.quartoOpenSearch();">
@@ -176,9 +141,15 @@ window.Quarto = {
  <span class="menu-text">Preface</span></a>
   </div>
 </li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./00_intro.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Foundations</span></a>
+  </div>
+</li>
         <li class="sidebar-item sidebar-item-section">
       <div class="sidebar-item-container"> 
-            <a class="sidebar-item-text sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-1" role="navigation" aria-expanded="true">
+            <a href="./part1.html" class="sidebar-item-text sidebar-link">
  <span class="menu-text">Searching and Sorting</span></a>
           <a class="sidebar-item-toggle text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-1" role="navigation" aria-expanded="true" aria-label="Toggle section">
             <i class="bi bi-chevron-right ms-2"></i>
@@ -193,8 +164,38 @@ window.Quarto = {
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="./02_sort.html" class="sidebar-item-text sidebar-link active">
- <span class="menu-text"><span class="chapter-number">2</span>&nbsp; <span class="chapter-title">Sorting Fundamentals</span></span></a>
+  <a href="./02_binary.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">2</span>&nbsp; <span class="chapter-title">Efficient Search</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./03_sort.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">3</span>&nbsp; <span class="chapter-title">Basic Sorting</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./04_sort_fast.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">4</span>&nbsp; <span class="chapter-title">Efficient Sorting</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./05_rankings.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">5</span>&nbsp; <span class="chapter-title">Rankings and Selection</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./06_linear_sort.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">6</span>&nbsp; <span class="chapter-title">Linear Time Sorting</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./07_lessons_1.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">7</span>&nbsp; <span class="chapter-title">Lessons from Part I</span></span></a>
   </div>
 </li>
       </ul>
@@ -227,6 +228,29 @@ window.Quarto = {
       <span class="sidebar-item-text sidebar-link text-start">
  <span class="menu-text">Advanced Complexity</span></span>
   </li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a class="sidebar-item-text sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-9" role="navigation" aria-expanded="true">
+ <span class="menu-text">Appendices</span></a>
+          <a class="sidebar-item-toggle text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-9" role="navigation" aria-expanded="true" aria-label="Toggle section">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-9" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./appendix-python.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">A</span>&nbsp; <span class="chapter-title">A Python Primer</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./appendix-notation.html" class="sidebar-item-text sidebar-link active">
+ <span class="menu-text"><span class="chapter-number">B</span>&nbsp; <span class="chapter-title">Asymptotic Notation and Analysis</span></span></a>
+  </div>
+</li>
+      </ul>
+  </li>
     </ul>
     </div>
 </nav>
@@ -237,21 +261,24 @@ window.Quarto = {
     <h2 id="toc-title">Table of contents</h2>
    
   <ul>
-  <li><a href="#selection-sort" id="toc-selection-sort" class="nav-link active" data-scroll-target="#selection-sort"><span class="header-section-number">2.1</span> Selection Sort</a></li>
-  <li><a href="#insertion-sort" id="toc-insertion-sort" class="nav-link" data-scroll-target="#insertion-sort"><span class="header-section-number">2.2</span> Insertion Sort</a></li>
-  <li><a href="#the-geometry-of-inversions" id="toc-the-geometry-of-inversions" class="nav-link" data-scroll-target="#the-geometry-of-inversions"><span class="header-section-number">2.3</span> The Geometry of Inversions</a></li>
-  <li><a href="#bubble-sort" id="toc-bubble-sort" class="nav-link" data-scroll-target="#bubble-sort"><span class="header-section-number">2.4</span> Bubble Sort</a></li>
-  <li><a href="#verification" id="toc-verification" class="nav-link" data-scroll-target="#verification"><span class="header-section-number">2.5</span> Verification</a></li>
-  <li><a href="#the-on2-ceiling" id="toc-the-on2-ceiling" class="nav-link" data-scroll-target="#the-on2-ceiling"><span class="header-section-number">2.6</span> The <span class="math inline">\(O(n^2)\)</span> Ceiling</a></li>
+  <li><a href="#the-big-o-family" id="toc-the-big-o-family" class="nav-link active" data-scroll-target="#the-big-o-family"><span class="header-section-number">B.1</span> The Big-O Family</a>
+  <ul class="collapse">
+  <li><a href="#big-o-upper-bound" id="toc-big-o-upper-bound" class="nav-link" data-scroll-target="#big-o-upper-bound"><span class="header-section-number">B.1.1</span> Big-<span class="math inline">\(O\)</span> (Upper Bound)</a></li>
+  <li><a href="#big-omega-lower-bound" id="toc-big-omega-lower-bound" class="nav-link" data-scroll-target="#big-omega-lower-bound"><span class="header-section-number">B.1.2</span> Big-<span class="math inline">\(\Omega\)</span> (Lower Bound)</a></li>
+  <li><a href="#big-theta-tight-bound" id="toc-big-theta-tight-bound" class="nav-link" data-scroll-target="#big-theta-tight-bound"><span class="header-section-number">B.1.3</span> Big-<span class="math inline">\(\Theta\)</span> (Tight Bound)</a></li>
+  <li><a href="#little-o-and-little-omega-strict-bounds" id="toc-little-o-and-little-omega-strict-bounds" class="nav-link" data-scroll-target="#little-o-and-little-omega-strict-bounds"><span class="header-section-number">B.1.4</span> Little-<span class="math inline">\(o\)</span> and Little-<span class="math inline">\(\omega\)</span> (Strict Bounds)</a></li>
+  </ul></li>
+  <li><a href="#the-master-theorem" id="toc-the-master-theorem" class="nav-link" data-scroll-target="#the-master-theorem"><span class="header-section-number">B.2</span> The Master Theorem</a></li>
+  <li><a href="#the-hierarchy-of-growth" id="toc-the-hierarchy-of-growth" class="nav-link" data-scroll-target="#the-hierarchy-of-growth"><span class="header-section-number">B.3</span> The Hierarchy of Growth</a></li>
   </ul>
 </nav>
     </div>
 <!-- main -->
 <main class="content" id="quarto-document-content">
 
-<header id="title-block-header" class="quarto-title-block default"><nav class="quarto-page-breadcrumbs quarto-title-breadcrumbs d-none d-lg-block" aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="./01_search.html">Searching and Sorting</a></li><li class="breadcrumb-item"><a href="./02_sort.html"><span class="chapter-number">2</span>&nbsp; <span class="chapter-title">Sorting Fundamentals</span></a></li></ol></nav>
+<header id="title-block-header" class="quarto-title-block default"><nav class="quarto-page-breadcrumbs quarto-title-breadcrumbs d-none d-lg-block" aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="./appendix-python.html">Appendices</a></li><li class="breadcrumb-item"><a href="./appendix-notation.html"><span class="chapter-number">B</span>&nbsp; <span class="chapter-title">Asymptotic Notation and Analysis</span></a></li></ol></nav>
 <div class="quarto-title">
-<h1 class="title"><span class="chapter-number">2</span>&nbsp; <span class="chapter-title">Sorting Fundamentals</span></h1>
+<h1 class="title">Appendix B — Asymptotic Notation and Analysis</h1>
 </div>
 
 
@@ -268,106 +295,62 @@ window.Quarto = {
 </header>
 
 
-<p>As we discovered in the previous chapter, structure is the secret ingredient that makes computation efficient. Searching through an unordered collection is a tedious, linear process, but searching through an ordered one is exponentially faster.</p>
-<p>Sorting is the process of establishing this order. Formally, we want to take a sequence of items and rearrange them into a new sequence where, for any two indices <span class="math inline">\(i\)</span> and <span class="math inline">\(j\)</span>, if <span class="math inline">\(i &lt; j\)</span>, then <span class="math inline">\(x_i &lt; x_j\)</span>. In this chapter, we explore the most fundamental ways to achieve this, building our intuition from simple observation to a deeper structural analysis of the sorting problem itself.</p>
-<section id="selection-sort" class="level2" data-number="2.1">
-<h2 data-number="2.1" class="anchored" data-anchor-id="selection-sort"><span class="header-section-number">2.1</span> Selection Sort</h2>
-<p>The most intuitive way to sort a list is to think about the destination. If we are building a sorted sequence, the very first element (index 0) <em>must</em> be the minimum element of the entire collection. Once that is in place, the second element (index 1) <em>must</em> be the minimum of everything that remains, and so on.</p>
-<p>In Selection Sort, we stand at each position in the array and ask: <strong>“Which element belongs here?”</strong> To answer, we scan the unsorted portion of the list, find the minimum, and swap it into our current position.</p>
-<div class="sourceCode" id="cb1" data-export="src/codex/sort/basic.py"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> typing <span class="im">import</span> MutableSequence</span>
-<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> codex.types <span class="im">import</span> Ordering, default_order</span>
-<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> selection_sort[T](</span>
-<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>    items: MutableSequence[T], f: Ordering[T] <span class="op">=</span> <span class="va">None</span></span>
-<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>) <span class="op">-&gt;</span> <span class="va">None</span>:</span>
-<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> f <span class="kw">is</span> <span class="va">None</span>:</span>
-<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>        f <span class="op">=</span> default_order</span>
-<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>    n <span class="op">=</span> <span class="bu">len</span>(items)</span>
-<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> i <span class="kw">in</span> <span class="bu">range</span>(n):</span>
-<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>        <span class="co"># Find the index of the minimum element in the unsorted suffix</span></span>
-<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>        min_idx <span class="op">=</span> i</span>
-<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>        <span class="cf">for</span> j <span class="kw">in</span> <span class="bu">range</span>(i <span class="op">+</span> <span class="dv">1</span>, n):</span>
-<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>            <span class="cf">if</span> f(items[j], items[min_idx]) <span class="op">&lt;</span> <span class="dv">0</span>:</span>
-<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>                min_idx <span class="op">=</span> j</span>
-<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a>        <span class="co"># Swap it into the current position</span></span>
-<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a>        items[i], items[min_idx] <span class="op">=</span> items[min_idx], items[i]</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-<p>We implement this by directly searching for the minimum index in each iteration rather than calling a helper function, keeping the logic self-contained. Because we must scan the remaining items for every single position in the list, we perform roughly <span class="math inline">\(1 + 2 + 3 + ... (n-1) = n(n-1)/2\)</span> comparisons, leading to a time complexity of <span class="math inline">\(O(n^2)\)</span>.</p>
+<p>This appendix provides a formal grounding for the “scaling intuition” introduced in the foundations of the Codex. In the study of algorithms, we are less concerned with exact cycle counts and more with <strong>asymptotic behavior</strong>: how the resource requirements of an algorithm grow as the input size <span class="math inline">\(n\)</span> approaches infinity.</p>
+<p>To analyze algorithms rigorously, we use a set of mathematical notations that allow us to ignore constant factors and lower-order terms, focusing instead on the <strong>rate of growth</strong>.</p>
+<section id="the-big-o-family" class="level2" data-number="B.1">
+<h2 data-number="B.1" class="anchored" data-anchor-id="the-big-o-family"><span class="header-section-number">B.1</span> The Big-O Family</h2>
+<p>Let <span class="math inline">\(f(n)\)</span> and <span class="math inline">\(g(n)\)</span> be functions mapping natural numbers to non-negative real numbers.</p>
+<section id="big-o-upper-bound" class="level3" data-number="B.1.1">
+<h3 data-number="B.1.1" class="anchored" data-anchor-id="big-o-upper-bound"><span class="header-section-number">B.1.1</span> Big-<span class="math inline">\(O\)</span> (Upper Bound)</h3>
+<p>We say that <span class="math inline">\(f(n) = O(g(n))\)</span> if there exist positive constants <span class="math inline">\(c\)</span> and <span class="math inline">\(n_0\)</span> such that:</p>
+<p><span class="math display">\[0 \leq f(n) \leq c \cdot g(n) \text{ for all } n \geq n_0\]</span></p>
+<p>This notation provides an asymptotic upper bound. If an algorithm is <span class="math inline">\(O(n^2)\)</span>, it will perform no worse than quadratic time for large <span class="math inline">\(n\)</span>.</p>
 </section>
-<section id="insertion-sort" class="level2" data-number="2.2">
-<h2 data-number="2.2" class="anchored" data-anchor-id="insertion-sort"><span class="header-section-number">2.2</span> Insertion Sort</h2>
-<p>We can flip the narrative of Selection Sort. Instead of standing at a position and looking for the right element, we can take an element and look for its right position. This is how most people sort a hand of cards.</p>
-<p>We assume that everything behind our current position is already sorted. We take the next element and ask: <strong>“How far back must I move this element so that the sequence remains sorted?”</strong> We shift it backward, swapping it with its predecessor, until it finds its rightful place.</p>
-<div class="sourceCode" id="cb2" data-export="src/codex/sort/basic.py"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> insertion_sort[T](</span>
-<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>    items: MutableSequence[T], f: Ordering[T] <span class="op">=</span> <span class="va">None</span></span>
-<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>) <span class="op">-&gt;</span> <span class="va">None</span>:</span>
-<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> f <span class="kw">is</span> <span class="va">None</span>:</span>
-<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>        f <span class="op">=</span> default_order</span>
-<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> i <span class="kw">in</span> <span class="bu">range</span>(<span class="dv">1</span>, <span class="bu">len</span>(items)):</span>
-<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>        j <span class="op">=</span> i</span>
-<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>        <span class="co"># Move the element backward as long as it is smaller than its predecessor</span></span>
-<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>        <span class="cf">while</span> j <span class="op">&gt;</span> <span class="dv">0</span> <span class="kw">and</span> f(items[j], items[j<span class="op">-</span><span class="dv">1</span>]) <span class="op">&lt;</span> <span class="dv">0</span>:</span>
-<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>            items[j], items[j<span class="op">-</span><span class="dv">1</span>] <span class="op">=</span> items[j<span class="op">-</span><span class="dv">1</span>], items[j]</span>
-<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>            j <span class="op">-=</span> <span class="dv">1</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-<p>The first element is sorted by definition. The second element either stays put or moves before the first. The third moves until it is in the correct spot relative to the first two. In the worst case (a reverse-sorted list), this also results again in <span class="math inline">\(O(n^2)\)</span> operations, but it is remarkably efficient for lists that are already “nearly sorted.”</p>
+<section id="big-omega-lower-bound" class="level3" data-number="B.1.2">
+<h3 data-number="B.1.2" class="anchored" data-anchor-id="big-omega-lower-bound"><span class="header-section-number">B.1.2</span> Big-<span class="math inline">\(\Omega\)</span> (Lower Bound)</h3>
+<p>We say that <span class="math inline">\(f(n) = \Omega(g(n))\)</span> if there exist positive constants <span class="math inline">\(c\)</span> and <span class="math inline">\(n_0\)</span> such that:</p>
+<p><span class="math display">\[0 \leq c \cdot g(n) \leq f(n) \text{ for all } n \geq n_0\]</span></p>
+<p><span class="math inline">\(\Omega\)</span> provides a lower bound, representing the minimum amount of work an algorithm must perform.</p>
 </section>
-<section id="the-geometry-of-inversions" class="level2" data-number="2.3">
-<h2 data-number="2.3" class="anchored" data-anchor-id="the-geometry-of-inversions"><span class="header-section-number">2.3</span> The Geometry of Inversions</h2>
-<p>To understand why these algorithms are all quadratic in complexity, we need to look at the structure of “unsortedness.” Whenever a list in unsorted, is because we can find at least a couple of elements that are out of place. This means some <span class="math inline">\(x_i &gt; x_j\)</span> where <span class="math inline">\(i &lt; j\)</span>. We define an <strong>inversion</strong> as any pair of such items. A sorted list has zero inversions.</p>
-<p>With this idea in place, we can see sorting as “just” the problem of reducing the number of inversions down to zero. Any algorithm that does progress towards reducing the number of inversions is actually sorting. And a crucial insight is that there can be <em>at most</em> <span class="math inline">\(O(n^2)\)</span> inversions in any sequence of size <span class="math inline">\(n\)</span>.</p>
-<p>Selection sort reduces up to <span class="math inline">\(n\)</span> inversions with each swap, that is, all inversions relative to the current minimum element. But every swap requires up to <span class="math inline">\(n\)</span> comparisons, so we get <span class="math inline">\(O(n^2)\)</span> steps. Insertion sort reduces at most one inversion each step, by moving one item forward, thus it will require <span class="math inline">\(O(n^2)\)</span> steps to eliminate that many inversions.</p>
+<section id="big-theta-tight-bound" class="level3" data-number="B.1.3">
+<h3 data-number="B.1.3" class="anchored" data-anchor-id="big-theta-tight-bound"><span class="header-section-number">B.1.3</span> Big-<span class="math inline">\(\Theta\)</span> (Tight Bound)</h3>
+<p>We say that <span class="math inline">\(f(n) = \Theta(g(n))\)</span> if <span class="math inline">\(f(n) = O(g(n))\)</span> and <span class="math inline">\(f(n) = \Omega(g(n))\)</span>. This means there exist positive constants <span class="math inline">\(c_1, c_2,\)</span> and <span class="math inline">\(n_0\)</span> such that:</p>
+<p><span class="math display">\[c_1 \cdot g(n) \leq f(n) \leq c_2 \cdot g(n) \text{ for all } n \geq n_0\]</span></p>
+<p><span class="math inline">\(\Theta\)</span> is the most descriptive notation, as it tells us the algorithm grows exactly like <span class="math inline">\(g(n)\)</span>.</p>
 </section>
-<section id="bubble-sort" class="level2" data-number="2.4">
-<h2 data-number="2.4" class="anchored" data-anchor-id="bubble-sort"><span class="header-section-number">2.4</span> Bubble Sort</h2>
-<p>Let’s now build an algorithm based on this idea of eliminating inversions directly. A first guess could be, lets try to find a pair of inverted items and swap them. But we must be careful, if we do indiscrimantely, we might end up fixing one inversion but creating other inversions.</p>
-<p>However, a powerful idea that we won’t formally proof is that if a list has <em>any</em> inversions, there must be at least one inversion between two <em>consecutive</em> elements. If we fix these local inversions, we eventually fix them all. And fixing an inversion between consecutive elements cannot create new inversions. This is the heart of <strong>Bubble Sort</strong>: we repeatedly step through the list and swap adjacent items that are out of order.</p>
-<div class="sourceCode" id="cb3" data-export="src/codex/sort/basic.py"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> bubble_sort[T](</span>
-<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>    items: MutableSequence[T], f: Ordering[T] <span class="op">=</span> <span class="va">None</span></span>
-<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>) <span class="op">-&gt;</span> <span class="va">None</span>:</span>
-<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> f <span class="kw">is</span> <span class="va">None</span>:</span>
-<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>        f <span class="op">=</span> default_order</span>
-<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>    n <span class="op">=</span> <span class="bu">len</span>(items)</span>
-<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> i <span class="kw">in</span> <span class="bu">range</span>(n):</span>
-<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>        swapped <span class="op">=</span> <span class="va">False</span></span>
-<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>        <span class="cf">for</span> j <span class="kw">in</span> <span class="bu">range</span>(<span class="dv">0</span>, n <span class="op">-</span> i <span class="op">-</span> <span class="dv">1</span>):</span>
-<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>            <span class="co"># If we find a consecutive inversion, fix it</span></span>
-<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>            <span class="cf">if</span> f(items[j<span class="op">+</span><span class="dv">1</span>], items[j]) <span class="op">&lt;</span> <span class="dv">0</span>:</span>
-<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>                items[j], items[j<span class="op">+</span><span class="dv">1</span>] <span class="op">=</span> items[j<span class="op">+</span><span class="dv">1</span>], items[j]</span>
-<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>                swapped <span class="op">=</span> <span class="va">True</span></span>
-<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a>        <span class="co"># If no swaps occurred, the list is already sorted</span></span>
-<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> <span class="kw">not</span> swapped:</span>
-<span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a>            <span class="cf">break</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<section id="little-o-and-little-omega-strict-bounds" class="level3" data-number="B.1.4">
+<h3 data-number="B.1.4" class="anchored" data-anchor-id="little-o-and-little-omega-strict-bounds"><span class="header-section-number">B.1.4</span> Little-<span class="math inline">\(o\)</span> and Little-<span class="math inline">\(\omega\)</span> (Strict Bounds)</h3>
+<ul>
+<li><p><strong><span class="math inline">\(f(n) = o(g(n))\)</span></strong>: The growth of <span class="math inline">\(f(n)\)</span> is strictly less than <span class="math inline">\(g(n)\)</span>. Formally, <span class="math inline">\(\lim_{n \to \infty} \frac{f(n)}{g(n)} = 0\)</span>.</p></li>
+<li><p><strong><span class="math inline">\(f(n) = \omega(g(n))\)</span></strong>: The growth of <span class="math inline">\(f(n)\)</span> is strictly greater than <span class="math inline">\(g(n)\)</span>. Formally, <span class="math inline">\(\lim_{n \to \infty} \frac{f(n)}{g(n)} = \infty\)</span>.</p></li>
+</ul>
 </section>
-<section id="verification" class="level2" data-number="2.5">
-<h2 data-number="2.5" class="anchored" data-anchor-id="verification"><span class="header-section-number">2.5</span> Verification</h2>
-<p>To ensure these three fundamental sorting approaches work as intended, we can run them against a set of standard cases.</p>
-<div class="sourceCode" id="cb4" data-export="tests/sort/test_fundamentals.py"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> pytest</span>
-<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> codex.sort.basic <span class="im">import</span> selection_sort, insertion_sort, bubble_sort</span>
-<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a><span class="at">@pytest.mark.parametrize</span>(<span class="st">"sort_fn"</span>, [selection_sort, insertion_sort, bubble_sort])</span>
-<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> test_sorting_algorithms(sort_fn):</span>
-<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>    items <span class="op">=</span> [<span class="dv">4</span>, <span class="dv">2</span>, <span class="dv">7</span>, <span class="dv">1</span>, <span class="dv">3</span>]</span>
-<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>    sort_fn(items)</span>
-<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>    <span class="cf">assert</span> items <span class="op">==</span> [<span class="dv">1</span>, <span class="dv">2</span>, <span class="dv">3</span>, <span class="dv">4</span>, <span class="dv">7</span>]</span>
-<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Already sorted</span></span>
-<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>    items <span class="op">=</span> [<span class="dv">1</span>, <span class="dv">2</span>, <span class="dv">3</span>]</span>
-<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a>    sort_fn(items)</span>
-<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a>    <span class="cf">assert</span> items <span class="op">==</span> [<span class="dv">1</span>, <span class="dv">2</span>, <span class="dv">3</span>]</span>
-<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Reverse sorted</span></span>
-<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a>    items <span class="op">=</span> [<span class="dv">3</span>, <span class="dv">2</span>, <span class="dv">1</span>]</span>
-<span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a>    sort_fn(items)</span>
-<span id="cb4-18"><a href="#cb4-18" aria-hidden="true" tabindex="-1"></a>    <span class="cf">assert</span> items <span class="op">==</span> [<span class="dv">1</span>, <span class="dv">2</span>, <span class="dv">3</span>]</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </section>
-<section id="the-on2-ceiling" class="level2" data-number="2.6">
-<h2 data-number="2.6" class="anchored" data-anchor-id="the-on2-ceiling"><span class="header-section-number">2.6</span> The <span class="math inline">\(O(n^2)\)</span> Ceiling</h2>
-<p>Selection, Insertion, and Bubble sort are all <span class="math inline">\(O(n^2)\)</span> algorithms. The reason is structural: in the worst case, a list of size can have <span class="math inline">\(O(n^2)\)</span> inversions. Since each swap in these algorithms only fixes one inversion at a time–in the best case–we are forced to perform a quadratic number of operations.</p>
-<p>To break this ceiling and reach the theoretical limit of <span class="math inline">\(O(n^2)\)</span>, we need to be more clever. We need algorithms that can fix <em>many</em> inversions with a single operation. This “divide and conquer” approach will be the focus of our next chapter: <strong>Efficient Sorting</strong>.</p>
+<section id="the-master-theorem" class="level2" data-number="B.2">
+<h2 data-number="B.2" class="anchored" data-anchor-id="the-master-theorem"><span class="header-section-number">B.2</span> The Master Theorem</h2>
+<p>Many of the most efficient algorithms in this book (like Merge Sort) use a divide-and-conquer strategy. Their complexity is often expressed as a recurrence of the form:</p>
+<p><span class="math display">\[T(n) = aT(n/b) + f(n)\]</span></p>
+<p>where <span class="math inline">\(a \geq 1\)</span> is the number of subproblems, <span class="math inline">\(b &gt; 1\)</span> is the factor by which the subproblem size is reduced, and <span class="math inline">\(f(n)\)</span> is the cost of work done outside the recursive calls. The Master Theorem provides a “cookbook” solution for such recurrences:</p>
+<ol type="1">
+<li><strong>If <span class="math inline">\(f(n) = O(n^{\log_b a - \epsilon})\)</span></strong> for some <span class="math inline">\(\epsilon &gt; 0\)</span>, then <span class="math inline">\(T(n) = \Theta(n^{\log_b a})\)</span>. (Work is dominated by the leaves).</li>
+<li><strong>If <span class="math inline">\(f(n) = \Theta(n^{\log_b a})\)</span></strong>, then <span class="math inline">\(T(n) = \Theta(n^{\log_b a} \log n)\)</span>. (Work is balanced across levels).</li>
+<li><strong>If <span class="math inline">\(f(n) = \Omega(n^{\log_b a + \epsilon})\)</span></strong> and satisfies the regularity condition (<span class="math inline">\(af(n/b) \leq cf(n)\)</span>), then <span class="math inline">\(T(n) = \Theta(f(n))\)</span>. (Work is dominated by the root).</li>
+</ol>
+</section>
+<section id="the-hierarchy-of-growth" class="level2" data-number="B.3">
+<h2 data-number="B.3" class="anchored" data-anchor-id="the-hierarchy-of-growth"><span class="header-section-number">B.3</span> The Hierarchy of Growth</h2>
+<p>Understanding the relative order of complexity functions is essential for selecting the right algorithm for a given problem size. Below is the standard hierarchy from slowest to fastest growth:</p>
+<ol type="1">
+<li><strong><span class="math inline">\(O(1)\)</span> — Constant</strong>: Accessing an array element, simple arithmetic.</li>
+<li><strong><span class="math inline">\(O(\log n)\)</span> — Logarithmic</strong>: Binary search. The “gold standard.”</li>
+<li><strong><span class="math inline">\(O(n)\)</span> — Linear</strong>: Sequential scan.</li>
+<li><strong><span class="math inline">\(O(n \log n)\)</span> — Linearithmic</strong>: Optimal comparison-based sorting (Merge Sort).</li>
+<li><strong><span class="math inline">\(O(n^2)\)</span> — Quadratic</strong>: Nested loops (Bubble Sort).</li>
+<li><strong><span class="math inline">\(O(n^k)\)</span> — Polynomial</strong>: General algorithmic complexity.</li>
+<li><strong><span class="math inline">\(O(2^n)\)</span> — Exponential</strong>: Exhaustive search (Traveling Salesperson).</li>
+<li><strong><span class="math inline">\(O(n!)\)</span> — Factorial</strong>: Permutations of a set.</li>
+</ol>
+<p>As <span class="math inline">\(n\)</span> grows, the gaps between these classes become astronomical. While a <span class="math inline">\(O(n^2)\)</span> algorithm might be acceptable for <span class="math inline">\(n=1,000\)</span>, it becomes entirely impractical for <span class="math inline">\(n=1,000,000\)</span>, where an <span class="math inline">\(O(n \log n)\)</span> or <span class="math inline">\(O(n)\)</span> solution remains trivial for modern hardware.</p>
 
 
 </section>
@@ -774,8 +757,8 @@ window.Quarto = {
   </script>
 <nav class="page-navigation">
   <div class="nav-page nav-page-previous">
-      <a href="./01_search.html" class="pagination-link" aria-label="Basic Search">
-        <i class="bi bi-arrow-left-short"></i> <span class="nav-page-text"><span class="chapter-number">1</span>&nbsp; <span class="chapter-title">Basic Search</span></span>
+      <a href="./appendix-python.html" class="pagination-link" aria-label="A Python Primer">
+        <i class="bi bi-arrow-left-short"></i> <span class="nav-page-text"><span class="chapter-number">A</span>&nbsp; <span class="chapter-title">A Python Primer</span></span>
       </a>          
   </div>
   <div class="nav-page nav-page-next">

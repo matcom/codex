@@ -80,6 +80,36 @@
     ]
   },
   {
+    "objectID": "part1.html",
+    "href": "part1.html",
+    "title": "Searching and Sorting",
+    "section": "",
+    "text": "What We Will Explore\nThis first part of The Algorithm Codex serves as our entry point into the science of computation. We begin with the most fundamental of tasks: finding and organizing data. While these problems may seem elementary, they reveal the deepest truth of computer science: structure is the primary driver of efficiency.\nIn this part, we transition from the exhaustive “brute force” methods of linear search to the elegant, logarithmic precision of binary search, and from the quadratic complexity of basic sorting to the theoretical limits of divide-and-conquer algorithms.\nThrough these chapters, we move from simple observations to a rigorous structural analysis of search spaces and the “geometry of inversions”:",
+    "crumbs": [
+      "Searching and Sorting"
+    ]
+  },
+  {
+    "objectID": "part1.html#what-we-will-explore",
+    "href": "part1.html#what-we-will-explore",
+    "title": "Searching and Sorting",
+    "section": "",
+    "text": "Basic Search: We start with the universal but expensive paradigm of linear search, establishing the baseline for what happens when we know nothing about our data.\nEfficient Search: We introduce binary search and bisection, demonstrating how an ordered search space allows us to gain the maximum possible information from every comparison.\nFundamental Sorting: We analyze Selection, Insertion, and Bubble sort, learning why is the natural ceiling for algorithms that fix only one or two inversions at a time.\nEfficient Sorting: We break the quadratic barrier using Merge Sort and Quick Sort, exploring the power of recursion to fix multiple inversions simultaneously through divide-and-conquer strategies.\nOrder Statistics: We solve the problem of selection—finding the -th smallest item—by leveraging partitioning logic to achieve linear time performance.\nLinear Time Sorting: We demonstrate that the limit can be bypassed entirely if we exploit domain-specific constraints, such as the discrete nature of integers, through Counting and Radix sort.",
+    "crumbs": [
+      "Searching and Sorting"
+    ]
+  },
+  {
+    "objectID": "part1.html#what-you-will-learn",
+    "href": "part1.html#what-you-will-learn",
+    "title": "Searching and Sorting",
+    "section": "What You Will Learn",
+    "text": "What You Will Learn\nBy following this progression, you will develop the “algorithmic intuition” required to analyze and solve increasingly complex problems:\n\nThe Information Gain Principle: Why halving the search space leads to exponential efficiency gains.\nDivide and Conquer: How to break a monolithic problem into independent sub-problems that are easier to solve and combine.\nThe Geometry of Inversions: Understanding “unsortedness” as a structural property that can be measured and methodically reduced.\nRandomization as a Strategy: How to use probabilistic approaches to avoid pathological cases and ensure robust average-case performance.\nThe Power of Constraints: Why knowing the range or type of your input allows for optimizations that are mathematically impossible in a generic context.\n\nSearching and sorting are not just utility functions; they are the playground where we learn the rules of algorithmic negotiation. We are learning how much effort we must expend to impose order, and how much that order pays us back in search speed.",
+    "crumbs": [
+      "Searching and Sorting"
+    ]
+  },
+  {
     "objectID": "01_search.html",
     "href": "01_search.html",
     "title": "1  Basic Search",
@@ -168,11 +198,22 @@
     ]
   },
   {
+    "objectID": "02_binary.html#binary-search-on-predicates",
+    "href": "02_binary.html#binary-search-on-predicates",
+    "title": "2  Efficient Search",
+    "section": "2.3 Binary Search on Predicates",
+    "text": "2.3 Binary Search on Predicates\nThe true power of binary search extends far beyond finding a number in a list. We can generalize the algorithm to find the “boundary” of any monotonic predicate.\nA predicate is monotonic if, once it becomes true for some index , it remains true for all . Formally, if , we can use binary search to find the smallest index such that is true. This is often called “Binary Search on the Answer.”\nInstead of searching through a physical collection of items, we are searching through an abstract decision space.\nfrom typing import Callable\n\ndef find_first(\n    low: int, high: int, p: Callable[[int], bool]\n) -&gt; int | None:\n    \"\"\"\n    Finds the first index in [low, high] for which p(index) is True.\n    Assumes p is monotonic: if p(i) is True, p(i+1) is also True.\n    \"\"\"\n    ans = None\n    l, r = low, high\n\n    while l &lt;= r:\n        m = (l + r) // 2\n        if p(m):\n            ans = m\n            r = m - 1\n        else:\n            l = m + 1\n\n    return ans\nConsider the problem of finding the integer square root of a very large number —that is, the largest integer such that . While we could use math.sqrt, binary search allows us to find this value using only integer arithmetic, which is vital in fields like cryptography or when dealing with arbitrary-precision integers.\nOur predicate is: “Is ?” This is monotonic: if , then is certainly . By finding the first where , we know that is our desired integer square root.\ndef integer_sqrt(n: int) -&gt; int:\n    if n &lt; 0:\n        raise ValueError(\"Square root not defined for negative numbers\")\n    if n &lt; 2:\n        return n\n\n    # Find the first x such that x*x &gt; n\n    first_too_big = find_first(1, n, lambda x: x * x &gt; n)\n\n    return first_too_big - 1\nThis approach reveals a deep connection between searching and optimization. Many problems that ask for a “minimum possible such that is possible” can be solved by binary searching over the value of , provided that the possibility is monotonic relative to .\nWhenever you encounter a problem where a “yes” answer for a value implies a “yes” for all values larger than , you are no longer looking for an item—you are looking for a threshold. Binary search is the most efficient way to discover it.\n\n2.3.1 Verification\nWe can verify this generalized search and its application to the integer square root problem with the following tests.\nfrom codex.search.binary import find_first, integer_sqrt\n\ndef test_find_first():\n    # Predicate: is the number &gt;= 7?\n    nums = [1, 3, 5, 7, 9, 11]\n    # find_first returns the index\n    idx = find_first(0, len(nums) - 1, lambda i: nums[i] &gt;= 7)\n    assert idx == 3\n    assert nums[idx] == 7\n\ndef test_integer_sqrt():\n    assert integer_sqrt(16) == 4\n    assert integer_sqrt(15) == 3\n    assert integer_sqrt(17) == 4\n    assert integer_sqrt(0) == 0\n    assert integer_sqrt(1) == 1\n    assert integer_sqrt(10**20) == 10**10",
+    "crumbs": [
+      "Searching and Sorting",
+      "<span class='chapter-number'>2</span>  <span class='chapter-title'>Efficient Search</span>"
+    ]
+  },
+  {
     "objectID": "02_binary.html#conclusion",
     "href": "02_binary.html#conclusion",
     "title": "2  Efficient Search",
-    "section": "2.3 Conclusion",
-    "text": "2.3 Conclusion\nSearching is arguably the most important problem in Computer Science. In this first chapter, we have only scratched the surface of this vast field, but in doing so, we have discovered one of the fundamental truths of computation: structure matters–a lot.\nWhen we know nothing about the structure of our problem or the collection of items we are searching through, we have no choice but to rely on exhaustive methods like linear search. In these cases, we must check every single item to determine if it is the one we care about.\nHowever, as soon as we introduce some structure–specifically, some order–the landscape changes completely. Binary search allows us to exploit this structure to find an element as fast as is theoretically possible, reducing our workload from a linear progression to a logarithmic one.\nThis realization that we can trade a bit of organizational effort for a massive gain in search efficiency is the perfect segue for our next chapter. If searching is easier when items are ordered, then we must understand the process of establishing that order. We must talk about sorting.",
+    "section": "2.4 Conclusion",
+    "text": "2.4 Conclusion\nSearching is arguably the most important problem in Computer Science. In this first chapter, we have only scratched the surface of this vast field, but in doing so, we have discovered one of the fundamental truths of computation: structure matters–a lot.\nWhen we know nothing about the structure of our problem or the collection of items we are searching through, we have no choice but to rely on exhaustive methods like linear search. In these cases, we must check every single item to determine if it is the one we care about.\nHowever, as soon as we introduce some structure–specifically, some order–the landscape changes completely. Binary search allows us to exploit this structure to find an element as fast as is theoretically possible, reducing our workload from a linear progression to a logarithmic one.\nThis realization that we can trade a bit of organizational effort for a massive gain in search efficiency is the perfect segue for our next chapter. If searching is easier when items are ordered, then we must understand the process of establishing that order. We must talk about sorting.",
     "crumbs": [
       "Searching and Sorting",
       "<span class='chapter-number'>2</span>  <span class='chapter-title'>Efficient Search</span>"
@@ -253,6 +294,333 @@
     "crumbs": [
       "Searching and Sorting",
       "<span class='chapter-number'>3</span>  <span class='chapter-title'>Basic Sorting</span>"
+    ]
+  },
+  {
+    "objectID": "04_sort_fast.html",
+    "href": "04_sort_fast.html",
+    "title": "4  Efficient Sorting",
+    "section": "",
+    "text": "4.1 Merge Sort: Intuition through Order\nThis chapter marks our departure from the quadratic barrier. As we established previously, sorting is the process of eliminating inversions. While basic algorithms like Selection or Insertion sort remove inversions somewhat haphazardly or one at a time, efficient sorting relies on a structured, recursive strategy known as Divide and Conquer.\nBy imposing a rigid structure on how we approach these inversions, we can reduce the computational cost from \\(O(n^2)\\) to the theoretical optimum of \\(O(n \\log n)\\).\nTo break the quadratic limit, we must find ways to fix multiple inversions with a single operation. The most effective way to do this is to stop looking at the sequence as a monolithic block and start viewing it as a composition of smaller, more manageable sub-problems.\nThe fundamental insight behind Merge Sort is that it is remarkably easy to combine two sequences that are already sorted. If we have two sorted lists, we can merge them into a single sorted list in linear time by simply comparing the heads of each list and picking the smaller one.\nThe “conquer” part of the algorithm is this linear merge. The “divide” part is the recursive leap: if we don’t have two sorted halves, we simply split our current list in two and call Merge Sort on each piece until we reach the base case—a list of a single element, which is sorted by definition.\nIn Merge Sort, the structural strategy is to fix inversions within each half first. We recursively dive deep into the sequence, sorting smaller and smaller sub-sequences. Only when the sub-sequences are internally free of inversions do we perform the merge step to fix the “global” inversions between the two halves.\nBecause the list is halved at each step, the recursion depth is . Since we perform work at each level of the tree to merge the results, the total complexity is .",
+    "crumbs": [
+      "Searching and Sorting",
+      "<span class='chapter-number'>4</span>  <span class='chapter-title'>Efficient Sorting</span>"
+    ]
+  },
+  {
+    "objectID": "04_sort_fast.html#merge-sort-intuition-through-order",
+    "href": "04_sort_fast.html#merge-sort-intuition-through-order",
+    "title": "4  Efficient Sorting",
+    "section": "",
+    "text": "from typing import MutableSequence, List\nfrom codex.types import Ordering, default_order\n\ndef merge_sort[T](\n    items: MutableSequence[T], f: Ordering[T] = None\n) -&gt; None:\n    if f is None:\n        f = default_order\n\n    if len(items) &lt;= 1:\n        return\n\n    mid = len(items) // 2\n    left = items[:mid]\n    right = items[mid:]\n\n    merge_sort(left, f)\n    merge_sort(right, f)\n\n    # Merge the sorted halves back into items\n    i = j = k = 0\n    while i &lt; len(left) and j &lt; len(right):\n        if f(left[i], right[j]) &lt;= 0:\n            items[k] = left[i]\n            i += 1\n        else:\n            items[k] = right[j]\n            j += 1\n        k += 1\n\n    while i &lt; len(left):\n        items[k] = left[i]\n        i += 1\n        k += 1\n\n    while j &lt; len(right):\n        items[k] = right[j]\n        j += 1\n        k += 1",
+    "crumbs": [
+      "Searching and Sorting",
+      "<span class='chapter-number'>4</span>  <span class='chapter-title'>Efficient Sorting</span>"
+    ]
+  },
+  {
+    "objectID": "04_sort_fast.html#quick-sort-sorting-by-partitioning",
+    "href": "04_sort_fast.html#quick-sort-sorting-by-partitioning",
+    "title": "4  Efficient Sorting",
+    "section": "4.2 Quick Sort: Sorting by Partitioning",
+    "text": "4.2 Quick Sort: Sorting by Partitioning\nWhile Merge Sort is elegant, it requires extra space to store the temporary halves during the merge process. Quick Sort offers a narrative shift: instead of splitting the list blindly in the middle and merging later, we rearrange the items first so that no merge is ever necessary.\nThis is achieved through partitioning. We pick an element called a pivot and rearrange the sequence so that every element smaller than the pivot moved to its left, and every element larger than the pivot moved to its right.\ndef quick_sort[T](\n    items: MutableSequence[T], f: Ordering[T] = None\n) -&gt; None:\n    if f is None:\n        f = default_order\n\n    def _quick_sort(low: int, high: int):\n        if low &lt; high:\n            p = _partition(low, high)\n            _quick_sort(low, p)\n            _quick_sort(p + 1, high)\n\n    def _partition(low: int, high: int) -&gt; int:\n        pivot = items[(low + high) // 2]\n        i = low - 1\n        j = high + 1\n        while True:\n            i += 1\n            while f(items[i], pivot) &lt; 0:\n                i += 1\n            j -= 1\n            while f(items[j], pivot) &gt; 0:\n                j -= 1\n            if i &gt;= j:\n                return j\n            items[i], items[j] = items[j], items[i]\n\n    _quick_sort(0, len(items) - 1)\nThe striking difference here is the order of operations. Quick Sort fixes inversions between both halves first. By partitioning, we ensure that there are zero inversions between the left “half” and the right “half” (no item in the left is greater than an item in the right). Once this global structure is established, we recursively fix the remaining inversions within each half.\nThis approach allows Quick Sort to operate in-place, requiring only auxiliary space for the recursion stack. While its worst-case is , its average-case performance is a highly efficient .",
+    "crumbs": [
+      "Searching and Sorting",
+      "<span class='chapter-number'>4</span>  <span class='chapter-title'>Efficient Sorting</span>"
+    ]
+  },
+  {
+    "objectID": "04_sort_fast.html#verification",
+    "href": "04_sort_fast.html#verification",
+    "title": "4  Efficient Sorting",
+    "section": "4.3 Verification",
+    "text": "4.3 Verification\nWe can verify both algorithms using the same test suite we established for basic sorting.\nimport pytest\nfrom codex.sort.efficient import merge_sort, quick_sort\n\n@pytest.mark.parametrize(\"sort_fn\", [merge_sort, quick_sort])\ndef test_efficient_sorting(sort_fn):\n    items = [4, 2, 7, 1, 3]\n    sort_fn(items)\n    assert items == [1, 2, 3, 4, 7]\n\n    # Handle duplicates and edge cases\n    items = [2, 1, 2, 1]\n    sort_fn(items)\n    assert items == [1, 1, 2, 2]",
+    "crumbs": [
+      "Searching and Sorting",
+      "<span class='chapter-number'>4</span>  <span class='chapter-title'>Efficient Sorting</span>"
+    ]
+  },
+  {
+    "objectID": "04_sort_fast.html#conclusion",
+    "href": "04_sort_fast.html#conclusion",
+    "title": "4  Efficient Sorting",
+    "section": "4.4 Conclusion",
+    "text": "4.4 Conclusion\nBoth Merge Sort and Quick Sort reaffirm our central theme: structure matters. By moving away from the unstructured swaps of Bubble Sort and adopting a rigorous divide-and-conquer strategy, we change how we interact with the “geometry of inversions.”\nWhether we fix local inversions first (Merge Sort) or global ones first (Quick Sort), the result is a massive leap in efficiency. We have traded the simplicity of a double-loop for the power of recursion and structural partitioning.",
+    "crumbs": [
+      "Searching and Sorting",
+      "<span class='chapter-number'>4</span>  <span class='chapter-title'>Efficient Sorting</span>"
+    ]
+  },
+  {
+    "objectID": "05_rankings.html",
+    "href": "05_rankings.html",
+    "title": "5  Rankings and Selection",
+    "section": "",
+    "text": "5.1 Quick Select: Selection via Partitioning\nThis chapter addresses the problem of selecting the -th smallest element in a sequence—a task that lies at the heart of calculating medians, percentiles, and other order statistics. While one could simply sort the entire collection in time and pick the element at index , we can do better by leveraging the same structural insights we gained from Quick Sort.\nFinding the “rank” of an element—its position in a sorted version of the collection—is a fundamental operation in data analysis. The most common case is finding the median, the element that splits a set into two equal halves. By generalizing this, we look for the -th order statistic: the value that is greater than or equal to exactly elements.\nThe core of Quick Sort was the partition operation, which organized elements around a pivot. In Quick Sort, we recursively processed both sides of the partition. However, for selection, we only care about the side that contains our target index .\nThis leads to Quick Select. Because we discard one-half of the search space at every step, we aren’t performing a “divide and conquer” so much as a “prune and search” strategy.\nThe probabilistic analysis of Quick Select is striking. In the worst case—where we consistently pick the worst possible pivot—the complexity is still . However, on average, the size of the search space follows a geometric series: , which converges to . This means that on average, Quick Select finds the -th order statistic in **** time.",
+    "crumbs": [
+      "Searching and Sorting",
+      "<span class='chapter-number'>5</span>  <span class='chapter-title'>Rankings and Selection</span>"
+    ]
+  },
+  {
+    "objectID": "05_rankings.html#quick-select-selection-via-partitioning",
+    "href": "05_rankings.html#quick-select-selection-via-partitioning",
+    "title": "5  Rankings and Selection",
+    "section": "",
+    "text": "import random\nfrom typing import MutableSequence\nfrom codex.types import Ordering, default_order\n\ndef quick_select[T](\n    items: MutableSequence[T], k: int, f: Ordering[T] = None\n) -&gt; T:\n    if f is None:\n        f = default_order\n\n    if not 0 &lt;= k &lt; len(items):\n        raise IndexError(\"Rank k is out of bounds\")\n\n    return _select(items, 0, len(items) - 1, k, f)\n\ndef _select[T](\n    items: MutableSequence[T], low: int, high: int, k: int, f: Ordering[T]\n) -&gt; T:\n    if low == high:\n        return items[low]\n\n    # Randomized pivot selection to ensure good average performance\n    pivot_idx = random.randint(low, high)\n    items[pivot_idx], items[high] = items[high], items[pivot_idx]\n\n    p = _partition(items, low, high, f)\n\n    if k == p:\n        return items[p]\n    elif k &lt; p:\n        return _select(items, low, p - 1, k, f)\n    else:\n        return _select(items, p + 1, high, k, f)\n\ndef _partition[T](\n    items: MutableSequence[T], low: int, high: int, f: Ordering[T]\n) -&gt; int:\n    pivot = items[high]\n    i = low\n    for j in range(low, high):\n        if f(items[j], pivot) &lt;= 0:\n            items[i], items[j] = items[j], items[i]\n            i += 1\n    items[i], items[high] = items[high], items[i]\n    return i",
+    "crumbs": [
+      "Searching and Sorting",
+      "<span class='chapter-number'>5</span>  <span class='chapter-title'>Rankings and Selection</span>"
+    ]
+  },
+  {
+    "objectID": "05_rankings.html#median-of-medians-deterministic-selection",
+    "href": "05_rankings.html#median-of-medians-deterministic-selection",
+    "title": "5  Rankings and Selection",
+    "section": "5.2 Median of Medians: Deterministic Selection",
+    "text": "5.2 Median of Medians: Deterministic Selection\nWhile randomization is practically robust, we can achieve a guaranteed worst-case time using a clever, ad hoc approach to pivot selection known as the Median of Medians algorithm.\nThe goal is to find a pivot that is guaranteed to be “good enough”—meaning it is not too close to either end of the sorted sequence. We do this by:\n\nDividing the list into groups of five.\nFinding the median of each small group.\nRecursively finding the median of these medians.\n\nThis “median of medians” is then used as the pivot for a standard partition.\ndef median_of_medians[T](\n    items: MutableSequence[T], k: int, f: Ordering[T] = None\n) -&gt; T:\n    if f is None:\n        f = default_order\n\n    def _get_pivot(sub_items: MutableSequence[T]) -&gt; T:\n        if len(sub_items) &lt;= 5:\n            return sorted(sub_items, key=lambda x: x)[len(sub_items) // 2]\n\n        chunks = [sub_items[i:i + 5] for i in range(0, len(sub_items), 5)]\n        medians = [sorted(c, key=lambda x: x)[len(c) // 2] for c in chunks]\n        return _get_pivot(medians)\n\n    # TODO: Use the median of medians to partition and select\n    # (Implementation follows standard select logic using the calculated pivot)\n    # ...\nThe structural beauty of this algorithm lies in the constant 5. It is the smallest odd number that ensures the recursive step prunes enough of the search space to maintain a linear recurrence.",
+    "crumbs": [
+      "Searching and Sorting",
+      "<span class='chapter-number'>5</span>  <span class='chapter-title'>Rankings and Selection</span>"
+    ]
+  },
+  {
+    "objectID": "05_rankings.html#verification",
+    "href": "05_rankings.html#verification",
+    "title": "5  Rankings and Selection",
+    "section": "5.3 Verification",
+    "text": "5.3 Verification\nTo ensure our selection logic holds, we test it by finding various ranks in both random and edge-case sequences.\nimport pytest\nfrom codex.search.rank import quick_select\n\ndef test_selection():\n    items = [3, 1, 2, 4, 0]\n    # Finding the median (rank 2)\n    assert quick_select(items[:], 2) == 2\n    # Finding the minimum (rank 0)\n    assert quick_select(items[:], 0) == 0\n    # Finding the maximum (rank 4)\n    assert quick_select(items[:], 4) == 4\n\ndef test_duplicates():\n    items = [1, 2, 1, 2, 1]\n    assert quick_select(items, 0) == 1\n    assert quick_select(items, 4) == 2",
+    "crumbs": [
+      "Searching and Sorting",
+      "<span class='chapter-number'>5</span>  <span class='chapter-title'>Rankings and Selection</span>"
+    ]
+  },
+  {
+    "objectID": "05_rankings.html#conclusion",
+    "href": "05_rankings.html#conclusion",
+    "title": "5  Rankings and Selection",
+    "section": "5.4 Conclusion",
+    "text": "5.4 Conclusion\nWith the implementation of selection algorithms, we have completed our initial survey of searching and sorting. The progression from linear search to sorting, and finally back to for selection, demonstrates the power of structured thinking. By understanding how to manipulate inversions and search spaces, we can find specific needles in increasingly large haystacks with mathematical precision.",
+    "crumbs": [
+      "Searching and Sorting",
+      "<span class='chapter-number'>5</span>  <span class='chapter-title'>Rankings and Selection</span>"
+    ]
+  },
+  {
+    "objectID": "06_linear_sort.html",
+    "href": "06_linear_sort.html",
+    "title": "6  Linear Time Sorting",
+    "section": "",
+    "text": "6.1 Counting Sort\nThis chapter concludes our exploration of sorting by demonstrating that the limit we established is not a universal law, but a specific constraint of comparison-based algorithms. If we possess even deeper knowledge about the structure of our data—specifically that it consists of discrete values within a known range—we can bypass comparisons entirely and achieve true linear time performance.\nIn the previous chapters, we operated under the assumption that the only way to gain information about our items was to compare them. However, when our data has a predictable, bounded structure, we can use the values themselves as indices. This shifts the problem from “which is bigger?” to “how many of each value do we have?”.\nCounting Sort is the purest expression of this idea. If we know that every element in a sequence is an integer in the range , we can simply count the occurrences of each integer. By calculating the cumulative sum of these counts, we determine the exact position each element should occupy in the final sorted array.\nCounting Sort performs exactly two passes over the input and one pass over the range \\(O(k)\\). This results in a time complexity of \\(O(n \\times k)\\). When \\(k = O(n)\\), the algorithm is strictly linear. The cost, however, is space complexity: we require an auxiliary array of size \\(k\\). If \\(k\\) is significantly larger than \\(n\\), this becomes impractical.",
+    "crumbs": [
+      "Searching and Sorting",
+      "<span class='chapter-number'>6</span>  <span class='chapter-title'>Linear Time Sorting</span>"
+    ]
+  },
+  {
+    "objectID": "06_linear_sort.html#counting-sort",
+    "href": "06_linear_sort.html#counting-sort",
+    "title": "6  Linear Time Sorting",
+    "section": "",
+    "text": "from typing import MutableSequence, Callable, List\nfrom codex.types import Ordering, default_order\n\ndef counting_sort(\n    items: MutableSequence[int], k: int\n) -&gt; List[int]:\n    \"\"\"\n    Sorts a sequence of integers in the range [0, k].\n    This implementation is stable.\n    \"\"\"\n    counts = [0] * (k + 1)\n    for x in items:\n        counts[x] += 1\n\n    # Transform counts into starting indices\n    for i in range(1, k + 1):\n        counts[i] += counts[i - 1]\n\n    output = [0] * len(items)\n    # Iterate backwards to maintain stability\n    for x in reversed(items):\n        counts[x] -= 1\n        output[counts[x]] = x\n\n    return output",
+    "crumbs": [
+      "Searching and Sorting",
+      "<span class='chapter-number'>6</span>  <span class='chapter-title'>Linear Time Sorting</span>"
+    ]
+  },
+  {
+    "objectID": "06_linear_sort.html#radix-sort-sorting-by-digits",
+    "href": "06_linear_sort.html#radix-sort-sorting-by-digits",
+    "title": "6  Linear Time Sorting",
+    "section": "6.2 Radix Sort: Sorting by Digits",
+    "text": "6.2 Radix Sort: Sorting by Digits\nTo handle larger ranges without massive memory overhead, we use Radix Sort. The intuition here is to view each number (or string) as a sequence of “digits.” We sort the collection multiple times, once for each digit position, starting from the least significant digit (LSD).\nCrucially, each pass must be a stable sort. By using Counting Sort as the stable subroutine for each digit, we can sort numbers in any range by breaking them into digits.\ndef radix_sort(items: MutableSequence[int], base: int = 10) -&gt; List[int]:\n    if not items:\n        return items\n\n    max_val = max(items)\n    exp = 1\n    output = list(items)\n\n    while max_val // exp &gt; 0:\n        output = _counting_sort_by_digit(output, exp, base)\n        exp *= base\n\n    return output\n\ndef _counting_sort_by_digit(items: List[int], exp: int, base: int) -&gt; List[int]:\n    counts = [0] * base\n    for x in items:\n        digit = (x // exp) % base\n        counts[digit] += 1\n\n    for i in range(1, base):\n        counts[i] += counts[i - 1]\n\n    res = [0] * len(items)\n    for x in reversed(items):\n        digit = (x // exp) % base\n        counts[digit] -= 1\n        res[counts[digit]] = x\n    return res\nRadix Sort runs in $O(d(n+k)) time, where \\(d\\) is the number of digits and \\(k\\) is the base. Because \\(d\\) is constant for a fixed word size (e.g., 32-bit or 64-bit integers), the algorithm remains linear relative to \\(n\\). This is the preferred method for sorting large sets of integers or fixed-length strings where memory is constrained compared to the range of values.",
+    "crumbs": [
+      "Searching and Sorting",
+      "<span class='chapter-number'>6</span>  <span class='chapter-title'>Linear Time Sorting</span>"
+    ]
+  },
+  {
+    "objectID": "06_linear_sort.html#verification",
+    "href": "06_linear_sort.html#verification",
+    "title": "6  Linear Time Sorting",
+    "section": "6.3 Verification",
+    "text": "6.3 Verification\nWe verify these linear approaches by testing them against various integer ranges and sequences.\nimport pytest\nfrom codex.sort.linear import counting_sort, radix_sort\n\ndef test_counting_sort():\n    items = [4, 1, 3, 4, 3]\n    # Range is [0, 4]\n    assert counting_sort(items, 4) == [1, 3, 3, 4, 4]\n\ndef test_radix_sort():\n    items = [170, 45, 75, 90, 802, 24, 2, 66]\n    expected = [2, 24, 45, 66, 75, 90, 170, 802]\n    assert radix_sort(items) == expected",
+    "crumbs": [
+      "Searching and Sorting",
+      "<span class='chapter-number'>6</span>  <span class='chapter-title'>Linear Time Sorting</span>"
+    ]
+  },
+  {
+    "objectID": "07_lessons_1.html",
+    "href": "07_lessons_1.html",
+    "title": "7  Lessons from Part I",
+    "section": "",
+    "text": "As we conclude our exploration of searching and sorting, we move away from specific implementations to look at the meta-principles of algorithm design. The algorithms we have studied are more than just tools; they are demonstrations of how a programmer can negotiate with the laws of logic to extract performance.\nThe most profound lesson of this part is that structure matters. In an unstructured sequence, finding an item is a linear struggle against entropy. By imposing order, we transform the search space into a hierarchy of information where every comparison halves our remaining work.\nThis theme repeated in our transition from basic to efficient sorting. By recognizing the “Geometry of Inversions,” we moved from haphazardly swapping neighbors to structured partitioning and merging. The lesson is universal: to make a process efficient, you must first organize the environment in which it operates.\nWe discovered that the “best” algorithm often depends on how much we are willing to assume about our data. The barrier for sorting is only a law for comparison-based logic. By imposing stricter conditions—such as requiring inputs to be integers in a known range—we unlocked Counting Sort and Radix Sort, achieving true linear time.\nIn algorithm design, constraints are not limitations; they are opportunities. The more you know about the structure of your input, the more aggressively you can optimize your solution.\nThroughout this part, recursion has been our primary tool for managing complexity. Whether in the binary halving of a search space or the divide-and-conquer strategy of Merge Sort, recursion allows us to solve a problem by defining what it means to be “partially solved.” It is the mathematical expression of delegation, allowing us to focus on the logic of a single step while the structure of the call stack handles the global coordination.\nFinally, we introduced randomization as a strategic weapon. In Quick Select, we saw that while a deterministic worst-case can be expensive, a randomized approach can offer performance with a probability so high it effectively becomes a certainty. This represents a pragmatic shift in computational thinking: sometimes, the most “rational” path is to embrace the roll of the dice to avoid the pathological cases that break deterministic logic.",
+    "crumbs": [
+      "Searching and Sorting",
+      "<span class='chapter-number'>7</span>  <span class='chapter-title'>Lessons from Part I</span>"
+    ]
+  },
+  {
+    "objectID": "part2.html",
+    "href": "part2.html",
+    "title": "Fundamental Data Structures",
+    "section": "",
+    "text": "What We Will Explore\nIn the first part of this Codex, we treated data largely as an abstract sequence—a collection of items that we could index, compare, and rearrange at will. We discovered that by imposing logical order, we could achieve remarkable algorithmic efficiency. However, algorithms do not exist in a vacuum; they must inhabit the physical reality of a computer’s memory.\nIn this part, we shift our focus from the logic of the process to the topology of the data. Here, we explore how the way we organize information in memory—whether as a contiguous block or a web of pointers—determines the physical limits of the algorithms we write.\nIn this part, we move beyond the high-level abstractions provided by Python’s built-in types to implement the essential structures that form the foundation of all modern software systems:",
+    "crumbs": [
+      "Fundamental Data Structures"
+    ]
+  },
+  {
+    "objectID": "part2.html#what-we-will-explore",
+    "href": "part2.html#what-we-will-explore",
+    "title": "Fundamental Data Structures",
+    "section": "",
+    "text": "Memory and Sequences: We begin by examining the trade-offs between contiguous memory (arrays) and linked structures, understanding why the physical layout of data is the primary driver of performance.\nLinked Lists: We implement the most fundamental non-contiguous structure, exploring how pointers allow for dynamic growth and efficient insertions at the cost of random access.\nStacks and Queues: We build the primary abstractions for managing order and flow, implementing LIFO (Last-In, First-Out) and FIFO (First-In, First-Out) behaviors that are critical for everything from expression evaluation to task scheduling.\nHashing and Hash Tables: We investigate the “magic” of constant-time access, learning how to bridge the gap between an arbitrary value and its physical location in memory through hash functions and collision resolution strategies.",
+    "crumbs": [
+      "Fundamental Data Structures"
+    ]
+  },
+  {
+    "objectID": "part2.html#what-you-will-learn",
+    "href": "part2.html#what-you-will-learn",
+    "title": "Fundamental Data Structures",
+    "section": "What You Will Learn",
+    "text": "What You Will Learn\nBy the end of this part, you will have moved from a theoretical understanding of algorithms to a practical mastery of their physical containers. Specifically, you will learn:\n\nThe Physicality of Data: Why the distinction between a pointer and an index is the most important decision in low-level system design.\nTrade-off Analysis: How to weigh the benefits of fast insertion against the necessity of fast retrieval, moving beyond simple Big O notation to consider cache locality and memory overhead.\nAbstractions and Protocols: How to use Python’s modern type system and protocols to implement these structures in a way that is generic, reusable, and mathematically sound.\nBuilding Blocks: How these simple structures—lists, stacks, and queues—serve as the indispensable components for the more complex trees and graphs we will encounter later in the Codex.\n\nIn the same way that a builder must understand the properties of wood, steel, and stone, a computer scientist must understand the properties of data structures. We are moving from the design of the strategy to the selection of the material.",
+    "crumbs": [
+      "Fundamental Data Structures"
+    ]
+  },
+  {
+    "objectID": "appendix-python.html",
+    "href": "appendix-python.html",
+    "title": "Appendix A — A Python Primer",
+    "section": "",
+    "text": "A.1 Variables and Basic Types\nThis appendix provides a concise overview of the Python 3.13 features and syntax used throughout The Algorithm Codex. While this book is not an introductory programming text, this primer serves as a reference for the specific idioms and modern type-system features that enable our clean, algorithmic implementations.\nPython is a high-level, interpreted language that prioritizes readability and expressiveness. In this Codex, we treat Python as a executable notation for algorithms, leveraging its modern type system to ensure our code is both correct and self-documenting.\nVariables in Python are names that point to objects in memory. Unlike many lower-level languages, variables do not have fixed types; however, the objects they point to do.\nIn the Codex, we always provide type hints for variables in global or class scopes to maintain clarity.",
+    "crumbs": [
+      "Appendices",
+      "<span class='chapter-number'>A</span>  <span class='chapter-title'>A Python Primer</span>"
+    ]
+  },
+  {
+    "objectID": "appendix-python.html#variables-and-basic-types",
+    "href": "appendix-python.html#variables-and-basic-types",
+    "title": "Appendix A — A Python Primer",
+    "section": "",
+    "text": "# Integers and Floats\nn: int = 42\npi: float = 3.14159\n\n# Strings and Booleans\nname: str = \"Codex\"\nis_active: bool = True",
+    "crumbs": [
+      "Appendices",
+      "<span class='chapter-number'>A</span>  <span class='chapter-title'>A Python Primer</span>"
+    ]
+  },
+  {
+    "objectID": "appendix-python.html#expressions-and-statements",
+    "href": "appendix-python.html#expressions-and-statements",
+    "title": "Appendix A — A Python Primer",
+    "section": "A.2 Expressions and Statements",
+    "text": "A.2 Expressions and Statements\nAn expression is a piece of code that evaluates to a value (e.g., 2 + 2), while a statement is an instruction that performs an action (e.g., an assignment or a function call).\nPython supports standard arithmetic operators (+, -, *, /) and a specific operator for integer division (//), which we use extensively in binary search and partitioning algorithms to find middle indices.",
+    "crumbs": [
+      "Appendices",
+      "<span class='chapter-number'>A</span>  <span class='chapter-title'>A Python Primer</span>"
+    ]
+  },
+  {
+    "objectID": "appendix-python.html#control-flow-loops-and-conditionals",
+    "href": "appendix-python.html#control-flow-loops-and-conditionals",
+    "title": "Appendix A — A Python Primer",
+    "section": "A.3 Control Flow: Loops and Conditionals",
+    "text": "A.3 Control Flow: Loops and Conditionals\nWe rely on two primary looping constructs to traverse data structures: for loops for iterating over sequences and while loops for processes that continue until a specific logical condition is met.\n# Iterating over a sequence\nfor item in [1, 2, 3]:\n    print(item)\n\n# Conditional logic\nif n &gt; 0:\n    # Do something\nelif n &lt; 0:\n    # Do something else\nelse:\n    # Default case\nIn our implementations of Selection Sort and Bubble Sort, we use range() to generate indices for controlled iteration.",
+    "crumbs": [
+      "Appendices",
+      "<span class='chapter-number'>A</span>  <span class='chapter-title'>A Python Primer</span>"
+    ]
+  },
+  {
+    "objectID": "appendix-python.html#functions",
+    "href": "appendix-python.html#functions",
+    "title": "Appendix A — A Python Primer",
+    "section": "A.4 Functions",
+    "text": "A.4 Functions\nFunctions are the primary unit of work in this book. We prefer “pure” functions that take inputs, perform a transformation, and return a result without side effects.\ndef square(x: int) -&gt; int:\n    return x * x",
+    "crumbs": [
+      "Appendices",
+      "<span class='chapter-number'>A</span>  <span class='chapter-title'>A Python Primer</span>"
+    ]
+  },
+  {
+    "objectID": "appendix-python.html#classes-and-objects",
+    "href": "appendix-python.html#classes-and-objects",
+    "title": "Appendix A — A Python Primer",
+    "section": "A.5 Classes and Objects",
+    "text": "A.5 Classes and Objects\nWhile the Codex favors a functional style, we use classes as simple data containers or to implement specific protocols. Python 3.13 allows for clean class definitions that integrate seamlessly with the type system.\nclass Point:\n    def __init__(self, x: float, y: float):\n        self.x = x\n        self.y = y",
+    "crumbs": [
+      "Appendices",
+      "<span class='chapter-number'>A</span>  <span class='chapter-title'>A Python Primer</span>"
+    ]
+  },
+  {
+    "objectID": "appendix-python.html#type-annotations-and-modern-generics",
+    "href": "appendix-python.html#type-annotations-and-modern-generics",
+    "title": "Appendix A — A Python Primer",
+    "section": "A.6 Type Annotations and Modern Generics",
+    "text": "A.6 Type Annotations and Modern Generics\nThe most important feature of the Codex’s coding style is the use of PEP 695 generics, introduced in Python 3.12 and refined in 3.13. This allows us to write algorithms that work for any data type T while maintaining full type safety.\nInstead of older TypeVar syntax, we use the elegant bracket notation:\n# A generic function that works for any type T\ndef identity[T](value: T) -&gt; T:\n    return value\n\n# Using the 'type' alias for complex definitions\ntype Ordering[T] = Callable[[T, T], int]\nThis syntax is used throughout our searching and sorting implementations to ensure that an algorithm designed for integers works just as correctly for strings or custom objects, provided they satisfy the required protocols.",
+    "crumbs": [
+      "Appendices",
+      "<span class='chapter-number'>A</span>  <span class='chapter-title'>A Python Primer</span>"
+    ]
+  },
+  {
+    "objectID": "appendix-python.html#the-sequence-protocol",
+    "href": "appendix-python.html#the-sequence-protocol",
+    "title": "Appendix A — A Python Primer",
+    "section": "A.7 The Sequence Protocol",
+    "text": "A.7 The Sequence Protocol\nIn almost every chapter, we use Sequence or MutableSequence from the typing module. These are Protocols–they define what a type can do (like being indexed or having a length) rather than what it is. By using Sequence[T] instead of list[T], our algorithms remain generic enough to work with lists, tuples, or custom array-like structures.",
+    "crumbs": [
+      "Appendices",
+      "<span class='chapter-number'>A</span>  <span class='chapter-title'>A Python Primer</span>"
+    ]
+  },
+  {
+    "objectID": "appendix-notation.html",
+    "href": "appendix-notation.html",
+    "title": "Appendix B — Asymptotic Notation and Analysis",
+    "section": "",
+    "text": "B.1 The Big-O Family\nThis appendix provides a formal grounding for the “scaling intuition” introduced in the foundations of the Codex. In the study of algorithms, we are less concerned with exact cycle counts and more with asymptotic behavior: how the resource requirements of an algorithm grow as the input size \\(n\\) approaches infinity.\nTo analyze algorithms rigorously, we use a set of mathematical notations that allow us to ignore constant factors and lower-order terms, focusing instead on the rate of growth.\nLet \\(f(n)\\) and \\(g(n)\\) be functions mapping natural numbers to non-negative real numbers.",
+    "crumbs": [
+      "Appendices",
+      "<span class='chapter-number'>B</span>  <span class='chapter-title'>Asymptotic Notation and Analysis</span>"
+    ]
+  },
+  {
+    "objectID": "appendix-notation.html#the-big-o-family",
+    "href": "appendix-notation.html#the-big-o-family",
+    "title": "Appendix B — Asymptotic Notation and Analysis",
+    "section": "",
+    "text": "B.1.1 Big-\\(O\\) (Upper Bound)\nWe say that \\(f(n) = O(g(n))\\) if there exist positive constants \\(c\\) and \\(n_0\\) such that:\n\\[0 \\leq f(n) \\leq c \\cdot g(n) \\text{ for all } n \\geq n_0\\]\nThis notation provides an asymptotic upper bound. If an algorithm is \\(O(n^2)\\), it will perform no worse than quadratic time for large \\(n\\).\n\n\nB.1.2 Big-\\(\\Omega\\) (Lower Bound)\nWe say that \\(f(n) = \\Omega(g(n))\\) if there exist positive constants \\(c\\) and \\(n_0\\) such that:\n\\[0 \\leq c \\cdot g(n) \\leq f(n) \\text{ for all } n \\geq n_0\\]\n\\(\\Omega\\) provides a lower bound, representing the minimum amount of work an algorithm must perform.\n\n\nB.1.3 Big-\\(\\Theta\\) (Tight Bound)\nWe say that \\(f(n) = \\Theta(g(n))\\) if \\(f(n) = O(g(n))\\) and \\(f(n) = \\Omega(g(n))\\). This means there exist positive constants \\(c_1, c_2,\\) and \\(n_0\\) such that:\n\\[c_1 \\cdot g(n) \\leq f(n) \\leq c_2 \\cdot g(n) \\text{ for all } n \\geq n_0\\]\n\\(\\Theta\\) is the most descriptive notation, as it tells us the algorithm grows exactly like \\(g(n)\\).\n\n\nB.1.4 Little-\\(o\\) and Little-\\(\\omega\\) (Strict Bounds)\n\n\\(f(n) = o(g(n))\\): The growth of \\(f(n)\\) is strictly less than \\(g(n)\\). Formally, \\(\\lim_{n \\to \\infty} \\frac{f(n)}{g(n)} = 0\\).\n\\(f(n) = \\omega(g(n))\\): The growth of \\(f(n)\\) is strictly greater than \\(g(n)\\). Formally, \\(\\lim_{n \\to \\infty} \\frac{f(n)}{g(n)} = \\infty\\).",
+    "crumbs": [
+      "Appendices",
+      "<span class='chapter-number'>B</span>  <span class='chapter-title'>Asymptotic Notation and Analysis</span>"
+    ]
+  },
+  {
+    "objectID": "appendix-notation.html#the-master-theorem",
+    "href": "appendix-notation.html#the-master-theorem",
+    "title": "Appendix B — Asymptotic Notation and Analysis",
+    "section": "B.2 The Master Theorem",
+    "text": "B.2 The Master Theorem\nMany of the most efficient algorithms in this book (like Merge Sort) use a divide-and-conquer strategy. Their complexity is often expressed as a recurrence of the form:\n\\[T(n) = aT(n/b) + f(n)\\]\nwhere \\(a \\geq 1\\) is the number of subproblems, \\(b &gt; 1\\) is the factor by which the subproblem size is reduced, and \\(f(n)\\) is the cost of work done outside the recursive calls. The Master Theorem provides a “cookbook” solution for such recurrences:\n\nIf \\(f(n) = O(n^{\\log_b a - \\epsilon})\\) for some \\(\\epsilon &gt; 0\\), then \\(T(n) = \\Theta(n^{\\log_b a})\\). (Work is dominated by the leaves).\nIf \\(f(n) = \\Theta(n^{\\log_b a})\\), then \\(T(n) = \\Theta(n^{\\log_b a} \\log n)\\). (Work is balanced across levels).\nIf \\(f(n) = \\Omega(n^{\\log_b a + \\epsilon})\\) and satisfies the regularity condition (\\(af(n/b) \\leq cf(n)\\)), then \\(T(n) = \\Theta(f(n))\\). (Work is dominated by the root).",
+    "crumbs": [
+      "Appendices",
+      "<span class='chapter-number'>B</span>  <span class='chapter-title'>Asymptotic Notation and Analysis</span>"
+    ]
+  },
+  {
+    "objectID": "appendix-notation.html#the-hierarchy-of-growth",
+    "href": "appendix-notation.html#the-hierarchy-of-growth",
+    "title": "Appendix B — Asymptotic Notation and Analysis",
+    "section": "B.3 The Hierarchy of Growth",
+    "text": "B.3 The Hierarchy of Growth\nUnderstanding the relative order of complexity functions is essential for selecting the right algorithm for a given problem size. Below is the standard hierarchy from slowest to fastest growth:\n\n\\(O(1)\\) — Constant: Accessing an array element, simple arithmetic.\n\\(O(\\log n)\\) — Logarithmic: Binary search. The “gold standard.”\n\\(O(n)\\) — Linear: Sequential scan.\n\\(O(n \\log n)\\) — Linearithmic: Optimal comparison-based sorting (Merge Sort).\n\\(O(n^2)\\) — Quadratic: Nested loops (Bubble Sort).\n\\(O(n^k)\\) — Polynomial: General algorithmic complexity.\n\\(O(2^n)\\) — Exponential: Exhaustive search (Traveling Salesperson).\n\\(O(n!)\\) — Factorial: Permutations of a set.\n\nAs \\(n\\) grows, the gaps between these classes become astronomical. While a \\(O(n^2)\\) algorithm might be acceptable for \\(n=1,000\\), it becomes entirely impractical for \\(n=1,000,000\\), where an \\(O(n \\log n)\\) or \\(O(n)\\) solution remains trivial for modern hardware.",
+    "crumbs": [
+      "Appendices",
+      "<span class='chapter-number'>B</span>  <span class='chapter-title'>Asymptotic Notation and Analysis</span>"
     ]
   }
 ]
