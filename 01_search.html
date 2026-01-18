@@ -7,7 +7,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
 
-<title>2&nbsp; Basic Search – The Algorithm Codex</title>
+<title>1&nbsp; Basic Search – The Algorithm Codex</title>
 <style>
 code{white-space: pre-wrap;}
 span.smallcaps{font-variant: small-caps;}
@@ -117,7 +117,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
       <button type="button" class="quarto-btn-toggle btn" data-bs-toggle="collapse" role="button" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
         <i class="bi bi-layout-text-sidebar-reverse"></i>
       </button>
-        <nav class="quarto-page-breadcrumbs" aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="./01_search.html">Searching and Sorting</a></li><li class="breadcrumb-item"><a href="./01_search.html"><span class="chapter-number">2</span>&nbsp; <span class="chapter-title">Basic Search</span></a></li></ol></nav>
+        <nav class="quarto-page-breadcrumbs" aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="./01_search.html">Searching and Sorting</a></li><li class="breadcrumb-item"><a href="./01_search.html"><span class="chapter-number">1</span>&nbsp; <span class="chapter-title">Basic Search</span></a></li></ol></nav>
         <a class="flex-grow-1" role="navigation" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">      
         </a>
       <button type="button" class="btn quarto-search-button" aria-label="Search" onclick="window.quartoOpenSearch();">
@@ -151,7 +151,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
         <li class="sidebar-item">
   <div class="sidebar-item-container"> 
   <a href="./00_intro.html" class="sidebar-item-text sidebar-link">
- <span class="menu-text"><span class="chapter-number">1</span>&nbsp; <span class="chapter-title">Foundations</span></span></a>
+ <span class="menu-text">Foundations</span></a>
   </div>
 </li>
         <li class="sidebar-item sidebar-item-section">
@@ -166,19 +166,19 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
   <a href="./01_search.html" class="sidebar-item-text sidebar-link active">
- <span class="menu-text"><span class="chapter-number">2</span>&nbsp; <span class="chapter-title">Basic Search</span></span></a>
+ <span class="menu-text"><span class="chapter-number">1</span>&nbsp; <span class="chapter-title">Basic Search</span></span></a>
   </div>
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
   <a href="./02_binary.html" class="sidebar-item-text sidebar-link">
- <span class="menu-text"><span class="chapter-number">3</span>&nbsp; <span class="chapter-title">Efficient Search</span></span></a>
+ <span class="menu-text"><span class="chapter-number">2</span>&nbsp; <span class="chapter-title">Efficient Search</span></span></a>
   </div>
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
   <a href="./03_sort.html" class="sidebar-item-text sidebar-link">
- <span class="menu-text"><span class="chapter-number">4</span>&nbsp; <span class="chapter-title">Basic Sorting</span></span></a>
+ <span class="menu-text"><span class="chapter-number">3</span>&nbsp; <span class="chapter-title">Basic Sorting</span></span></a>
   </div>
 </li>
       </ul>
@@ -221,19 +221,19 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
     <h2 id="toc-title">Table of contents</h2>
    
   <ul>
-  <li><a href="#linear-search" id="toc-linear-search" class="nav-link active" data-scroll-target="#linear-search"><span class="header-section-number">2.1</span> Linear Search</a></li>
-  <li><a href="#indexing-and-counting" id="toc-indexing-and-counting" class="nav-link" data-scroll-target="#indexing-and-counting"><span class="header-section-number">2.2</span> Indexing and Counting</a></li>
-  <li><a href="#min-and-max" id="toc-min-and-max" class="nav-link" data-scroll-target="#min-and-max"><span class="header-section-number">2.3</span> Min and Max</a></li>
-  <li><a href="#conclusion" id="toc-conclusion" class="nav-link" data-scroll-target="#conclusion"><span class="header-section-number">2.4</span> Conclusion</a></li>
+  <li><a href="#linear-search" id="toc-linear-search" class="nav-link active" data-scroll-target="#linear-search"><span class="header-section-number">1.1</span> Linear Search</a></li>
+  <li><a href="#indexing-and-counting" id="toc-indexing-and-counting" class="nav-link" data-scroll-target="#indexing-and-counting"><span class="header-section-number">1.2</span> Indexing and Counting</a></li>
+  <li><a href="#min-and-max" id="toc-min-and-max" class="nav-link" data-scroll-target="#min-and-max"><span class="header-section-number">1.3</span> Min and Max</a></li>
+  <li><a href="#conclusion" id="toc-conclusion" class="nav-link" data-scroll-target="#conclusion"><span class="header-section-number">1.4</span> Conclusion</a></li>
   </ul>
 </nav>
     </div>
 <!-- main -->
 <main class="content" id="quarto-document-content">
 
-<header id="title-block-header" class="quarto-title-block default"><nav class="quarto-page-breadcrumbs quarto-title-breadcrumbs d-none d-lg-block" aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="./01_search.html">Searching and Sorting</a></li><li class="breadcrumb-item"><a href="./01_search.html"><span class="chapter-number">2</span>&nbsp; <span class="chapter-title">Basic Search</span></a></li></ol></nav>
+<header id="title-block-header" class="quarto-title-block default"><nav class="quarto-page-breadcrumbs quarto-title-breadcrumbs d-none d-lg-block" aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="./01_search.html">Searching and Sorting</a></li><li class="breadcrumb-item"><a href="./01_search.html"><span class="chapter-number">1</span>&nbsp; <span class="chapter-title">Basic Search</span></a></li></ol></nav>
 <div class="quarto-title">
-<h1 class="title"><span class="chapter-number">2</span>&nbsp; <span class="chapter-title">Basic Search</span></h1>
+<h1 class="title"><span class="chapter-number">1</span>&nbsp; <span class="chapter-title">Basic Search</span></h1>
 </div>
 
 
@@ -255,8 +255,8 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <p>In this sense, you can view almost all of Computer Science problems as search problems. In fact, a large part of this book will be devoted to search, in one way or another.</p>
 <p>In this first chapter, we will look at the most explicit form of search: where we are explicitly given a set or collection of items, and asked to find one specific item.</p>
 <p>We will start with the simplest, and most expensive kind of search, and progress towards increasingly more refined algorithms that exploit characteristics of the input items to minimize the time required to find the desired item, or determine if it’s not there at all.</p>
-<section id="linear-search" class="level2" data-number="2.1">
-<h2 data-number="2.1" class="anchored" data-anchor-id="linear-search"><span class="header-section-number">2.1</span> Linear Search</h2>
+<section id="linear-search" class="level2" data-number="1.1">
+<h2 data-number="1.1" class="anchored" data-anchor-id="linear-search"><span class="header-section-number">1.1</span> Linear Search</h2>
 <p>Let’s start by analyzing the simplest algorithm that does something non-trivial: linear search. Most of these algorithms work on the simplest data structure that we will see, the sequence.</p>
 <p>A sequence (<code>Sequence</code> class) is an abstract data type that represents a collection of items with no inherent structure, other than each element has an index.</p>
 <div class="sourceCode" id="cb1" data-export="src/codex/search/linear.py"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> typing <span class="im">import</span> Sequence</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
@@ -276,8 +276,8 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>    <span class="cf">assert</span> find(<span class="dv">3</span>, [<span class="dv">1</span>,<span class="dv">2</span>,<span class="dv">3</span>]) <span class="kw">is</span> <span class="va">True</span></span>
 <span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>    <span class="cf">assert</span> find(<span class="dv">4</span>, [<span class="dv">1</span>,<span class="dv">2</span>,<span class="dv">3</span>]) <span class="kw">is</span> <span class="va">False</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </section>
-<section id="indexing-and-counting" class="level2" data-number="2.2">
-<h2 data-number="2.2" class="anchored" data-anchor-id="indexing-and-counting"><span class="header-section-number">2.2</span> Indexing and Counting</h2>
+<section id="indexing-and-counting" class="level2" data-number="1.2">
+<h2 data-number="1.2" class="anchored" data-anchor-id="indexing-and-counting"><span class="header-section-number">1.2</span> Indexing and Counting</h2>
 <p>The <code>find</code> method is good to know if an element exists in a sequence, but it doesn’t tell us <em>where</em>. We can easily extend it to return an <em>index</em>. We thus define the <code>index</code> method, with the following condition: if <code>index(x,l) == i</code> then <code>l[i] == x</code>. That is, <code>index</code> returns the <strong>first</strong> index where we can find a given element <code>x</code>.</p>
 <div class="sourceCode" id="cb4" data-export="src/codex/search/linear.py"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> index[T](x: T, items: Sequence[T]) <span class="op">-&gt;</span> <span class="bu">int</span> <span class="op">|</span> <span class="va">None</span>:</span>
 <span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> i,y <span class="kw">in</span> <span class="bu">enumerate</span>(items):</span>
@@ -311,8 +311,8 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a>    <span class="cf">assert</span> count(<span class="dv">2</span>, [<span class="dv">1</span>,<span class="dv">2</span>,<span class="dv">2</span>]) <span class="op">==</span> <span class="dv">2</span></span>
 <span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a>    <span class="cf">assert</span> count(<span class="dv">4</span>, [<span class="dv">1</span>,<span class="dv">2</span>,<span class="dv">3</span>]) <span class="op">==</span> <span class="dv">0</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </section>
-<section id="min-and-max" class="level2" data-number="2.3">
-<h2 data-number="2.3" class="anchored" data-anchor-id="min-and-max"><span class="header-section-number">2.3</span> Min and Max</h2>
+<section id="min-and-max" class="level2" data-number="1.3">
+<h2 data-number="1.3" class="anchored" data-anchor-id="min-and-max"><span class="header-section-number">1.3</span> Min and Max</h2>
 <p>Let’s now move to a slightly different problem. Instead of finding one specific element, we want to find the element that ranks minimum or maximum. Consider a sequence of numbers in an arbitrary order. We define the minimum (maximum) element as the element <code>x</code> such as <code>x &lt;= y</code> (<code>x &gt;= y</code>) for all <code>y</code> in the sequence.</p>
 <p>Now, instead of numbers, consider some arbitrary total ordering function <code>f</code>, such that <code>f(x,y) &lt;= 0</code> if and only if <code>x &lt;= y</code>. This allows us to extend the notion of minimum and maximum to arbitrary data types.</p>
 <p>Let’s formalize this notion as a Python type alias. We will define an <code>Ordering</code> as a function that has this signature:</p>
@@ -357,8 +357,8 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span id="cb12-6"><a href="#cb12-6" aria-hidden="true" tabindex="-1"></a>    <span class="cf">assert</span> minimum(items) <span class="op">==</span> <span class="dv">0</span></span>
 <span id="cb12-7"><a href="#cb12-7" aria-hidden="true" tabindex="-1"></a>    <span class="cf">assert</span> maximum(items) <span class="op">==</span> <span class="dv">7</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </section>
-<section id="conclusion" class="level2" data-number="2.4">
-<h2 data-number="2.4" class="anchored" data-anchor-id="conclusion"><span class="header-section-number">2.4</span> Conclusion</h2>
+<section id="conclusion" class="level2" data-number="1.4">
+<h2 data-number="1.4" class="anchored" data-anchor-id="conclusion"><span class="header-section-number">1.4</span> Conclusion</h2>
 <p>Linear search is a powerful paradigm precisely because it is universal. Whether we are checking for the existence of an item, finding its index, or identifying the minimum or maximum element in a collection, the exhaustive approach provides absolute certainty. No matter the nature of the data, if we test every single element and skim through every possibility, the problem will be solved.</p>
 <p>The primary drawback of this certainty is the cost: some search spaces are simply too vast to be traversed one item at a time. To achieve better performance, we must move beyond the assumption of an unstructured sequence. We need to know more about the search space and impose some level of structure.</p>
 <p>In the next chapter, we will explore the most straightforward structure we can impose: order. We will see how knowing the relative position of items allows us to implement what is arguably the most efficient and beautiful algorithm ever designed.</p>
@@ -769,12 +769,12 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <nav class="page-navigation">
   <div class="nav-page nav-page-previous">
       <a href="./00_intro.html" class="pagination-link" aria-label="Foundations">
-        <i class="bi bi-arrow-left-short"></i> <span class="nav-page-text"><span class="chapter-number">1</span>&nbsp; <span class="chapter-title">Foundations</span></span>
+        <i class="bi bi-arrow-left-short"></i> <span class="nav-page-text">Foundations</span>
       </a>          
   </div>
   <div class="nav-page nav-page-next">
       <a href="./02_binary.html" class="pagination-link" aria-label="Efficient Search">
-        <span class="nav-page-text"><span class="chapter-number">3</span>&nbsp; <span class="chapter-title">Efficient Search</span></span> <i class="bi bi-arrow-right-short"></i>
+        <span class="nav-page-text"><span class="chapter-number">2</span>&nbsp; <span class="chapter-title">Efficient Search</span></span> <i class="bi bi-arrow-right-short"></i>
       </a>
   </div>
 </nav>

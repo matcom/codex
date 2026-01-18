@@ -7,7 +7,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
 
-<title>4&nbsp; Basic Sorting – The Algorithm Codex</title>
+<title>3&nbsp; Basic Sorting – The Algorithm Codex</title>
 <style>
 code{white-space: pre-wrap;}
 span.smallcaps{font-variant: small-caps;}
@@ -145,7 +145,7 @@ window.Quarto = {
       <button type="button" class="quarto-btn-toggle btn" data-bs-toggle="collapse" role="button" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
         <i class="bi bi-layout-text-sidebar-reverse"></i>
       </button>
-        <nav class="quarto-page-breadcrumbs" aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="./01_search.html">Searching and Sorting</a></li><li class="breadcrumb-item"><a href="./03_sort.html"><span class="chapter-number">4</span>&nbsp; <span class="chapter-title">Basic Sorting</span></a></li></ol></nav>
+        <nav class="quarto-page-breadcrumbs" aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="./01_search.html">Searching and Sorting</a></li><li class="breadcrumb-item"><a href="./03_sort.html"><span class="chapter-number">3</span>&nbsp; <span class="chapter-title">Basic Sorting</span></a></li></ol></nav>
         <a class="flex-grow-1" role="navigation" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">      
         </a>
       <button type="button" class="btn quarto-search-button" aria-label="Search" onclick="window.quartoOpenSearch();">
@@ -179,7 +179,7 @@ window.Quarto = {
         <li class="sidebar-item">
   <div class="sidebar-item-container"> 
   <a href="./00_intro.html" class="sidebar-item-text sidebar-link">
- <span class="menu-text"><span class="chapter-number">1</span>&nbsp; <span class="chapter-title">Foundations</span></span></a>
+ <span class="menu-text">Foundations</span></a>
   </div>
 </li>
         <li class="sidebar-item sidebar-item-section">
@@ -194,19 +194,19 @@ window.Quarto = {
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
   <a href="./01_search.html" class="sidebar-item-text sidebar-link">
- <span class="menu-text"><span class="chapter-number">2</span>&nbsp; <span class="chapter-title">Basic Search</span></span></a>
+ <span class="menu-text"><span class="chapter-number">1</span>&nbsp; <span class="chapter-title">Basic Search</span></span></a>
   </div>
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
   <a href="./02_binary.html" class="sidebar-item-text sidebar-link">
- <span class="menu-text"><span class="chapter-number">3</span>&nbsp; <span class="chapter-title">Efficient Search</span></span></a>
+ <span class="menu-text"><span class="chapter-number">2</span>&nbsp; <span class="chapter-title">Efficient Search</span></span></a>
   </div>
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
   <a href="./03_sort.html" class="sidebar-item-text sidebar-link active">
- <span class="menu-text"><span class="chapter-number">4</span>&nbsp; <span class="chapter-title">Basic Sorting</span></span></a>
+ <span class="menu-text"><span class="chapter-number">3</span>&nbsp; <span class="chapter-title">Basic Sorting</span></span></a>
   </div>
 </li>
       </ul>
@@ -249,21 +249,21 @@ window.Quarto = {
     <h2 id="toc-title">Table of contents</h2>
    
   <ul>
-  <li><a href="#selection-sort" id="toc-selection-sort" class="nav-link active" data-scroll-target="#selection-sort"><span class="header-section-number">4.1</span> Selection Sort</a></li>
-  <li><a href="#insertion-sort" id="toc-insertion-sort" class="nav-link" data-scroll-target="#insertion-sort"><span class="header-section-number">4.2</span> Insertion Sort</a></li>
-  <li><a href="#the-geometry-of-inversions" id="toc-the-geometry-of-inversions" class="nav-link" data-scroll-target="#the-geometry-of-inversions"><span class="header-section-number">4.3</span> The Geometry of Inversions</a></li>
-  <li><a href="#bubble-sort" id="toc-bubble-sort" class="nav-link" data-scroll-target="#bubble-sort"><span class="header-section-number">4.4</span> Bubble Sort</a></li>
-  <li><a href="#verification" id="toc-verification" class="nav-link" data-scroll-target="#verification"><span class="header-section-number">4.5</span> Verification</a></li>
-  <li><a href="#conclusion" id="toc-conclusion" class="nav-link" data-scroll-target="#conclusion"><span class="header-section-number">4.6</span> Conclusion</a></li>
+  <li><a href="#selection-sort" id="toc-selection-sort" class="nav-link active" data-scroll-target="#selection-sort"><span class="header-section-number">3.1</span> Selection Sort</a></li>
+  <li><a href="#insertion-sort" id="toc-insertion-sort" class="nav-link" data-scroll-target="#insertion-sort"><span class="header-section-number">3.2</span> Insertion Sort</a></li>
+  <li><a href="#the-geometry-of-inversions" id="toc-the-geometry-of-inversions" class="nav-link" data-scroll-target="#the-geometry-of-inversions"><span class="header-section-number">3.3</span> The Geometry of Inversions</a></li>
+  <li><a href="#bubble-sort" id="toc-bubble-sort" class="nav-link" data-scroll-target="#bubble-sort"><span class="header-section-number">3.4</span> Bubble Sort</a></li>
+  <li><a href="#verification" id="toc-verification" class="nav-link" data-scroll-target="#verification"><span class="header-section-number">3.5</span> Verification</a></li>
+  <li><a href="#conclusion" id="toc-conclusion" class="nav-link" data-scroll-target="#conclusion"><span class="header-section-number">3.6</span> Conclusion</a></li>
   </ul>
 </nav>
     </div>
 <!-- main -->
 <main class="content" id="quarto-document-content">
 
-<header id="title-block-header" class="quarto-title-block default"><nav class="quarto-page-breadcrumbs quarto-title-breadcrumbs d-none d-lg-block" aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="./01_search.html">Searching and Sorting</a></li><li class="breadcrumb-item"><a href="./03_sort.html"><span class="chapter-number">4</span>&nbsp; <span class="chapter-title">Basic Sorting</span></a></li></ol></nav>
+<header id="title-block-header" class="quarto-title-block default"><nav class="quarto-page-breadcrumbs quarto-title-breadcrumbs d-none d-lg-block" aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="./01_search.html">Searching and Sorting</a></li><li class="breadcrumb-item"><a href="./03_sort.html"><span class="chapter-number">3</span>&nbsp; <span class="chapter-title">Basic Sorting</span></a></li></ol></nav>
 <div class="quarto-title">
-<h1 class="title"><span class="chapter-number">4</span>&nbsp; <span class="chapter-title">Basic Sorting</span></h1>
+<h1 class="title"><span class="chapter-number">3</span>&nbsp; <span class="chapter-title">Basic Sorting</span></h1>
 </div>
 
 
@@ -282,8 +282,8 @@ window.Quarto = {
 
 <p>As we discovered in the previous chapter, structure is the secret ingredient that makes computation efficient. Searching through an unordered collection is a tedious, linear process, but searching through an ordered one is exponentially faster.</p>
 <p>Sorting is the process of establishing this order. Formally, we want to take a sequence of items and rearrange them into a new sequence where, for any two indices <span class="math inline">\(i\)</span> and <span class="math inline">\(j\)</span>, if <span class="math inline">\(i &lt; j\)</span>, then <span class="math inline">\(x_i &lt; x_j\)</span>. In this chapter, we explore the most fundamental ways to achieve this, building our intuition from simple observation to a deeper structural analysis of the sorting problem itself.</p>
-<section id="selection-sort" class="level2" data-number="4.1">
-<h2 data-number="4.1" class="anchored" data-anchor-id="selection-sort"><span class="header-section-number">4.1</span> Selection Sort</h2>
+<section id="selection-sort" class="level2" data-number="3.1">
+<h2 data-number="3.1" class="anchored" data-anchor-id="selection-sort"><span class="header-section-number">3.1</span> Selection Sort</h2>
 <p>The most intuitive way to sort a list is to think about the destination. If we are building a sorted sequence, the very first element (index 0) <em>must</em> be the minimum element of the entire collection. Once that is in place, the second element (index 1) <em>must</em> be the minimum of everything that remains, and so on.</p>
 <p>In Selection Sort, we stand at each position in the array and ask: <strong>“Which element belongs here?”</strong> To answer, we scan the unsorted portion of the list, find the minimum, and swap it into our current position.</p>
 <div class="sourceCode" id="cb1" data-export="src/codex/sort/basic.py"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> typing <span class="im">import</span> MutableSequence</span>
@@ -307,8 +307,8 @@ window.Quarto = {
 <span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a>        items[i], items[min_idx] <span class="op">=</span> items[min_idx], items[i]</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <p>We implement this by directly searching for the minimum index in each iteration rather than calling a helper function, keeping the logic self-contained. Because we must scan the remaining items for every single position in the list, we perform roughly <span class="math inline">\(1 + 2 + 3 + ... (n-1) = n(n-1)/2\)</span> comparisons, leading to a time complexity of <span class="math inline">\(O(n^2)\)</span>.</p>
 </section>
-<section id="insertion-sort" class="level2" data-number="4.2">
-<h2 data-number="4.2" class="anchored" data-anchor-id="insertion-sort"><span class="header-section-number">4.2</span> Insertion Sort</h2>
+<section id="insertion-sort" class="level2" data-number="3.2">
+<h2 data-number="3.2" class="anchored" data-anchor-id="insertion-sort"><span class="header-section-number">3.2</span> Insertion Sort</h2>
 <p>We can flip the narrative of Selection Sort. Instead of standing at a position and looking for the right element, we can take an element and look for its right position. This is how most people sort a hand of cards.</p>
 <p>We assume that everything behind our current position is already sorted. We take the next element and ask: <strong>“How far back must I move this element so that the sequence remains sorted?”</strong> We shift it backward, swapping it with its predecessor, until it finds its rightful place.</p>
 <div class="sourceCode" id="cb2" data-export="src/codex/sort/basic.py"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> insertion_sort[T](</span>
@@ -325,14 +325,14 @@ window.Quarto = {
 <span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>            j <span class="op">-=</span> <span class="dv">1</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <p>The first element is sorted by definition. The second element either stays put or moves before the first. The third moves until it is in the correct spot relative to the first two. In the worst case (a reverse-sorted list), this also results again in <span class="math inline">\(O(n^2)\)</span> operations, but it is remarkably efficient for lists that are already “nearly sorted.”</p>
 </section>
-<section id="the-geometry-of-inversions" class="level2" data-number="4.3">
-<h2 data-number="4.3" class="anchored" data-anchor-id="the-geometry-of-inversions"><span class="header-section-number">4.3</span> The Geometry of Inversions</h2>
+<section id="the-geometry-of-inversions" class="level2" data-number="3.3">
+<h2 data-number="3.3" class="anchored" data-anchor-id="the-geometry-of-inversions"><span class="header-section-number">3.3</span> The Geometry of Inversions</h2>
 <p>To understand why these algorithms are all quadratic in complexity, we need to look at the structure of “unsortedness.” Whenever a list in unsorted, is because we can find at least a couple of elements that are out of place. This means some <span class="math inline">\(x_i &gt; x_j\)</span> where <span class="math inline">\(i &lt; j\)</span>. We define an <strong>inversion</strong> as any pair of such items. A sorted list has zero inversions.</p>
 <p>With this idea in place, we can see sorting as “just” the problem of reducing the number of inversions down to zero. Any algorithm that does progress towards reducing the number of inversions is actually sorting. And a crucial insight is that there can be <em>at most</em> <span class="math inline">\(O(n^2)\)</span> inversions in any sequence of size <span class="math inline">\(n\)</span>.</p>
 <p>Selection sort reduces up to <span class="math inline">\(n\)</span> inversions with each swap, that is, all inversions relative to the current minimum element. But every swap requires up to <span class="math inline">\(n\)</span> comparisons, so we get <span class="math inline">\(O(n^2)\)</span> steps. Insertion sort reduces at most one inversion each step, by moving one item forward, thus it will require <span class="math inline">\(O(n^2)\)</span> steps to eliminate that many inversions.</p>
 </section>
-<section id="bubble-sort" class="level2" data-number="4.4">
-<h2 data-number="4.4" class="anchored" data-anchor-id="bubble-sort"><span class="header-section-number">4.4</span> Bubble Sort</h2>
+<section id="bubble-sort" class="level2" data-number="3.4">
+<h2 data-number="3.4" class="anchored" data-anchor-id="bubble-sort"><span class="header-section-number">3.4</span> Bubble Sort</h2>
 <p>Let’s now build an algorithm based on this idea of eliminating inversions directly. A first guess could be, lets try to find a pair of inverted items and swap them. But we must be careful, if we do indiscrimantely, we might end up fixing one inversion but creating other inversions.</p>
 <p>However, a powerful idea that we won’t formally proof is that if a list has <em>any</em> inversions, there must be at least one inversion between two <em>consecutive</em> elements. If we fix these local inversions, we eventually fix them all. And fixing an inversion between consecutive elements cannot create new inversions. This is the heart of <strong>Bubble Sort</strong>: we repeatedly step through the list and swap adjacent items that are out of order.</p>
 <div class="sourceCode" id="cb3" data-export="src/codex/sort/basic.py"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> bubble_sort[T](</span>
@@ -354,8 +354,8 @@ window.Quarto = {
 <span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> <span class="kw">not</span> swapped:</span>
 <span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a>            <span class="cf">break</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </section>
-<section id="verification" class="level2" data-number="4.5">
-<h2 data-number="4.5" class="anchored" data-anchor-id="verification"><span class="header-section-number">4.5</span> Verification</h2>
+<section id="verification" class="level2" data-number="3.5">
+<h2 data-number="3.5" class="anchored" data-anchor-id="verification"><span class="header-section-number">3.5</span> Verification</h2>
 <p>To ensure these three fundamental sorting approaches work as intended, we can run them against a set of standard cases.</p>
 <div class="sourceCode" id="cb4" data-export="tests/sort/test_fundamentals.py"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> pytest</span>
 <span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> codex.sort.basic <span class="im">import</span> selection_sort, insertion_sort, bubble_sort</span>
@@ -376,8 +376,8 @@ window.Quarto = {
 <span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a>    sort_fn(items)</span>
 <span id="cb4-18"><a href="#cb4-18" aria-hidden="true" tabindex="-1"></a>    <span class="cf">assert</span> items <span class="op">==</span> [<span class="dv">1</span>, <span class="dv">2</span>, <span class="dv">3</span>]</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </section>
-<section id="conclusion" class="level2" data-number="4.6">
-<h2 data-number="4.6" class="anchored" data-anchor-id="conclusion"><span class="header-section-number">4.6</span> Conclusion</h2>
+<section id="conclusion" class="level2" data-number="3.6">
+<h2 data-number="3.6" class="anchored" data-anchor-id="conclusion"><span class="header-section-number">3.6</span> Conclusion</h2>
 <p>Selection, Insertion, and Bubble sort are all <span class="math inline">\(O(n^2)\)</span> algorithms. The reason is structural: in the worst case, a list of size can have <span class="math inline">\(O(n^2)\)</span> inversions. Since each swap in these algorithms only fixes one inversion at a time–in the best case–we are forced to perform a quadratic number of operations.</p>
 <p>To break this ceiling and reach the theoretical limit of <span class="math inline">\(O(n^2)\)</span>, we need to be more clever. We need algorithms that can fix <em>many</em> inversions with a single operation. This “divide and conquer” approach will be the focus of our next chapter: <strong>Efficient Sorting</strong>.</p>
 
@@ -787,7 +787,7 @@ window.Quarto = {
 <nav class="page-navigation">
   <div class="nav-page nav-page-previous">
       <a href="./02_binary.html" class="pagination-link" aria-label="Efficient Search">
-        <i class="bi bi-arrow-left-short"></i> <span class="nav-page-text"><span class="chapter-number">3</span>&nbsp; <span class="chapter-title">Efficient Search</span></span>
+        <i class="bi bi-arrow-left-short"></i> <span class="nav-page-text"><span class="chapter-number">2</span>&nbsp; <span class="chapter-title">Efficient Search</span></span>
       </a>          
   </div>
   <div class="nav-page nav-page-next">
