@@ -230,3 +230,84 @@ def test_binary_search():
     assert binary_search(10, items) is None
 
 ```
+
+## Bisection
+
+Standard binary search is excellent for determining if an element exists, but it provides no guarantees about which index is returned if the sequence contains duplicates. In many applications—such as range queries or maintaining a sorted list—we need to find the specific boundaries where an element resides or where it should be inserted to maintain order.
+
+This is the problem of **bisection**. We define two variants: `bisect_left` and `bisect_right`.
+
+The `bisect_left` function finds the first index where an element `x` could be inserted while maintaining the sorted order of the sequence. If `x` is already present, the insertion point will be before (to the left of) any existing entries. Effectively, it returns the index of the first element that is not "less than" `x`.
+
+```python {export=src/codex/search/binary.py}
+def bisect_left[T](x: T, items: Sequence[T], f: Ordering[T] = None) -> int:
+    if f is None:
+        f = default_order
+
+    l, r = 0, len(items)
+
+    while l < r:
+        m = (l + r) // 2
+        if f(items[m], x) < 0:
+            l = m + 1
+        else:
+            r = m
+
+    return l
+
+```
+
+The logic here is subtle: instead of returning immediately when an element matches, we keep narrowing the window until `l` and `r` meet. By setting `r = m` when `items[m] >= x`, we ensure the right boundary eventually settles on the first occurrence.
+
+Conversely, `bisect_right` (sometimes called `bisect_upper`) finds the last possible insertion point. If `x` is present, the index returned will be after (to the right of) all existing entries. This is useful for finding the index of the first element that is strictly "greater than" `x`.
+
+```python {export=src/codex/search/binary.py}
+def bisect_right[T](x: T, items: Sequence[T], f: Ordering[T] = None) -> int:
+    if f is None:
+        f = default_order
+
+    l, r = 0, len(items)
+
+    while l < r:
+        m = (l + r) // 2
+        if f(x, items[m]) < 0:
+            r = m
+        else:
+            l = m + 1
+
+    return l
+
+```
+
+In this variant, we only move the left boundary `l` forward if `x >= items[m]`, which pushes the search toward the end of a block of identical values.
+
+Since both functions follow the same halving principle as standard binary search, their performance characteristics are identical:
+
+* **Time Complexity**: $O(\log n)$, as we halve the search space in every iteration of the `while` loop.
+* **Space Complexity**: $O(1)$, as we only maintain two integer indices regardless of the input size.
+
+To ensure these boundaries are calculated correctly, especially with duplicate elements, we use the following test cases:
+
+```python {export=tests/search/test_binary.py}
+from codex.search.binary import bisect_left, bisect_right
+
+def test_bisection_boundaries():
+    # Sequence with a "block" of 2s
+    items = [1, 2, 2, 2, 3]
+
+    # First index where 2 is (or could be)
+    assert bisect_left(2, items) == 1
+
+    # Index after the last 2
+    assert bisect_right(2, items) == 4
+
+    # If element is missing, both return the same insertion point
+    assert bisect_left(1.5, items) == 1
+    assert bisect_right(1.5, items) == 1
+
+def test_bisection_extremes():
+    items = [1, 2, 3]
+    assert bisect_left(0, items) == 0
+    assert bisect_right(4, items) == 3
+
+```

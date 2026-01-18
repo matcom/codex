@@ -20,3 +20,33 @@ def binary_search[T](
         else:
             l = m + 1
 
+def bisect_left[T](x: T, items: Sequence[T], f: Ordering[T] = None) -> int:
+    if f is None:
+        f = default_order
+
+    l, r = 0, len(items)
+
+    while l < r:
+        m = (l + r) // 2
+        if f(items[m], x) < 0:
+            l = m + 1
+        else:
+            r = m
+
+    return l
+
+def bisect_right[T](x: T, items: Sequence[T], f: Ordering[T] = None) -> int:
+    if f is None:
+        f = default_order
+
+    l, r = 0, len(items)
+
+    while l < r:
+        m = (l + r) // 2
+        if f(x, items[m]) < 0:
+            r = m
+        else:
+            l = m + 1
+
+    return l
+
