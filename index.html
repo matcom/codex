@@ -7,7 +7,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
 <meta name="author" content="Alejandro Piad-Morffis, Ph.D.">
-<meta name="dcterms.date" content="2026-01-17">
+<meta name="dcterms.date" content="2026-01-18">
 
 <title>The Algorithm Codex</title>
 <style>
@@ -133,11 +133,27 @@ ul.task-list li input[type="checkbox"] {
   </li>
         <li class="sidebar-item sidebar-item-section">
       <span class="sidebar-item-text sidebar-link text-start">
+ <span class="menu-text">Fundamental Data Structures</span></span>
+  </li>
+        <li class="sidebar-item sidebar-item-section">
+      <span class="sidebar-item-text sidebar-link text-start">
  <span class="menu-text">Trees</span></span>
   </li>
         <li class="sidebar-item sidebar-item-section">
       <span class="sidebar-item-text sidebar-link text-start">
  <span class="menu-text">Graphs</span></span>
+  </li>
+        <li class="sidebar-item sidebar-item-section">
+      <span class="sidebar-item-text sidebar-link text-start">
+ <span class="menu-text">Dynamic Programming and Greedy Algorithms</span></span>
+  </li>
+        <li class="sidebar-item sidebar-item-section">
+      <span class="sidebar-item-text sidebar-link text-start">
+ <span class="menu-text">Specialized Domains</span></span>
+  </li>
+        <li class="sidebar-item sidebar-item-section">
+      <span class="sidebar-item-text sidebar-link text-start">
+ <span class="menu-text">Advanced Complexity</span></span>
   </li>
     </ul>
     </div>
@@ -151,6 +167,7 @@ ul.task-list li input[type="checkbox"] {
   <ul>
   <li><a href="#preface" id="toc-preface" class="nav-link active" data-scroll-target="#preface">Preface</a>
   <ul class="collapse">
+  <li><a href="#content-of-the-book" id="toc-content-of-the-book" class="nav-link" data-scroll-target="#content-of-the-book">Content of the Book</a></li>
   <li><a href="#about-the-coding-style" id="toc-about-the-coding-style" class="nav-link" data-scroll-target="#about-the-coding-style">About the coding style</a></li>
   <li><a href="#support-the-algorithm-codex" id="toc-support-the-algorithm-codex" class="nav-link" data-scroll-target="#support-the-algorithm-codex">Support The Algorithm Codex</a></li>
   <li><a href="#stay-in-touch" id="toc-stay-in-touch" class="nav-link" data-scroll-target="#stay-in-touch">Stay in touch</a></li>
@@ -180,7 +197,7 @@ ul.task-list li input[type="checkbox"] {
     <div>
     <div class="quarto-title-meta-heading">Published</div>
     <div class="quarto-title-meta-contents">
-      <p class="date">January 17, 2026</p>
+      <p class="date">January 18, 2026</p>
     </div>
   </div>
   
@@ -196,15 +213,28 @@ ul.task-list li input[type="checkbox"] {
 <h1 class="unnumbered">Preface</h1>
 <p>Welcome to The Algorithm Codex.</p>
 <p>This book is a repository of common algorithms used in all areas of computer science. It contains reference implementations in Python for many well-known (and some not-so-much) algorithms spanning from simple linear search to sorting, graphs, computational geometry, data structures, flow networks, game theory, number theory, optimization, and many other fields.</p>
-<p>We wrote this book to serve as a complement for the main bibliography in a typical Computer Science major. You will not find comprehensive theory of algorithms in this book, or detailed analyses. However, we do present some basic intuitions into why most of the presented algorithms work and a back-of-the-envelope cost analysis whenver it makes sense.</p>
-<p>The order in which algorithms are presented is our best attempt to build the most complex ideas on top of the simpler ones. We start with basic algorithms that everyone can understand and progressively move towards the more advanced. However, sometimes we’ll take detours and explore entire subregions of Computer Science in some depth, which means the last algorithms of a given chapter can be more complex than the first ones of the next chapter.</p>
-<p>The algorithms are presented in a literate programming format. You will understand exactly what this means as soon as you start reading, but the gist is that we combine code and prose in the–to our knowledge and capacity–best possible way to maximize understanding.</p>
-<p>Accompanying this book, you will find an <a href="https://github.com/matcom/codex">open source repository</a> with the exact implementations in this book. Actually, the source code is generated from the book source, and not the other way around–that is what literate programming is, after all.</p>
+<p>We wrote this book to serve as a complement for the main bibliography in a typical Computer Science major. You will not find comprehensive theory of algorithms in this book, or detailed analyses. However, we do present some basic intuitions into why most of the presented algorithms work and a back-of-the-envelope cost analysis whenever it makes sense.</p>
+<p>The order in which algorithms are presented is our best attempt to build the most complex ideas on top of the simpler ones. We start with basic algorithms that everyone can understand and progressively move towards the more advanced.</p>
+<p>The algorithms are presented in a literate programming format. The gist is that we combine code and prose in the best possible way to maximize understanding. Actually, the source code is generated from the book source, and not the other way around–that is what literate programming is, after all. Accompanying this book, you will find an <a href="https://github.com/matcom/codex">open source repository</a> with the exact implementations in this book.</p>
+<p>You can read the book online at <a href="https://matcom.github.io/codex/" class="uri">https://matcom.github.io/codex/</a>.</p>
+<section id="content-of-the-book" class="level2">
+<h2 class="anchored" data-anchor-id="content-of-the-book">Content of the Book</h2>
+<p>The Algorithm Codex is organized into several major parts, designed to take you from foundational concepts to specialized domains and the limits of computation:</p>
+<ul>
+<li><strong>Searching and Sorting</strong>: We establish the core intuitions of algorithmic efficiency by exploring how to find and organize data in linear and logarithmic time.</li>
+<li><strong>Fundamental Data Structures</strong>: We implement essential abstractions—including linked lists, stacks, queues, and hash tables—that serve as the building blocks for more complex systems.</li>
+<li><strong>Trees</strong>: This part covers hierarchical data, from binary search trees to self-balancing structures and specialized variants like heaps and tries.</li>
+<li><strong>Graphs</strong>: A significant section dedicated to relational data, covering traversals, shortest paths, spanning trees, and flow networks.</li>
+<li><strong>Dynamic Programming and Greedy Algorithms</strong>: We delve into powerful paradigms for solving optimization problems by exploiting subproblem structure and local optimality.</li>
+<li><strong>Specialized Domains</strong>: We explore deep subregions of Computer Science, including computational geometry, number theory, and game theory.</li>
+<li><strong>Advanced Complexity</strong>: The book concludes with the frontiers of computation, exploring NP-completeness, approximation algorithms, and randomized approaches.</li>
+</ul>
+</section>
 <section id="about-the-coding-style" class="level2">
 <h2 class="anchored" data-anchor-id="about-the-coding-style">About the coding style</h2>
-<p>The code in this book is written in Python 3, especifically the 3.12 version. At the moment of writing, Python 3.12 is the most common Python version used around the world, and it has all the features we need. In particular, we make extensive use of Python’s generic syntax to write clean but fully typed methods that leverage the best and most modern practices in software development.</p>
-<p>Other than that, the code is often written in the simplest possible way that works. This means we don’t make unnecessary optimizations like taking bounds out of a loop to evaluate them only once. On the other hand, our code is optimized in the algorithmic sense. That is, we write code that is fast because it exploits the inherent structure of the problem, not because it exploits the characteristics of the programming language or runtime.</p>
-<p>Since most of our code is pure, functional algorithms, we often rely on public, plain Python functions. We thus have very few classes, and the ones we have are very simple, often nothing but data stores. However, we do make heavy use of protocols and abstract classes, especially those in the Python standard library like sequences, maps, queues, etc.</p>
+<p>The code in this book is written in Python 3, specifically the 3.13 version.</p>
+<p>We make extensive use of Python’s generic syntax to write clean but fully typed methods that leverage the best and most modern practices in software development. Other than that, the code is often written in the simplest possible way that works. We don’t make unnecessary optimizations like taking bounds out of a loop. On the other hand, our code is optimized in the algorithmic sense; it is fast because it exploits the inherent structure of the problem.</p>
+<p>Since most of our code is pure, functional algorithms, we often rely on public, plain Python functions. We thus have very few classes, and the ones we have are very simple, often nothing but data stores. However, we do make heavy use of protocols and abstract classes, especially those in the Python standard library like sequences, maps, and queues.</p>
 </section>
 <section id="support-the-algorithm-codex" class="level2">
 <h2 class="anchored" data-anchor-id="support-the-algorithm-codex">Support The Algorithm Codex</h2>
@@ -212,11 +242,11 @@ ul.task-list li input[type="checkbox"] {
 <p>The book content is licensed CC-BY-NC-SA, that means you are free to share the book in any format (HTML, ePUB, PDF) with anyone, and produce any derivatives you want, as long as you also share those freely for posterity.</p>
 <p>The source code is licensed MIT, and thus you can use the algorithms implemented here for anything, including classes, academic work, but also writing commercial software.</p>
 <p>The only thing you cannot do is resell the book itself or any derivative work like lecture notes, translations, etc.</p>
-<p>However, writing and maintaining this book is anything but cheap. There is a lot of time and effort put into writing, coding, debugging, and formatting. If you want to support this effort, the best way to do is to <a href="https://store.apiad.net/l/codex">buy the official PDF</a>.</p>
+<p>If you want to support this effort, the best way to do is to <a href="https://store.apiad.net/l/codex">buy the official PDF</a>.</p>
 </section>
 <section id="stay-in-touch" class="level2">
 <h2 class="anchored" data-anchor-id="stay-in-touch">Stay in touch</h2>
-<p>Most of the chapters in this book, and subsequent modifications, are first published as standalone articles in <a href="https://blog.apiad.net">The Computist Journal</a>. Subscribing there is the best way to stay in the loop and get early access to most of the material.</p>
+<p>Most of the chapters in this book are first published as standalone articles in <a href="https://blog.apiad.net">The Computist Journal</a>. Subscribing there is the best way to stay in the loop and get early access to most of the material.</p>
 
 
 </section>
