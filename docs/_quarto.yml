@@ -7,7 +7,11 @@ book:
   date: "1/17/2026"
   chapters:
     - index.qmd
-    - 01_search.md
+    - part: Searching and Sorting
+      chapters:
+      - 01_search.md
+    - part: Trees
+    - part: Graphs
 
 format:
   html:

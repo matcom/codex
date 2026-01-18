@@ -1,4 +1,4 @@
-# Search
+# Basic Search
 
 Searching is arguably the most important problem in Computer Science. In a very simplistic way, searching is at the core of critical applications like databases, and is the cornerstone of how the internet works.
 
