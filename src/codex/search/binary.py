@@ -10,14 +10,13 @@ def binary_search[T](
     l, r = 0, len(items)-1
 
     while l <= r:
-        m = (l+r)//2
+        m = (l + r) // 2
+        res = f(x, items[m])
 
-        if items[m] == x:
+        if res == 0:
             return m
-        elif x < items[m]:
+        elif res < 0:
             r = m - 1
         else:
             l = m + 1
-
-    return None
 

@@ -4,14 +4,24 @@ project:
 book:
   title: "The Algorithm Codex"
   author: "Alejandro Piad-Morffis, Ph.D."
-  date: "1/17/2026"
+  date: "1/18/2026"
   chapters:
     - index.qmd
     - part: Searching and Sorting
       chapters:
       - 01_search.md
+    - part: Fundamental Data Structures
+      chapters: []
     - part: Trees
+      chapters: []
     - part: Graphs
+      chapters: []
+    - part: Dynamic Programming and Greedy Algorithms
+      chapters: []
+    - part: Specialized Domains
+      chapters: []
+    - part: Advanced Complexity
+      chapters: []
 
 format:
   html:
