@@ -7,6 +7,7 @@ book:
   date: "1/18/2026"
   chapters:
     - index.qmd
+    - 00_intro.md
     - part: Searching and Sorting
       chapters:
       - 01_search.md
