@@ -1,0 +1,86 @@
+[
+  {
+    "objectID": "index.html",
+    "href": "index.html",
+    "title": "The Algorithm Codex",
+    "section": "",
+    "text": "Preface\nWelcome to The Algorithm Codex.\nThis book is a repository of common algorithms used in all areas of computer science. It contains reference implementations in Python for many well-known (and some not-so-much) algorithms spanning from simple linear search to sorting, graphs, computational geometry, data structures, flow networks, game theory, number theory, optimization, and many other fields.\nWe wrote this book to serve as a complement for the main bibliography in a typical Computer Science major. You will not find comprehensive theory of algorithms in this book, or detailed analyses. However, we do present some basic intuitions into why most of the presented algorithms work and a back-of-the-envelope cost analysis whenver it makes sense.\nThe order in which algorithms are presented is our best attempt to build the most complex ideas on top of the simpler ones. We start with basic algorithms that everyone can understand and progressively move towards the more advanced. However, sometimes we’ll take detours and explore entire subregions of Computer Science in some depth, which means the last algorithms of a given chapter can be more complex than the first ones of the next chapter.\nThe algorithms are presented in a literate programming format. You will understand exactly what this means as soon as you start reading, but the gist is that we combine code and prose in the–to our knowledge and capacity–best possible way to maximize understanding.\nAccompanying this book, you will find an open source repository with the exact implementations in this book. Actually, the source code is generated from the book source, and not the other way around–that is what literate programming is, after all.",
+    "crumbs": [
+      "Preface"
+    ]
+  },
+  {
+    "objectID": "index.html#about-the-coding-style",
+    "href": "index.html#about-the-coding-style",
+    "title": "The Algorithm Codex",
+    "section": "About the coding style",
+    "text": "About the coding style\nThe code in this book is written in Python 3, especifically the 3.12 version. At the moment of writing, Python 3.12 is the most common Python version used around the world, and it has all the features we need. In particular, we make extensive use of Python’s generic syntax to write clean but fully typed methods that leverage the best and most modern practices in software development.\nOther than that, the code is often written in the simplest possible way that works. This means we don’t make unnecessary optimizations like taking bounds out of a loop to evaluate them only once. On the other hand, our code is optimized in the algorithmic sense. That is, we write code that is fast because it exploits the inherent structure of the problem, not because it exploits the characteristics of the programming language or runtime.\nSince most of our code is pure, functional algorithms, we often rely on public, plain Python functions. We thus have very few classes, and the ones we have are very simple, often nothing but data stores. However, we do make heavy use of protocols and abstract classes, especially those in the Python standard library like sequences, maps, queues, etc.",
+    "crumbs": [
+      "Preface"
+    ]
+  },
+  {
+    "objectID": "index.html#support-the-algorithm-codex",
+    "href": "index.html#support-the-algorithm-codex",
+    "title": "The Algorithm Codex",
+    "section": "Support The Algorithm Codex",
+    "text": "Support The Algorithm Codex\nThis book is free, as in free beer and free speech, and it will always be.\nThe book content is licensed CC-BY-NC-SA, that means you are free to share the book in any format (HTML, ePUB, PDF) with anyone, and produce any derivatives you want, as long as you also share those freely for posterity.\nThe source code is licensed MIT, and thus you can use the algorithms implemented here for anything, including classes, academic work, but also writing commercial software.\nThe only thing you cannot do is resell the book itself or any derivative work like lecture notes, translations, etc.\nHowever, writing and maintaining this book is anything but cheap. There is a lot of time and effort put into writing, coding, debugging, and formatting. If you want to support this effort, the best way to do is to buy the official PDF.",
+    "crumbs": [
+      "Preface"
+    ]
+  },
+  {
+    "objectID": "index.html#stay-in-touch",
+    "href": "index.html#stay-in-touch",
+    "title": "The Algorithm Codex",
+    "section": "Stay in touch",
+    "text": "Stay in touch\nMost of the chapters in this book, and subsequent modifications, are first published as standalone articles in The Computist Journal. Subscribing there is the best way to stay in the loop and get early access to most of the material.",
+    "crumbs": [
+      "Preface"
+    ]
+  },
+  {
+    "objectID": "01_search.html",
+    "href": "01_search.html",
+    "title": "1  Basic Search",
+    "section": "",
+    "text": "1.1 Linear Search\nSearching is arguably the most important problem in Computer Science. In a very simplistic way, searching is at the core of critical applications like databases, and is the cornerstone of how the internet works.\nHowever, beyond this simple, superficial view of searching as an end in itself, you can also view search as means for general-purpose problem solving. When you are, for example, playing chess, what your brain is doing is, in a very fundamental way, searching for the optimal move–the only that most likely leads to winning.\nIn this sense, you can view almost all of Computer Science problems as search problems. In fact, a large part of this book will be devoted to search, in one way or another.\nIn this first chapter, we will look at the most explicit form of search: where we are explicitly given a set or collection of items, and asked to find one specific item.\nWe will start with the simplest, and most expensive kind of search, and progress towards increasingly more refined algorithms that exploit characteristics of the input items to minimize the time required to find the desired item, or determine if it’s not there at all.\nLet’s start by analyzing the simplest algorithm that does something non-trivial: linear search. Most of these algorithms work on the simplest data structure that we will see, the sequence.\nA sequence (Sequence class) is an abstract data type that represents a collection of items with no inherent structure, other than each element has an index.\nLinear search is the most basic form of search. We have a sequence of elements, and we must determine whether one specific element is among them. Since we cannot assume anything at all from the sequence, our only option is to check them all.\nOur first test will be a sanity check for simple cases:\nThe find method is good to know if an element exists in a sequence, but it doesn’t tell us where. We can easily extend it to return an index. We thus define the index method, with the following condition: if index(x,l) == i then l[i] == x. That is, index returns the first index where we can find a given element x.\nWhen the item is not present in the sequence, we return None. We could raise an exception instead, but that would force a lot of defensive programming.\nLet’s write some tests!\nAs a final step in the linear search paradigm, let’s consider the problem of finding not the first, but all occurrences of a given item. We’ll call this function count. It will return the number of occurrences of some item x in a sequence.\nLet’s write some simple tests for this method.",
+    "crumbs": [
+      "Searching and Sorting",
+      "<span class='chapter-number'>1</span>  <span class='chapter-title'>Basic Search</span>"
+    ]
+  },
+  {
+    "objectID": "01_search.html#linear-search",
+    "href": "01_search.html#linear-search",
+    "title": "1  Basic Search",
+    "section": "",
+    "text": "from typing import Sequence\n\ndef find[T](x:T, items: Sequence[T]) -&gt; bool:\n    for y in items:\n        if x == y:\n            return True\n\n    return False\n\nfrom codex.search.linear import find\n\ndef test_simple_list():\n    assert find(1, [1,2,3]) is True\n    assert find(2, [1,2,3]) is True\n    assert find(3, [1,2,3]) is True\n    assert find(4, [1,2,3]) is False\n\ndef index[T](x: T, items: Sequence[T]) -&gt; int | None:\n    for i,y in enumerate(items):\n        if x == y:\n            return i\n\n    return None\n\n\nfrom codex.search.linear import index\n\ndef test_index():\n    assert index(1, [1,2,3]) == 0\n    assert index(2, [1,2,3]) == 1\n    assert index(3, [1,2,3]) == 2\n    assert index(4, [1,2,3]) is None\n\ndef count[T](x: T, items: Sequence[T]) -&gt; int:\n    c = 0\n\n    for y in items:\n        if x == y:\n            c += 1\n\n    return c\n\nfrom codex.search.linear import count\n\ndef test_index():\n    assert count(1, [1,2,3]) == 1\n    assert count(2, [1,2,2]) == 2\n    assert count(4, [1,2,3]) == 0",
+    "crumbs": [
+      "Searching and Sorting",
+      "<span class='chapter-number'>1</span>  <span class='chapter-title'>Basic Search</span>"
+    ]
+  },
+  {
+    "objectID": "01_search.html#min-and-max",
+    "href": "01_search.html#min-and-max",
+    "title": "1  Basic Search",
+    "section": "1.2 Min and Max",
+    "text": "1.2 Min and Max\nLet’s now move to a slightly different problem. Instead of finding one specific element, we want to find the element that ranks minimum or maximum. Consider a sequence of numbers in an arbitrary order. We define the minimum (maximum) element as the element x such as x &lt;= y (x &gt;= y) for all y in the sequence.\nNow, instead of numbers, consider some arbitrary total ordering function f, such that f(x,y) &lt;= 0 if and only if x &lt;= y. This allows us to extend the notion of minimum and maximum to arbitrary data types.\nLet’s formalize this notion as a Python type alias. We will define an Ordering as a function that has this signature:\nfrom typing import Callable\n\ntype Ordering[T] = Callable[[T,T], int]\nNow, to make things simple for the simplest cases, let’s define a default ordering function that just delegates to the items own &lt;= implementation. This way we don’t have to reinvent the wheel with numbers, strings, and all other natively comparable items.\ndef default_order(x, y):\n    if x &lt; y:\n        return -1\n    elif x == y:\n        return 0\n    else:\n        return 1\nLet’s write the minimum method using this convention. Since we have no knowledge of the structure of the sequence other than it supports partial ordering, we have to test all possible items, like before. But now, instead of returning as soon as we find the “correcOf course, we t” item, we simply store the minimum item we’ve seen so far, and return at the end of the for loop. This guarantees we have seen all the items, and thus the minimum among them must be the one we have marked.\nfrom codex.types import Ordering, default_order\n\ndef minimum[T](items: Sequence[T], f: Ordering[T] = None) -&gt; T:\n    if f is None:\n        f = default_order\n\n    m = None\n\n    for x in items:\n        if m is None or f(x,m) &lt;= 0:\n            m = x\n\n    return m\nThe minimum method can fail only if the items sequence is empty. In the same manner, we can implement maximum. But instead of coding another method with the same functionality, which is not very DRY, we can leverage the fact that we are passing an ordering function that we can manipulate.\nConsider an arbitrary ordering function f such f(x,y) &lt;= 0. This means by definition that x &lt;= y. Now we want to define another function g such that g(y,x) &lt;= 0, that is, it inverts the result of f. We can do this very simply by swaping the inputs in f.\ndef maximum[T](items: Sequence[T], f: Ordering[T] = None) -&gt; T:\n    if f is None:\n        f = default_order\n\n    return minimum(items, lambda x,y: f(y,x))\nWe can easily code a couple of test methods for this new functionality.\nfrom codex.search.linear import minimum, maximum\n\ndef test_minmax():\n    items = [4,2,6,5,7,1,0]\n\n    assert minimum(items) == 0\n    assert maximum(items) == 7",
+    "crumbs": [
+      "Searching and Sorting",
+      "<span class='chapter-number'>1</span>  <span class='chapter-title'>Basic Search</span>"
+    ]
+  },
+  {
+    "objectID": "01_search.html#binary-search",
+    "href": "01_search.html#binary-search",
+    "title": "1  Basic Search",
+    "section": "1.3 Binary Search",
+    "text": "1.3 Binary Search\nNow that we have started considering ordered sets, we can introduce what is arguably the most beautiful algorithm in the history of Computer Science: binary search. A quintessential algorithm that shows how a well-structured search space is exponentially easier to search than an arbitrary one.\nTo build some intuition for binary search, let’s consider we have an ordered sequence of items; that is, we always have that if i &lt; j, then l[i] &lt;= l[j]. This simple constraint introduces a very powerful condition in our search problem: if we are looking for x, and x &lt; y, then we know no item after y in the sequence can be x.\nConvince yourself of this simple truth before moving on.\nThis fundamentally changes how fast we can search. Why? Because now every test that we perform–every time we ask whether x &lt; y for some y–we gain a lot of information, not only about y, but about every other item greater or equal than y.\nThis is the magical leap we always need in order to write a fast algorithm–fast as in, it doesn’t need to check every single thing. We need a way to gather more information from every operation, so we have to do less operations. Let’s see how we can leverage this powerful intuition to make search not only faster, but exponentially faster when items are ordered.\nConsider the set of items \\(x_1, ..., y, ..., x_n\\). We are searching for item \\(x\\), and we choose to test whether \\(x \\leq y\\). We have two choices, either \\(x \\leq y\\), or, on the contrary, \\(x &gt; y\\). We want to gain the maximum amount of information in either case. The question is, how should we pick \\(y\\)?\nIf we pick \\(y\\) too close to either end, we can get lucky and cross off a large number of items. For example if \\(y\\) is in the last 5% of the sequence, and it turns out \\(x &gt; y\\), we have just removed the first 95% of the sequence without looking at it! But of course, we won’t get that lucky too often. In fact, if \\(x\\) is a random input, it could potentially be anywhere in the sequence. Under the fairly mild assumption that \\(x\\) should be uniformly distributed among all indices in the sequences, we will get this lucky exactly 5% of the time. The other 95! we have almost as much work to do as in the beginning.\nIt should be obvious by now that the best way to pick \\(y\\) either case is to choose the middle of the sequence. In that way I always cross off 50% of the items, regardless of luck. This is good, we just removed a huge chunk. But it gets even better.\nNow, instead of looking for \\(x\\) linearly in the remaining 50% of the items, we do the exact same thing again! We take the middle point of the current half, and now we can cross off another 25% of the items. If we keep repeating this over and over, how fast will we be left with just one item? Keep that thought in mind.\nBefore doing the math, here is the most straightforward implemenation of binary search. We will use two indices, l(eft) and r(ight) to keep track of the current sub-sequence we are analyzing. As long as l &lt;= r there is at least one item left to test. Once l &gt; r, we must conclude x is not in the sequence.\nHere goes the code.\nfrom typing import Sequence\nfrom codex.types import Ordering, default_order\n\ndef binary_search[T](\n    x: T, items: Sequence[T], f: Ordering[T] = None\n) -&gt; int | None:\n    if f is None:\n        f = default_order\n\n    l, r = 0, len(items)-1\n\n    while l &lt;= r:\n        m = (l+r)//2\n\n        if items[m] == x:\n            return m\n        elif x &lt; items[m]:\n            r = m - 1\n        else:\n            l = m + 1\n\n    return None\nHere is a minimal test.\nfrom codex.search.binary import binary_search\n\ndef test_binary_search():\n    items = [0,1,2,3,4,5,6,7,8,9]\n\n    assert binary_search(3, items) == 3\n    assert binary_search(10, items) is None",
+    "crumbs": [
+      "Searching and Sorting",
+      "<span class='chapter-number'>1</span>  <span class='chapter-title'>Basic Search</span>"
+    ]
+  }
+]
