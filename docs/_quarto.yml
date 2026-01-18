@@ -10,7 +10,8 @@ book:
     - part: Searching and Sorting
       chapters:
       - 01_search.md
-      - 02_sort.md
+      - 02_binary.md
+      - 03_sort.md
     - part: Fundamental Data Structures
       chapters: []
     - part: Trees

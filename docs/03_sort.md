@@ -1,4 +1,4 @@
-# Sorting Fundamentals
+# basic Sorting
 
 As we discovered in the previous chapter, structure is the secret ingredient that makes computation efficient. Searching through an unordered collection is a tedious, linear process, but searching through an ordered one is exponentially faster.
 
@@ -121,7 +121,7 @@ def test_sorting_algorithms(sort_fn):
 
 ```
 
-## The $O(n^2)$ Ceiling
+## Conclusion
 
 Selection, Insertion, and Bubble sort are all $O(n^2)$ algorithms. The reason is structural: in the worst case, a list of size  can have $O(n^2)$ inversions. Since each swap in these algorithms only fixes one inversion at a time--in the best case--we are forced to perform a quadratic number of operations.
 
