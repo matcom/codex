@@ -1,11 +1,11 @@
 .PHONY: source docs publish tests
 
+dev:
+	find docs | grep md$ | entr make source
+
 source:
 	@illiterate -d . docs/*.md
 	@make tests
-
-dev:
-	find docs | grep md$ | entr make source
 
 docs: source
 	(cd docs && quarto render)

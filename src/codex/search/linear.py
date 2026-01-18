@@ -14,3 +14,26 @@ def index[T](x: T, items: Sequence[T]) -> int | None:
 
     return None
 
+def count[T](x: T, items: Sequence[T]) -> int:
+    c = 0
+
+    for y in items:
+        if x == y:
+            c += 1
+
+    return c
+
+from codex.types import Ordering
+
+def minimum[T](items: Sequence[T], f: Ordering[T]) -> T:
+    m = None
+
+    for x in items:
+        if m is None or f(x,m) <= 0:
+            m = x
+
+    return m
+
+def maximum[T](items: Sequence[T], f: Ordering[T]) -> T:
+    return minimum(items, lambda x,y: f(y,x))
+

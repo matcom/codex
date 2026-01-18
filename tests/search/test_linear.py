@@ -14,3 +14,17 @@ def test_index():
     assert index(3, [1,2,3]) == 2
     assert index(4, [1,2,3]) is None
 
+from codex.search.linear import count
+
+def test_index():
+    assert count(1, [1,2,3]) == 1
+    assert count(2, [1,2,2]) == 2
+    assert count(4, [1,2,3]) == 0
+
+from codex.search.linear import minimum, maximum
+
+def test_minmax():
+    items = [4,2,6,5,7,1,0]
+
+    assert minimum(items, lambda x,y: x-y) == 0
+    assert maximum(items, lambda x,y: y-x) == 0
