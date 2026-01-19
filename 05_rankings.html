@@ -105,6 +105,35 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
   }
 }</script>
 
+  <script src="https://cdnjs.cloudflare.com/polyfill/v3/polyfill.min.js?features=es6"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js" type="text/javascript"></script>
+
+<script type="text/javascript">
+const typesetMath = (el) => {
+  if (window.MathJax) {
+    // MathJax Typeset
+    window.MathJax.typeset([el]);
+  } else if (window.katex) {
+    // KaTeX Render
+    var mathElements = el.getElementsByClassName("math");
+    var macros = [];
+    for (var i = 0; i < mathElements.length; i++) {
+      var texText = mathElements[i].firstChild;
+      if (mathElements[i].tagName == "SPAN") {
+        window.katex.render(texText.data, mathElements[i], {
+          displayMode: mathElements[i].classList.contains('display'),
+          throwOnError: false,
+          macros: macros,
+          fleqn: false
+        });
+      }
+    }
+  }
+}
+window.Quarto = {
+  typesetMath
+};
+</script>
 
 </head>
 
@@ -201,8 +230,8 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="./07_lessons_1.html" class="sidebar-item-text sidebar-link">
- <span class="menu-text"><span class="chapter-number">7</span>&nbsp; <span class="chapter-title">Lessons from Part I</span></span></a>
+  <a href="./lessons_1.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Lessons from Part I</span></a>
   </div>
 </li>
       </ul>
@@ -348,7 +377,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span id="cb1-43"><a href="#cb1-43" aria-hidden="true" tabindex="-1"></a>            i <span class="op">+=</span> <span class="dv">1</span></span>
 <span id="cb1-44"><a href="#cb1-44" aria-hidden="true" tabindex="-1"></a>    items[i], items[high] <span class="op">=</span> items[high], items[i]</span>
 <span id="cb1-45"><a href="#cb1-45" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> i</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-<p>The probabilistic analysis of Quick Select is striking. In the worst case—where we consistently pick the worst possible pivot—the complexity is still . However, on average, the size of the search space follows a geometric series: , which converges to . This means that on average, Quick Select finds the -th order statistic in **** time.</p>
+<p>The probabilistic analysis of Quick Select is striking. In the worst case—where we consistently pick the worst possible pivot—the complexity is still <span class="math inline">\(O(n^2)\)</span>. However, on average, the size of the search space follows a geometric series which converges to <span class="math inline">\(O(n)\)</span>. This means that on average, Quick Select finds the <span class="math inline">\(k\)</span>-th order statistic in <span class="math inline">\(O(n)\)</span> time.</p>
 </section>
 <section id="median-of-medians-deterministic-selection" class="level2" data-number="5.2">
 <h2 data-number="5.2" class="anchored" data-anchor-id="median-of-medians-deterministic-selection"><span class="header-section-number">5.2</span> Median of Medians: Deterministic Selection</h2>

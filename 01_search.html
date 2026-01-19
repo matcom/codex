@@ -201,8 +201,8 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="./07_lessons_1.html" class="sidebar-item-text sidebar-link">
- <span class="menu-text"><span class="chapter-number">7</span>&nbsp; <span class="chapter-title">Lessons from Part I</span></span></a>
+  <a href="./lessons_1.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Lessons from Part I</span></a>
   </div>
 </li>
       </ul>
@@ -374,7 +374,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span id="cb9-5"><a href="#cb9-5" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> <span class="dv">0</span></span>
 <span id="cb9-6"><a href="#cb9-6" aria-hidden="true" tabindex="-1"></a>    <span class="cf">else</span>:</span>
 <span id="cb9-7"><a href="#cb9-7" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> <span class="dv">1</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-<p>Let’s write the <code>minimum</code> method using this convention. Since we have no knowledge of the structure of the sequence other than it supports partial ordering, we have to test all possible items, like before. But now, instead of returning as soon as we find the “correcOf course, we t” item, we simply store the minimum item we’ve seen so far, and return at the end of the <code>for</code> loop. This guarantees we have seen all the items, and thus the minimum among them must be the one we have marked.</p>
+<p>Let’s write the <code>minimum</code> method using this convention. Since we have no knowledge of the structure of the sequence other than it supports partial ordering, we have to test all possible items, like before. But now, instead of returning as soon as we find the correct item, we simply store the minimum item we’ve seen so far, and return at the end of the <code>for</code> loop. This guarantees we have seen all the items, and thus the minimum among them must be the one we have marked.</p>
 <div class="sourceCode" id="cb10" data-export="src/codex/search/linear.py"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> codex.types <span class="im">import</span> Ordering, default_order</span>
 <span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> minimum[T](items: Sequence[T], f: Ordering[T] <span class="op">=</span> <span class="va">None</span>) <span class="op">-&gt;</span> T:</span>

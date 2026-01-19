@@ -230,8 +230,8 @@ window.Quarto = {
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="./07_lessons_1.html" class="sidebar-item-text sidebar-link">
- <span class="menu-text"><span class="chapter-number">7</span>&nbsp; <span class="chapter-title">Lessons from Part I</span></span></a>
+  <a href="./lessons_1.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Lessons from Part I</span></a>
   </div>
 </li>
       </ul>
@@ -373,7 +373,7 @@ window.Quarto = {
 <span id="cb1-38"><a href="#cb1-38" aria-hidden="true" tabindex="-1"></a>        j <span class="op">+=</span> <span class="dv">1</span></span>
 <span id="cb1-39"><a href="#cb1-39" aria-hidden="true" tabindex="-1"></a>        k <span class="op">+=</span> <span class="dv">1</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <p>In Merge Sort, the structural strategy is to <strong>fix inversions within each half first</strong>. We recursively dive deep into the sequence, sorting smaller and smaller sub-sequences. Only when the sub-sequences are internally free of inversions do we perform the merge step to fix the “global” inversions between the two halves.</p>
-<p>Because the list is halved at each step, the recursion depth is . Since we perform work at each level of the tree to merge the results, the total complexity is .</p>
+<p>Because the list is halved at each step, the recursion depth is <span class="math inline">\(log(n)\)</span>. Since we perform <span class="math inline">\(O(n)\)</span> work at each level of the tree to merge the results, the total complexity is <span class="math inline">\(O(n ĺog n)\)</span>.</p>
 </section>
 <section id="quick-sort-sorting-by-partitioning" class="level2" data-number="4.2">
 <h2 data-number="4.2" class="anchored" data-anchor-id="quick-sort-sorting-by-partitioning"><span class="header-section-number">4.2</span> Quick Sort: Sorting by Partitioning</h2>
@@ -408,7 +408,7 @@ window.Quarto = {
 <span id="cb2-27"><a href="#cb2-27" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb2-28"><a href="#cb2-28" aria-hidden="true" tabindex="-1"></a>    _quick_sort(<span class="dv">0</span>, <span class="bu">len</span>(items) <span class="op">-</span> <span class="dv">1</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <p>The striking difference here is the order of operations. Quick Sort <strong>fixes inversions between both halves first</strong>. By partitioning, we ensure that there are zero inversions between the left “half” and the right “half” (no item in the left is greater than an item in the right). Once this global structure is established, we recursively fix the remaining inversions <strong>within</strong> each half.</p>
-<p>This approach allows Quick Sort to operate <strong>in-place</strong>, requiring only auxiliary space for the recursion stack. While its worst-case is , its average-case performance is a highly efficient .</p>
+<p>This approach allows Quick Sort to operate <strong>in-place</strong>, requiring only <span class="math inline">\(O(\log n)\)</span> auxiliary space for the recursion stack. While its worst-case is <span class="math inline">\(O(n^2)\)</span>, its average-case performance is a highly efficient <span class="math inline">\(O(n \log n)\)</span>.</p>
 </section>
 <section id="verification" class="level2" data-number="4.3">
 <h2 data-number="4.3" class="anchored" data-anchor-id="verification"><span class="header-section-number">4.3</span> Verification</h2>
@@ -429,7 +429,7 @@ window.Quarto = {
 </section>
 <section id="conclusion" class="level2" data-number="4.4">
 <h2 data-number="4.4" class="anchored" data-anchor-id="conclusion"><span class="header-section-number">4.4</span> Conclusion</h2>
-<p>Both Merge Sort and Quick Sort reaffirm our central theme: <strong>structure matters</strong>. By moving away from the unstructured swaps of Bubble Sort and adopting a rigorous divide-and-conquer strategy, we change how we interact with the “geometry of inversions.”</p>
+<p>Both Merge Sort and Quick Sort reaffirm our central theme: <strong>structure matters</strong>. By moving away from the unstructured swaps of Bubble Sort and adopting a rigorous divide-and-conquer strategy, we change how we interact with the geometry of inversions.</p>
 <p>Whether we fix local inversions first (Merge Sort) or global ones first (Quick Sort), the result is a massive leap in efficiency. We have traded the simplicity of a double-loop for the power of recursion and structural partitioning.</p>
 
 
