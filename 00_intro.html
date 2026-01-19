@@ -319,9 +319,16 @@ window.Quarto = {
 <section id="measuring-efficiency" class="level2">
 <h2 class="anchored" data-anchor-id="measuring-efficiency">Measuring Efficiency</h2>
 <p>Once we have established that an algorithm is correct, we must ask how much it “costs” to run. In this book, we care about two primary resources: <strong>Time</strong> (the number of operations performed) and <strong>Space</strong> (the amount of memory required).</p>
-<p>Because hardware changes so rapidly, it is rarely useful to talk about runtime in terms of seconds or memory in terms of megabytes. A sorting algorithm that takes ten seconds on a vintage machine might take a fraction of a millisecond on a modern supercomputer. To remain hardware-agnostic, we fix a <strong>unitary unit of cost</strong>.</p>
-<p>We assume that “atomic” operations—such as variable assignment, basic arithmetic, or printing to the console—each take exactly <strong>one unit of time</strong>. Similarly, we assume that atomic data types—like a single number or a character—occupy <strong>one unit of memory</strong>. By counting these units, we can discuss the cost of an algorithm as a mathematical function of its input.</p>
-<p>However, we rarely care about the absolute number of steps. Knowing that a specific sort takes exactly 1,024 operations is less useful than knowing how that cost grows as the input size <span class="math inline">\(n\)</span> increases.</p>
+<p>However, hardware changes so rapidly that it is rarely useful to talk about performance in terms of seconds or megabytes. To remain hardware-agnostic, we use an idealized computational model.</p>
+<p>In this book, and in most algorithmic analysis, we utilize the <strong>Random Access Machine (RAM) model</strong>. This model provides a controlled environment where we can precisely describe the number of steps an algorithm takes by assuming a <strong>unitary unit of cost</strong> for basic operations.</p>
+<p>In the RAM model, we assume:</p>
+<ul>
+<li><strong>Unitary Operation Cost</strong>: Basic operations—such as arithmetic, variable assignment, and method calls—all cost exactly one unit of time.</li>
+<li><strong>Discrete Memory Cells</strong>: Memory is divided into discrete cells, each capable of holding one unit of data (such as a number, a character, or sometimes a small string).</li>
+<li><strong>Constant Access Time</strong>: We can access any memory cell directly with a unitary cost. This is the “Random Access” from which the model takes its name; we can jump to any random location in memory without paying a penalty for distance.</li>
+</ul>
+<p>Of course, this is an abstraction. In a real computer, multiplication is more expensive than addition, floating-point numbers carry additional costs, and memory is structured into complex layers of cache. However, the RAM model works exceptionally well for comparing algorithms in the abstract because it glosses over details that are often unimportant in the grand scheme of complexity. It only begins to break down in specialized areas, such as <strong>numerical algorithms</strong>, where the exact cost of multiplications versus additions or the precise layout of numbers in memory becomes critical to performance.</p>
+<p>Furthermore, we rarely care about the absolute number of steps. Knowing that a specific sort takes exactly 1,024 operations is less useful than knowing how that cost grows as the input size <span class="math inline">\(n\)</span> increases.</p>
 <p>The core of algorithmic analysis is <strong>scaling</strong>. For example:</p>
 <ul>
 <li><strong>Constant Cost (<span class="math inline">\(O(1)\)</span>):</strong> If you have a list of items and you want to access the 42nd element, that operation has a unitary cost of 1. It does not matter if the list has 1,000 items, 1 million items, or 1 billion items; the effort required to jump to that specific index remains the same.</li>
