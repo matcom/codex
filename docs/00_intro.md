@@ -40,11 +40,19 @@ When we can prove—even intuitively—that we have reached the optimal efficien
 
 Once we have established that an algorithm is correct, we must ask how much it "costs" to run. In this book, we care about two primary resources: **Time** (the number of operations performed) and **Space** (the amount of memory required).
 
-Because hardware changes so rapidly, it is rarely useful to talk about runtime in terms of seconds or memory in terms of megabytes. A sorting algorithm that takes ten seconds on a vintage machine might take a fraction of a millisecond on a modern supercomputer. To remain hardware-agnostic, we fix a **unitary unit of cost**.
+However, hardware changes so rapidly that it is rarely useful to talk about performance in terms of seconds or megabytes. To remain hardware-agnostic, we use an idealized computational model.
 
-We assume that "atomic" operations—such as variable assignment, basic arithmetic, or printing to the console—each take exactly **one unit of time**. Similarly, we assume that atomic data types—like a single number or a character—occupy **one unit of memory**. By counting these units, we can discuss the cost of an algorithm as a mathematical function of its input.
+In this book, and in most algorithmic analysis, we utilize the **Random Access Machine (RAM) model**. This model provides a controlled environment where we can precisely describe the number of steps an algorithm takes by assuming a **unitary unit of cost** for basic operations.
 
-However, we rarely care about the absolute number of steps. Knowing that a specific sort takes exactly 1,024 operations is less useful than knowing how that cost grows as the input size $n$ increases.
+In the RAM model, we assume:
+
+- **Unitary Operation Cost**: Basic operations—such as arithmetic, variable assignment, and method calls—all cost exactly one unit of time.
+- **Discrete Memory Cells**: Memory is divided into discrete cells, each capable of holding one unit of data (such as a number, a character, or sometimes a small string).
+- **Constant Access Time**: We can access any memory cell directly with a unitary cost. This is the "Random Access" from which the model takes its name; we can jump to any random location in memory without paying a penalty for distance.
+
+Of course, this is an abstraction. In a real computer, multiplication is more expensive than addition, floating-point numbers carry additional costs, and memory is structured into complex layers of cache. However, the RAM model works exceptionally well for comparing algorithms in the abstract because it glosses over details that are often unimportant in the grand scheme of complexity. It only begins to break down in specialized areas, such as **numerical algorithms**, where the exact cost of multiplications versus additions or the precise layout of numbers in memory becomes critical to performance.
+
+Furthermore, we rarely care about the absolute number of steps. Knowing that a specific sort takes exactly 1,024 operations is less useful than knowing how that cost grows as the input size $n$ increases.
 
 The core of algorithmic analysis is **scaling**. For example:
 
