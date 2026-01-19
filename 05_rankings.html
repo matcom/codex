@@ -7,7 +7,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
 
-<title>5&nbsp; Rankings and Selection – The Algorithm Codex</title>
+<title>6&nbsp; Rankings and Selection – The Algorithm Codex</title>
 <style>
 code{white-space: pre-wrap;}
 span.smallcaps{font-variant: small-caps;}
@@ -146,7 +146,7 @@ window.Quarto = {
       <button type="button" class="quarto-btn-toggle btn" data-bs-toggle="collapse" role="button" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
         <i class="bi bi-layout-text-sidebar-reverse"></i>
       </button>
-        <nav class="quarto-page-breadcrumbs" aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="./part1.html">Searching and Sorting</a></li><li class="breadcrumb-item"><a href="./05_rankings.html"><span class="chapter-number">5</span>&nbsp; <span class="chapter-title">Rankings and Selection</span></a></li></ol></nav>
+        <nav class="quarto-page-breadcrumbs" aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="./part1.html">Searching and Sorting</a></li><li class="breadcrumb-item"><a href="./05_rankings.html"><span class="chapter-number">6</span>&nbsp; <span class="chapter-title">Rankings and Selection</span></a></li></ol></nav>
         <a class="flex-grow-1" role="navigation" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">      
         </a>
       <button type="button" class="btn quarto-search-button" aria-label="Search" onclick="window.quartoOpenSearch();">
@@ -180,7 +180,7 @@ window.Quarto = {
         <li class="sidebar-item">
   <div class="sidebar-item-container"> 
   <a href="./00_intro.html" class="sidebar-item-text sidebar-link">
- <span class="menu-text">Foundations</span></a>
+ <span class="menu-text"><span class="chapter-number">1</span>&nbsp; <span class="chapter-title">Foundations</span></span></a>
   </div>
 </li>
         <li class="sidebar-item sidebar-item-section">
@@ -195,37 +195,37 @@ window.Quarto = {
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
   <a href="./01_search.html" class="sidebar-item-text sidebar-link">
- <span class="menu-text"><span class="chapter-number">1</span>&nbsp; <span class="chapter-title">Basic Search</span></span></a>
+ <span class="menu-text"><span class="chapter-number">2</span>&nbsp; <span class="chapter-title">Basic Search</span></span></a>
   </div>
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
   <a href="./02_binary.html" class="sidebar-item-text sidebar-link">
- <span class="menu-text"><span class="chapter-number">2</span>&nbsp; <span class="chapter-title">Efficient Search</span></span></a>
+ <span class="menu-text"><span class="chapter-number">3</span>&nbsp; <span class="chapter-title">Efficient Search</span></span></a>
   </div>
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
   <a href="./03_sort.html" class="sidebar-item-text sidebar-link">
- <span class="menu-text"><span class="chapter-number">3</span>&nbsp; <span class="chapter-title">Basic Sorting</span></span></a>
+ <span class="menu-text"><span class="chapter-number">4</span>&nbsp; <span class="chapter-title">Basic Sorting</span></span></a>
   </div>
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
   <a href="./04_sort_fast.html" class="sidebar-item-text sidebar-link">
- <span class="menu-text"><span class="chapter-number">4</span>&nbsp; <span class="chapter-title">Efficient Sorting</span></span></a>
+ <span class="menu-text"><span class="chapter-number">5</span>&nbsp; <span class="chapter-title">Efficient Sorting</span></span></a>
   </div>
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
   <a href="./05_rankings.html" class="sidebar-item-text sidebar-link active">
- <span class="menu-text"><span class="chapter-number">5</span>&nbsp; <span class="chapter-title">Rankings and Selection</span></span></a>
+ <span class="menu-text"><span class="chapter-number">6</span>&nbsp; <span class="chapter-title">Rankings and Selection</span></span></a>
   </div>
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
   <a href="./06_linear_sort.html" class="sidebar-item-text sidebar-link">
- <span class="menu-text"><span class="chapter-number">6</span>&nbsp; <span class="chapter-title">Linear Time Sorting</span></span></a>
+ <span class="menu-text"><span class="chapter-number">7</span>&nbsp; <span class="chapter-title">Linear Time Sorting</span></span></a>
   </div>
 </li>
           <li class="sidebar-item">
@@ -297,19 +297,19 @@ window.Quarto = {
     <h2 id="toc-title">Table of contents</h2>
    
   <ul>
-  <li><a href="#quick-select-selection-via-partitioning" id="toc-quick-select-selection-via-partitioning" class="nav-link active" data-scroll-target="#quick-select-selection-via-partitioning"><span class="header-section-number">5.1</span> Quick Select: Selection via Partitioning</a></li>
-  <li><a href="#median-of-medians-deterministic-selection" id="toc-median-of-medians-deterministic-selection" class="nav-link" data-scroll-target="#median-of-medians-deterministic-selection"><span class="header-section-number">5.2</span> Median of Medians: Deterministic Selection</a></li>
-  <li><a href="#verification" id="toc-verification" class="nav-link" data-scroll-target="#verification"><span class="header-section-number">5.3</span> Verification</a></li>
-  <li><a href="#conclusion" id="toc-conclusion" class="nav-link" data-scroll-target="#conclusion"><span class="header-section-number">5.4</span> Conclusion</a></li>
+  <li><a href="#quick-select-selection-via-partitioning" id="toc-quick-select-selection-via-partitioning" class="nav-link active" data-scroll-target="#quick-select-selection-via-partitioning"><span class="header-section-number">6.1</span> Quick Select: Selection via Partitioning</a></li>
+  <li><a href="#median-of-medians-deterministic-selection" id="toc-median-of-medians-deterministic-selection" class="nav-link" data-scroll-target="#median-of-medians-deterministic-selection"><span class="header-section-number">6.2</span> Median of Medians: Deterministic Selection</a></li>
+  <li><a href="#verification" id="toc-verification" class="nav-link" data-scroll-target="#verification"><span class="header-section-number">6.3</span> Verification</a></li>
+  <li><a href="#conclusion" id="toc-conclusion" class="nav-link" data-scroll-target="#conclusion"><span class="header-section-number">6.4</span> Conclusion</a></li>
   </ul>
 </nav>
     </div>
 <!-- main -->
 <main class="content" id="quarto-document-content">
 
-<header id="title-block-header" class="quarto-title-block default"><nav class="quarto-page-breadcrumbs quarto-title-breadcrumbs d-none d-lg-block" aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="./part1.html">Searching and Sorting</a></li><li class="breadcrumb-item"><a href="./05_rankings.html"><span class="chapter-number">5</span>&nbsp; <span class="chapter-title">Rankings and Selection</span></a></li></ol></nav>
+<header id="title-block-header" class="quarto-title-block default"><nav class="quarto-page-breadcrumbs quarto-title-breadcrumbs d-none d-lg-block" aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="./part1.html">Searching and Sorting</a></li><li class="breadcrumb-item"><a href="./05_rankings.html"><span class="chapter-number">6</span>&nbsp; <span class="chapter-title">Rankings and Selection</span></a></li></ol></nav>
 <div class="quarto-title">
-<h1 class="title"><span class="chapter-number">5</span>&nbsp; <span class="chapter-title">Rankings and Selection</span></h1>
+<h1 class="title"><span class="chapter-number">6</span>&nbsp; <span class="chapter-title">Rankings and Selection</span></h1>
 </div>
 
 
@@ -328,8 +328,8 @@ window.Quarto = {
 
 <p>This chapter addresses the problem of selecting the -th smallest element in a sequence—a task that lies at the heart of calculating medians, percentiles, and other order statistics. While one could simply sort the entire collection in time and pick the element at index , we can do better by leveraging the same structural insights we gained from Quick Sort.</p>
 <p>Finding the “rank” of an element—its position in a sorted version of the collection—is a fundamental operation in data analysis. The most common case is finding the <strong>median</strong>, the element that splits a set into two equal halves. By generalizing this, we look for the -th order statistic: the value that is greater than or equal to exactly elements.</p>
-<section id="quick-select-selection-via-partitioning" class="level2" data-number="5.1">
-<h2 data-number="5.1" class="anchored" data-anchor-id="quick-select-selection-via-partitioning"><span class="header-section-number">5.1</span> Quick Select: Selection via Partitioning</h2>
+<section id="quick-select-selection-via-partitioning" class="level2" data-number="6.1">
+<h2 data-number="6.1" class="anchored" data-anchor-id="quick-select-selection-via-partitioning"><span class="header-section-number">6.1</span> Quick Select: Selection via Partitioning</h2>
 <p>The core of Quick Sort was the <code>partition</code> operation, which organized elements around a pivot. In Quick Sort, we recursively processed both sides of the partition. However, for selection, we only care about the side that contains our target index .</p>
 <p>This leads to <strong>Quick Select</strong>. Because we discard one-half of the search space at every step, we aren’t performing a “divide and conquer” so much as a “prune and search” strategy.</p>
 <div class="sourceCode" id="cb1" data-export="src/codex/search/rank.py"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> random</span>
@@ -379,8 +379,8 @@ window.Quarto = {
 <span id="cb1-45"><a href="#cb1-45" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> i</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <p>The probabilistic analysis of Quick Select is striking. In the worst case—where we consistently pick the worst possible pivot—the complexity is still <span class="math inline">\(O(n^2)\)</span>. However, on average, the size of the search space follows a geometric series which converges to <span class="math inline">\(O(n)\)</span>. This means that on average, Quick Select finds the <span class="math inline">\(k\)</span>-th order statistic in <span class="math inline">\(O(n)\)</span> time.</p>
 </section>
-<section id="median-of-medians-deterministic-selection" class="level2" data-number="5.2">
-<h2 data-number="5.2" class="anchored" data-anchor-id="median-of-medians-deterministic-selection"><span class="header-section-number">5.2</span> Median of Medians: Deterministic Selection</h2>
+<section id="median-of-medians-deterministic-selection" class="level2" data-number="6.2">
+<h2 data-number="6.2" class="anchored" data-anchor-id="median-of-medians-deterministic-selection"><span class="header-section-number">6.2</span> Median of Medians: Deterministic Selection</h2>
 <p>While randomization is practically robust, we can achieve a guaranteed worst-case time using a clever, ad hoc approach to pivot selection known as the <strong>Median of Medians</strong> algorithm.</p>
 <p>The goal is to find a pivot that is guaranteed to be “good enough”—meaning it is not too close to either end of the sorted sequence. We do this by:</p>
 <ol type="1">
@@ -408,8 +408,8 @@ window.Quarto = {
 <span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>    <span class="co"># ...</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <p>The structural beauty of this algorithm lies in the constant <code>5</code>. It is the smallest odd number that ensures the recursive step prunes enough of the search space to maintain a linear recurrence.</p>
 </section>
-<section id="verification" class="level2" data-number="5.3">
-<h2 data-number="5.3" class="anchored" data-anchor-id="verification"><span class="header-section-number">5.3</span> Verification</h2>
+<section id="verification" class="level2" data-number="6.3">
+<h2 data-number="6.3" class="anchored" data-anchor-id="verification"><span class="header-section-number">6.3</span> Verification</h2>
 <p>To ensure our selection logic holds, we test it by finding various ranks in both random and edge-case sequences.</p>
 <div class="sourceCode" id="cb3" data-export="tests/search/test_rank.py"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> pytest</span>
 <span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> codex.search.rank <span class="im">import</span> quick_select</span>
@@ -428,9 +428,10 @@ window.Quarto = {
 <span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a>    <span class="cf">assert</span> quick_select(items, <span class="dv">0</span>) <span class="op">==</span> <span class="dv">1</span></span>
 <span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a>    <span class="cf">assert</span> quick_select(items, <span class="dv">4</span>) <span class="op">==</span> <span class="dv">2</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </section>
-<section id="conclusion" class="level2" data-number="5.4">
-<h2 data-number="5.4" class="anchored" data-anchor-id="conclusion"><span class="header-section-number">5.4</span> Conclusion</h2>
-<p>With the implementation of selection algorithms, we have completed our initial survey of searching and sorting. The progression from linear search to sorting, and finally back to for selection, demonstrates the power of structured thinking. By understanding how to manipulate inversions and search spaces, we can find specific needles in increasingly large haystacks with mathematical precision.</p>
+<section id="conclusion" class="level2" data-number="6.4">
+<h2 data-number="6.4" class="anchored" data-anchor-id="conclusion"><span class="header-section-number">6.4</span> Conclusion</h2>
+<p>With the implementation of selection algorithms, we have completed our initial survey of searching and sorting. The progression from <span class="math inline">\(O(n)\)</span> linear search to <span class="math inline">\(O(n \log n)\)</span> sorting, and finally back to <span class="math inline">\(O(n)\)</span> for selection, demonstrates the power of structured thinking. By understanding how to manipulate inversions and search spaces, we can find specific needles in increasingly large haystacks with mathematical precision.</p>
+<p>Before moving on, we will briefly touch on one more subject: linear sorting. We will see how digging further down into specific structural constraints of the of the input data we can furhter refine our algorithms and make them even faster.</p>
 
 
 </section>
@@ -838,12 +839,12 @@ window.Quarto = {
 <nav class="page-navigation">
   <div class="nav-page nav-page-previous">
       <a href="./04_sort_fast.html" class="pagination-link" aria-label="Efficient Sorting">
-        <i class="bi bi-arrow-left-short"></i> <span class="nav-page-text"><span class="chapter-number">4</span>&nbsp; <span class="chapter-title">Efficient Sorting</span></span>
+        <i class="bi bi-arrow-left-short"></i> <span class="nav-page-text"><span class="chapter-number">5</span>&nbsp; <span class="chapter-title">Efficient Sorting</span></span>
       </a>          
   </div>
   <div class="nav-page nav-page-next">
       <a href="./06_linear_sort.html" class="pagination-link" aria-label="Linear Time Sorting">
-        <span class="nav-page-text"><span class="chapter-number">6</span>&nbsp; <span class="chapter-title">Linear Time Sorting</span></span> <i class="bi bi-arrow-right-short"></i>
+        <span class="nav-page-text"><span class="chapter-number">7</span>&nbsp; <span class="chapter-title">Linear Time Sorting</span></span> <i class="bi bi-arrow-right-short"></i>
       </a>
   </div>
 </nav>
