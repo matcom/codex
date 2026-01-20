@@ -4,15 +4,15 @@ Before we begin our journey through specific algorithms, we must establish the g
 
 ## What is an Algorithm?
 
-At its simplest, an algorithm is a procedure that takes an input and produces an output. However, in this Codex, we view an algorithm as a **formal mathematical object**—a precise strategy that exploits the structure of data to achieve an outcome efficiently.
+At its simplest, an algorithm is a mechanical procedure that takes an input and produces an output. However, in this Codex, we view an algorithm as a **formal mathematical object**--a precise strategy that exploits the structure of data to achieve an outcome efficiently.
 
 To be considered a valid algorithm in our context, a procedure must satisfy several key characteristics:
 
-- **Finiteness**: The description of the algorithm itself must be finite. Furthermore, for any valid input, the algorithm must always finish within a finite amount of time.
+- **Finiteness**: The description of the algorithm itself must be finite. Furthermore, for any valid input, the algorithm must always finish within a finite amount of time, for any given input.
 - **Correctness**: The algorithm must always produce the correct answer for every valid input within its problem class.
-- **Definiteness (Formality)**: An algorithm is a formal procedure. It must be described in a language that admits no ambiguity regarding the operations to be performed. Historically, this has been achieved through mathematical notation; in this book, we use the **Python programming language**.
+- **Definiteness**: An algorithm is a formal procedure. It must be described in a language that admits no ambiguity regarding the operations to be performed. Historically, this has been achieved through mathematical notation; in this book, we use the **Python programming language**.
 
-Most academic texts rely on **pseudo-code**—a high-level, informal description of an algorithm. While pseudo-code is useful for broad strokes, it often hides subtle complexities and can be interpreted in multiple ways.
+Most academic texts rely on _pseudo-code_--a high-level, informal description of an algorithm. While pseudo-code is useful for broad strokes, it often hides subtle complexities and can be interpreted in multiple ways.
 
 In **The Algorithm Codex**, we deliberately avoid pseudo-code in favor of actual, runnable **Python 3.13**. By using a real programming language, we ensure that every operation is precisely defined and that the implementations you see are ready to be tested, scrutinized, and executed. This approach removes the "translation layer" between theory and practice, making the logic transparent and absolute.
 
@@ -54,19 +54,24 @@ Of course, this is an abstraction. In a real computer, multiplication is more ex
 
 Furthermore, we rarely care about the absolute number of steps. Knowing that a specific sort takes exactly 1,024 operations is less useful than knowing how that cost grows as the input size $n$ increases.
 
-The core of algorithmic analysis is **scaling**. For example:
+The core of algorithmic analysis is to look at how an algorithm time or memory cost _scales_ with data. For example, an algorith that checks all items in a list exactly once scales _linearly_, which means if you double the size of the input, you expect the running time to double. However, an algorithm that scales _quadratically_ with the input size--for example, if you compare each item in a list with all others--has a very different behavior: if you double the input size, that algorithm _quadruples_ its runnign time.
 
-- **Constant Cost ($O(1)$):** If you have a list of items and you want to access the 42nd element, that operation has a unitary cost of 1. It does not matter if the list has 1,000 items, 1 million items, or 1 billion items; the effort required to jump to that specific index remains the same.
-- **Linear Cost ($O(n)$):** If you want to count every item in that list, you must visit each one. If the size of the input doubles, the cost of the operation doubles. If you have 1,000 items, the cost is 1,000; if you have 1 million, the cost is 1 million.
+The reason we care about scaling behavior rather than actual runtime cost is thus three-fold. First, it lets us reason about the efficiency of two different algorithms regardless of the hardware. If my algorithm scales better than yours, they will both be faster on fast hardware, and slower on slow hardware, but mine will beat yours in every ocasion. No need to discuss which hardware to buy to decide here.
 
-To formalize these scaling patterns, we use **asymptotic notation**, a terminology borrowed from mathematical analysis. This allows us to categorize algorithms into growth classes:
+But more importantly, if my algorithm is written with poor optimizations or in a slower language--like Python--but yours is written in C++, you might get an edge on small instances because you can run a tight loop in one milisecond while I need ten miliseconds to do the same. However, as the input data becomes larger and larger, there is a point after which your super optimized quadratic algorithm will always be worse than my lazy linear algorithm. This shouldn't be a justification to write lazy algorithms, but it does tells us we should focus on improving the high-level asymptotic complexity before low-level optimization tricks.
 
-- **$O(1)$ - Constant Time**: The cost is independent of the input size.
-- **$O(n)$ - Linear Time**: The cost grows in direct proportion to the input size.
-- **$O(n^2)$ - Quadratic Time**: The cost grows with the square of the input size, often seen in algorithms with nested loops.
+And finally, as time goes by, we expect hardware to improve, and thus we hope to tackle bigger and bigger problems with the same algorithms. If my algorithm scales linearly, next year when I get access to a twice-as-fast computer, I expect to solve a twice-as-big problem with the same resources (time and memory). However, if my algorithm scales quadratically, I have to wait until I get a computer four-times-as-fast to tackle a twice-as-big problem.
 
-By focusing on these growth rates, we can determine the "efficiency ceiling" of our solutions and decide whether we have found the optimal approach for a given problem.
+## Formalizing scaling behavior
+
+Thus, scaling is what we care about. To formalize this notion we use something called **asymptotic notation**, which looks like this. If we want to say an algorithm scales _roughly linearly_ with input size, we say its running time (or memory) cost is $O(n)$.
+
+Formally, this means the running time (or memory) can be expressed as some function $f(n)$ that grows as slow or slower than the linear function $g(n) = n$. In mathematical terms, we say there exists a constant $c$ and an input size $n_0$ such that for all $n > n_0$ we have $f(n) <= c \cdot g(n)$.
+
+The nice thing about this formulation is that it lets us gloss over all the tiny details of an algorithm and talk just about the rough growth rate. It is easy to prove--although we won't do it--that in asymptotic analysis we can throw away constants and lower order terms, and just keep the higher order function. For example, if some algorithm has a time cost of $f(n) = 3n + 2$, that is still $O(n)$.
+
+In this book, however, we won't concern ourselves too much with being strict at complexity analysis. For the most part, we will rely on intuitions like a single for loop is $O(n)$ and a double-nested loop is $O(n^2)$. However, for some algorithms we will need to perform a slightly more nuanced analysis to arrive at asymptotic cost functions like $O(n \log n)$ which are neither linear nor quadratic, and have their own and very interesting scaling behavior.
 
 ## Final Words
 
-Now that we have settled our expectations, you are ready to start the journey. It will be fast-paced but--I hope--really exciting. We will discover many algorithms, close to a hundred of them! And in each case, we ill ask ourselves these same three questions. And, surprisingly often, we will be able to answer them pretty well!
+Now that we have settled our expectations, you are ready to start the journey. It will be fast-paced but--I hope--really exciting. We will discover many algorithms, close to a hundred of them! And in each case, we will ask ourselves these same three questions. And, surprisingly often, we will be able to answer them pretty well!
