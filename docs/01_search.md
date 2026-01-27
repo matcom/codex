@@ -23,6 +23,8 @@ from typing import Sequence
 
 Linear search is the most basic form of search. We have a sequence of elements, and we must determine whether one specific element is among them. Since we cannot assume anything at all from the sequence, our only option is to check them all.
 
+
+::: {#lst-linear-search}
 ```python {export=src/codex/search/linear.py}
 def find[T](x:T, items: Sequence[T]) -> bool:
     for y in items:
@@ -32,6 +34,11 @@ def find[T](x:T, items: Sequence[T]) -> bool:
     return False
 
 ```
+
+**Linear Search:** Check every item in a sequence until a match is found or the collection is exhausted.
+
+:::
+
 Our first test will be a sanity check for simple cases:
 
 ```python {export=tests/search/test_linear.py}
@@ -85,6 +92,8 @@ This proves that the lower bound for searching an unstructured sequence is $\Ome
 
 The `find` method is good to know if an element exists in a sequence, but it doesn't tell us _where_. We can easily extend it to return an _index_. We thus define the `index` method, with the following condition: if `index(x,l) == i` then `l[i] == x`. That is, `index` returns the **first** index where we can find a given element `x`.
 
+::: {#lst-linear-index}
+
 ```python {export=src/codex/search/linear.py}
 def index[T](x: T, items: Sequence[T]) -> int | None:
     for i,y in enumerate(items):
@@ -94,6 +103,9 @@ def index[T](x: T, items: Sequence[T]) -> int | None:
     return None
 
 ```
+**Linear Index:** Check every item until found, and return the corresponding index, or `None`.
+
+:::
 
 When the item is not present in the sequence, we return `None`. We could raise an exception instead, but that would force a lot of defensive programming.
 
@@ -111,6 +123,8 @@ def test_index():
 ```
 As a final step in the linear search paradigm, let's consider the problem of finding not the first, but _all_ occurrences of a given item. We'll call this function `count`. It will return the number of occurrences of some item `x` in a sequence.
 
+::: {#lst-linear-count}
+
 ```python {export=src/codex/search/linear.py}
 def count[T](x: T, items: Sequence[T]) -> int:
     c = 0
@@ -122,6 +136,10 @@ def count[T](x: T, items: Sequence[T]) -> int:
     return c
 
 ```
+
+**Linear Count:** Check all items equal to the input and count them.
+
+:::
 
 Let's write some simple tests for this method.
 

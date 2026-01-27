@@ -1,6 +1,10 @@
 project:
   type: book
 
+crossref:
+  lst-title: "Algorithm"
+  lst-prefix: "Algorithm"
+
 book:
   title: "The Algorithm Codex"
   author: "Alejandro Piad-Morffis, Ph.D."
