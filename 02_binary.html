@@ -296,14 +296,11 @@ window.Quarto = {
         <nav id="TOC" role="doc-toc" class="toc-active">
     <h2 id="toc-title">Table of contents</h2>
    
-  <ul>
-  <li><a href="#binary-search" id="toc-binary-search" class="nav-link active" data-scroll-target="#binary-search"><span class="header-section-number">2.1</span> Binary Search</a></li>
-  <li><a href="#bisection" id="toc-bisection" class="nav-link" data-scroll-target="#bisection"><span class="header-section-number">2.2</span> Bisection</a></li>
-  <li><a href="#binary-search-on-predicates" id="toc-binary-search-on-predicates" class="nav-link" data-scroll-target="#binary-search-on-predicates"><span class="header-section-number">2.3</span> Binary Search on Predicates</a>
   <ul class="collapse">
-  <li><a href="#verification" id="toc-verification" class="nav-link" data-scroll-target="#verification"><span class="header-section-number">2.3.1</span> Verification</a></li>
-  </ul></li>
-  <li><a href="#conclusion" id="toc-conclusion" class="nav-link" data-scroll-target="#conclusion"><span class="header-section-number">2.4</span> Conclusion</a></li>
+  <li><a href="#binary-search" id="toc-binary-search" class="nav-link active" data-scroll-target="#binary-search">Binary Search</a></li>
+  <li><a href="#bisection" id="toc-bisection" class="nav-link" data-scroll-target="#bisection">Bisection</a></li>
+  <li><a href="#binary-search-on-predicates" id="toc-binary-search-on-predicates" class="nav-link" data-scroll-target="#binary-search-on-predicates">Binary Search on Predicates</a></li>
+  <li><a href="#conclusion" id="toc-conclusion" class="nav-link" data-scroll-target="#conclusion">Conclusion</a></li>
   </ul>
 </nav>
     </div>
@@ -338,8 +335,8 @@ window.Quarto = {
 <p>If we pick <span class="math inline">\(y\)</span> too close to either end, we can get lucky and cross off a large number of items. For example if <span class="math inline">\(y\)</span> is in the last 5% of the sequence, and it turns out <span class="math inline">\(x &gt; y\)</span>, we have just removed the first 95% of the sequence without looking at it! But of course, we won’t get <em>that</em> lucky too often. In fact, if <span class="math inline">\(x\)</span> is a random input, it could potentially be anywhere in the sequence. Under the fairly mild assumption that <span class="math inline">\(x\)</span> should be uniformly distributed among all indices in the sequences, we will get <em>this</em> lucky exactly 5% of the time. The other 95! we have almost as much work to do as in the beginning.</p>
 <p>It should be obvious by now that the best way to pick <span class="math inline">\(y\)</span> either case is to choose the middle of the sequence. In that way I always cross off 50% of the items, regardless of luck. This is good, we just removed a huge chunk. But it gets even better.</p>
 <p>Now, instead of looking for <span class="math inline">\(x\)</span> linearly in the remaining 50% of the items, we do the exact same thing again! We take the middle point of the current half, and now we can cross off another 25% of the items. If we keep repeating this over and over, how fast will we be left with just one item? Keep that thought in mind.</p>
-<section id="binary-search" class="level2" data-number="2.1">
-<h2 data-number="2.1" class="anchored" data-anchor-id="binary-search"><span class="header-section-number">2.1</span> Binary Search</h2>
+<section id="binary-search" class="level2">
+<h2 class="anchored" data-anchor-id="binary-search">Binary Search</h2>
 <p>Before doing the math, here is the most straightforward implemenation of binary search. We will use two indices, <code>l(eft)</code> and <code>r(ight)</code> to keep track of the current sub-sequence we are analyzing. As long as <code>l &lt;= r</code> there is at least one item left to test. Once <code>l &gt; r</code>, we must conclude <code>x</code> is not in the sequence.</p>
 <p>Here goes the code.</p>
 <div class="sourceCode" id="cb1" data-export="src/codex/search/binary.py"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> typing <span class="im">import</span> Sequence</span>
@@ -372,8 +369,8 @@ window.Quarto = {
 <span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>    <span class="cf">assert</span> binary_search(<span class="dv">3</span>, items) <span class="op">==</span> <span class="dv">3</span></span>
 <span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>    <span class="cf">assert</span> binary_search(<span class="dv">10</span>, items) <span class="kw">is</span> <span class="va">None</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </section>
-<section id="bisection" class="level2" data-number="2.2">
-<h2 data-number="2.2" class="anchored" data-anchor-id="bisection"><span class="header-section-number">2.2</span> Bisection</h2>
+<section id="bisection" class="level2">
+<h2 class="anchored" data-anchor-id="bisection">Bisection</h2>
 <p>Standard binary search is excellent for determining if an element exists, but it provides no guarantees about which index is returned if the sequence contains duplicates. In many applications—such as range queries or maintaining a sorted list—we need to find the specific boundaries where an element resides or where it should be inserted to maintain order.</p>
 <p>This is the problem of <strong>bisection</strong>. We define two variants: <code>bisect_left</code> and <code>bisect_right</code>.</p>
 <p>The <code>bisect_left</code> function finds the first index where an element <code>x</code> could be inserted while maintaining the sorted order of the sequence. If <code>x</code> is already present, the insertion point will be before (to the left of) any existing entries. Effectively, it returns the index of the first element that is not “less than” <code>x</code>.</p>
@@ -439,11 +436,10 @@ window.Quarto = {
 <span id="cb5-19"><a href="#cb5-19" aria-hidden="true" tabindex="-1"></a>    <span class="cf">assert</span> bisect_left(<span class="dv">0</span>, items) <span class="op">==</span> <span class="dv">0</span></span>
 <span id="cb5-20"><a href="#cb5-20" aria-hidden="true" tabindex="-1"></a>    <span class="cf">assert</span> bisect_right(<span class="dv">4</span>, items) <span class="op">==</span> <span class="dv">3</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </section>
-<section id="binary-search-on-predicates" class="level2" data-number="2.3">
-<h2 data-number="2.3" class="anchored" data-anchor-id="binary-search-on-predicates"><span class="header-section-number">2.3</span> Binary Search on Predicates</h2>
+<section id="binary-search-on-predicates" class="level2">
+<h2 class="anchored" data-anchor-id="binary-search-on-predicates">Binary Search on Predicates</h2>
 <p>The true power of binary search extends far beyond finding a number in a list. We can generalize the algorithm to find the “boundary” of any <strong>monotonic predicate</strong>.</p>
-<p>A predicate is monotonic if, once it becomes true for some index , it remains true for all . Formally, if , we can use binary search to find the smallest index such that is true. This is often called “Binary Search on the Answer.”</p>
-<p>Instead of searching through a physical collection of items, we are searching through an abstract <strong>decision space</strong>.</p>
+<p>A predicate <span class="math inline">\(p\)</span> is monotonic if, once it becomes true for some index <span class="math inline">\(i\)</span>, it remains true for all <span class="math inline">\(j&gt;i\)</span>. We can use binary search to find the smallest index <span class="math inline">\(i\)</span> such that <span class="math inline">\(p(i)\)</span> is true. This is often called binary searching on the answer. Instead of searching through a physical collection of items, we are searching through an abstract <strong>decision space</strong>.</p>
 <div class="sourceCode" id="cb6" data-export="src/codex/search/binary.py"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> typing <span class="im">import</span> Callable</span>
 <span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> find_first(</span>
@@ -466,7 +462,7 @@ window.Quarto = {
 <span id="cb6-20"><a href="#cb6-20" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb6-21"><a href="#cb6-21" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> ans</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <p>Consider the problem of finding the integer square root of a very large number —that is, the largest integer such that . While we could use <code>math.sqrt</code>, binary search allows us to find this value using only integer arithmetic, which is vital in fields like cryptography or when dealing with arbitrary-precision integers.</p>
-<p>Our predicate is: <strong>“Is ?”</strong> This is monotonic: if , then is certainly . By finding the <em>first</em> where , we know that is our desired integer square root.</p>
+<p>Our predicate <span class="math inline">\(p\)</span> is: “Is <span class="math inline">\(x^2 &gt; n\)</span>?” This is monotonic: if <span class="math inline">\(x^2 &gt; n\)</span>, then <span class="math inline">\((x+1)^2\)</span> is certainly greater than <span class="math inline">\(n\)</span>. By finding the <em>first</em> <span class="math inline">\(x\)</span> where <span class="math inline">\(x^x &gt; n\)</span>, we know that <span class="math inline">\(x-1\)</span> is our desired integer square root.</p>
 <div class="sourceCode" id="cb7" data-export="src/codex/search/binary.py"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> integer_sqrt(n: <span class="bu">int</span>) <span class="op">-&gt;</span> <span class="bu">int</span>:</span>
 <span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> n <span class="op">&lt;</span> <span class="dv">0</span>:</span>
 <span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>        <span class="cf">raise</span> <span class="pp">ValueError</span>(<span class="st">"Square root not defined for negative numbers"</span>)</span>
@@ -477,10 +473,10 @@ window.Quarto = {
 <span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a>    first_too_big <span class="op">=</span> find_first(<span class="dv">1</span>, n, <span class="kw">lambda</span> x: x <span class="op">*</span> x <span class="op">&gt;</span> n)</span>
 <span id="cb7-9"><a href="#cb7-9" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb7-10"><a href="#cb7-10" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> first_too_big <span class="op">-</span> <span class="dv">1</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-<p>This approach reveals a deep connection between <strong>searching and optimization</strong>. Many problems that ask for a “minimum possible such that is possible” can be solved by binary searching over the value of , provided that the possibility is monotonic relative to .</p>
-<p>Whenever you encounter a problem where a “yes” answer for a value implies a “yes” for all values larger than , you are no longer looking for an item—you are looking for a <strong>threshold</strong>. Binary search is the most efficient way to discover it.</p>
-<section id="verification" class="level3" data-number="2.3.1">
-<h3 data-number="2.3.1" class="anchored" data-anchor-id="verification"><span class="header-section-number">2.3.1</span> Verification</h3>
+<p>This approach reveals a deep connection between <strong>searching and optimization</strong>. Many problems that ask for a “minimum possible <span class="math inline">\(x\)</span> such that <span class="math inline">\(p(x)\)</span> is possible” can be solved by binary searching over the value of <span class="math inline">\(x\)</span>, provided that the possibility <span class="math inline">\(p\)</span> is monotonic relative to <span class="math inline">\(x\)</span>.</p>
+<p>Whenever you encounter a problem where a “yes” answer for a value <span class="math inline">\(x\)</span> implies a “yes” for all values larger than <span class="math inline">\(x\)</span>, you are no longer looking for an item—you are looking for a <strong>threshold</strong>. Binary search is the most efficient way to discover it.</p>
+<section id="verification" class="level3">
+<h3 class="anchored" data-anchor-id="verification">Verification</h3>
 <p>We can verify this generalized search and its application to the integer square root problem with the following tests.</p>
 <div class="sourceCode" id="cb8" data-export="tests/search/test_binary.py"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> codex.search.binary <span class="im">import</span> find_first, integer_sqrt</span>
 <span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a></span>
@@ -501,8 +497,8 @@ window.Quarto = {
 <span id="cb8-17"><a href="#cb8-17" aria-hidden="true" tabindex="-1"></a>    <span class="cf">assert</span> integer_sqrt(<span class="dv">10</span><span class="op">**</span><span class="dv">20</span>) <span class="op">==</span> <span class="dv">10</span><span class="op">**</span><span class="dv">10</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </section>
 </section>
-<section id="conclusion" class="level2" data-number="2.4">
-<h2 data-number="2.4" class="anchored" data-anchor-id="conclusion"><span class="header-section-number">2.4</span> Conclusion</h2>
+<section id="conclusion" class="level2">
+<h2 class="anchored" data-anchor-id="conclusion">Conclusion</h2>
 <p>Searching is arguably the most important problem in Computer Science. In this first chapter, we have only scratched the surface of this vast field, but in doing so, we have discovered one of the fundamental truths of computation: structure matters–a lot.</p>
 <p>When we know nothing about the structure of our problem or the collection of items we are searching through, we have no choice but to rely on exhaustive methods like linear search. In these cases, we must check every single item to determine if it is the one we care about.</p>
 <p>However, as soon as we introduce some structure–specifically, some <em>order</em>–the landscape changes completely. Binary search allows us to exploit this structure to find an element as fast as is theoretically possible, reducing our workload from a linear progression to a logarithmic one.</p>

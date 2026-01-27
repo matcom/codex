@@ -296,11 +296,11 @@ window.Quarto = {
         <nav id="TOC" role="doc-toc" class="toc-active">
     <h2 id="toc-title">Table of contents</h2>
    
-  <ul>
-  <li><a href="#counting-sort" id="toc-counting-sort" class="nav-link active" data-scroll-target="#counting-sort"><span class="header-section-number">6.1</span> Counting Sort</a></li>
-  <li><a href="#radix-sort-sorting-by-digits" id="toc-radix-sort-sorting-by-digits" class="nav-link" data-scroll-target="#radix-sort-sorting-by-digits"><span class="header-section-number">6.2</span> Radix Sort: Sorting by Digits</a></li>
-  <li><a href="#verification" id="toc-verification" class="nav-link" data-scroll-target="#verification"><span class="header-section-number">6.3</span> Verification</a></li>
-  <li><a href="#conclusions" id="toc-conclusions" class="nav-link" data-scroll-target="#conclusions"><span class="header-section-number">6.4</span> Conclusions</a></li>
+  <ul class="collapse">
+  <li><a href="#counting-sort" id="toc-counting-sort" class="nav-link active" data-scroll-target="#counting-sort">Counting Sort</a></li>
+  <li><a href="#radix-sort-sorting-by-digits" id="toc-radix-sort-sorting-by-digits" class="nav-link" data-scroll-target="#radix-sort-sorting-by-digits">Radix Sort: Sorting by Digits</a></li>
+  <li><a href="#verification" id="toc-verification" class="nav-link" data-scroll-target="#verification">Verification</a></li>
+  <li><a href="#conclusions" id="toc-conclusions" class="nav-link" data-scroll-target="#conclusions">Conclusions</a></li>
   </ul>
 </nav>
     </div>
@@ -328,8 +328,8 @@ window.Quarto = {
 
 <p>This chapter concludes our exploration of sorting by demonstrating that the limit we established is not a universal law, but a specific constraint of <strong>comparison-based algorithms</strong>. If we possess even deeper knowledge about the structure of our data—specifically that it consists of discrete values within a known range—we can bypass comparisons entirely and achieve true linear time performance.</p>
 <p>In the previous chapters, we operated under the assumption that the only way to gain information about our items was to compare them. However, when our data has a predictable, bounded structure, we can use the values themselves as <strong>indices</strong>. This shifts the problem from “which is bigger?” to “how many of each value do we have?”.</p>
-<section id="counting-sort" class="level2" data-number="6.1">
-<h2 data-number="6.1" class="anchored" data-anchor-id="counting-sort"><span class="header-section-number">6.1</span> Counting Sort</h2>
+<section id="counting-sort" class="level2">
+<h2 class="anchored" data-anchor-id="counting-sort">Counting Sort</h2>
 <p><strong>Counting Sort</strong> is the purest expression of this idea. If we know that every element in a sequence is an integer in the range , we can simply count the occurrences of each integer. By calculating the cumulative sum of these counts, we determine the exact position each element should occupy in the final sorted array.</p>
 <div class="sourceCode" id="cb1" data-export="src/codex/sort/linear.py"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> typing <span class="im">import</span> MutableSequence, Callable, List</span>
 <span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> codex.types <span class="im">import</span> Ordering, default_order</span>
@@ -358,8 +358,8 @@ window.Quarto = {
 <span id="cb1-25"><a href="#cb1-25" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> output</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <p>Counting Sort performs exactly two passes over the input and one pass over the range <span class="math inline">\(O(k)\)</span>. This results in a time complexity of <span class="math inline">\(O(n+k)\)</span>. When <span class="math inline">\(k = O(n)\)</span>, the algorithm is strictly linear. The cost, however, is <strong>space complexity</strong>: we require an auxiliary array of size <span class="math inline">\(k\)</span>. If <span class="math inline">\(k\)</span> is significantly larger than <span class="math inline">\(n\)</span>, this becomes impractical.</p>
 </section>
-<section id="radix-sort-sorting-by-digits" class="level2" data-number="6.2">
-<h2 data-number="6.2" class="anchored" data-anchor-id="radix-sort-sorting-by-digits"><span class="header-section-number">6.2</span> Radix Sort: Sorting by Digits</h2>
+<section id="radix-sort-sorting-by-digits" class="level2">
+<h2 class="anchored" data-anchor-id="radix-sort-sorting-by-digits">Radix Sort: Sorting by Digits</h2>
 <p>To handle larger ranges without massive memory overhead, we use <strong>Radix Sort</strong>. The intuition here is to view each number (or string) as a sequence of “digits.” We sort the collection multiple times, once for each digit position, starting from the <strong>least significant digit</strong> (LSD).</p>
 <p>Crucially, each pass must be a <strong>stable sort</strong>. By using Counting Sort as the stable subroutine for each digit, we can sort numbers in any range by breaking them into digits.</p>
 <div class="sourceCode" id="cb2" data-export="src/codex/sort/linear.py"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> radix_sort(items: MutableSequence[<span class="bu">int</span>], base: <span class="bu">int</span> <span class="op">=</span> <span class="dv">10</span>) <span class="op">-&gt;</span> List[<span class="bu">int</span>]:</span>
@@ -393,8 +393,8 @@ window.Quarto = {
 <span id="cb2-29"><a href="#cb2-29" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> res</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <p>Radix Sort runs in $O(d(n+k)) time, where <span class="math inline">\(d\)</span> is the number of digits and <span class="math inline">\(k\)</span> is the base. Because <span class="math inline">\(d\)</span> is constant for a fixed word size (e.g., 32-bit or 64-bit integers), the algorithm remains linear relative to <span class="math inline">\(n\)</span>. This is the preferred method for sorting large sets of integers or fixed-length strings where memory is constrained compared to the range of values.</p>
 </section>
-<section id="verification" class="level2" data-number="6.3">
-<h2 data-number="6.3" class="anchored" data-anchor-id="verification"><span class="header-section-number">6.3</span> Verification</h2>
+<section id="verification" class="level2">
+<h2 class="anchored" data-anchor-id="verification">Verification</h2>
 <p>We verify these linear approaches by testing them against various integer ranges and sequences.</p>
 <div class="sourceCode" id="cb3" data-export="tests/sort/test_linear_sort.py"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> pytest</span>
 <span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> codex.sort.linear <span class="im">import</span> counting_sort, radix_sort</span>
@@ -409,8 +409,8 @@ window.Quarto = {
 <span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>    expected <span class="op">=</span> [<span class="dv">2</span>, <span class="dv">24</span>, <span class="dv">45</span>, <span class="dv">66</span>, <span class="dv">75</span>, <span class="dv">90</span>, <span class="dv">170</span>, <span class="dv">802</span>]</span>
 <span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>    <span class="cf">assert</span> radix_sort(items) <span class="op">==</span> expected</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </section>
-<section id="conclusions" class="level2" data-number="6.4">
-<h2 data-number="6.4" class="anchored" data-anchor-id="conclusions"><span class="header-section-number">6.4</span> Conclusions</h2>
+<section id="conclusions" class="level2">
+<h2 class="anchored" data-anchor-id="conclusions">Conclusions</h2>
 <p>The algorithms in this chapter serve as a powerful reminder that <strong>theoretical limits are often tied to specific constraints</strong>. By moving away from the “black box” of comparison—where we know nothing about items except their relative order—to a model where we exploit the internal structure of keys, we successfully broke the <span class="math inline">\(O(n \log n)\)</span> barrier.</p>
 <p>Through <strong>Counting Sort</strong>, we saw how integers can be used directly as indices to map values to their final positions in <span class="math inline">\(O(n + k)\)</span> time. With <strong>Radix Sort</strong>, we extended this principle to larger ranges by decomposing keys into digits, maintaining linearity through multiple stable passes.</p>
 <p>However, this efficiency is not a “free lunch.” We have traded mathematical generality for <strong>physical memory</strong>, as these algorithms require auxiliary space proportional to the range of values (<span class="math inline">\(O(k)\)</span>) or the base used for digits. Furthermore, they are only applicable to discrete, bounded data types.</p>

@@ -261,10 +261,11 @@ window.Quarto = {
         <nav id="TOC" role="doc-toc" class="toc-active">
     <h2 id="toc-title">Table of contents</h2>
    
-  <ul>
+  <ul class="collapse">
   <li><a href="#what-is-an-algorithm" id="toc-what-is-an-algorithm" class="nav-link active" data-scroll-target="#what-is-an-algorithm">What is an Algorithm?</a></li>
   <li><a href="#analyzing-algorithms" id="toc-analyzing-algorithms" class="nav-link" data-scroll-target="#analyzing-algorithms">Analyzing Algorithms</a></li>
   <li><a href="#measuring-efficiency" id="toc-measuring-efficiency" class="nav-link" data-scroll-target="#measuring-efficiency">Measuring Efficiency</a></li>
+  <li><a href="#formalizing-scaling-behavior" id="toc-formalizing-scaling-behavior" class="nav-link" data-scroll-target="#formalizing-scaling-behavior">Formalizing scaling behavior</a></li>
   <li><a href="#final-words" id="toc-final-words" class="nav-link" data-scroll-target="#final-words">Final Words</a></li>
   </ul>
 </nav>
@@ -294,14 +295,14 @@ window.Quarto = {
 <p>Before we begin our journey through specific algorithms, we must establish the ground on which we stand. To study algorithms is to study the limits of what can be computed and the cost of doing so.</p>
 <section id="what-is-an-algorithm" class="level2">
 <h2 class="anchored" data-anchor-id="what-is-an-algorithm">What is an Algorithm?</h2>
-<p>At its simplest, an algorithm is a procedure that takes an input and produces an output. However, in this Codex, we view an algorithm as a <strong>formal mathematical object</strong>—a precise strategy that exploits the structure of data to achieve an outcome efficiently.</p>
+<p>At its simplest, an algorithm is a mechanical procedure that takes an input and produces an output. However, in this Codex, we view an algorithm as a <strong>formal mathematical object</strong>–a precise strategy that exploits the structure of data to achieve an outcome efficiently.</p>
 <p>To be considered a valid algorithm in our context, a procedure must satisfy several key characteristics:</p>
 <ul>
-<li><strong>Finiteness</strong>: The description of the algorithm itself must be finite. Furthermore, for any valid input, the algorithm must always finish within a finite amount of time.</li>
+<li><strong>Finiteness</strong>: The description of the algorithm itself must be finite. Furthermore, for any valid input, the algorithm must always finish within a finite amount of time, for any given input.</li>
 <li><strong>Correctness</strong>: The algorithm must always produce the correct answer for every valid input within its problem class.</li>
-<li><strong>Definiteness (Formality)</strong>: An algorithm is a formal procedure. It must be described in a language that admits no ambiguity regarding the operations to be performed. Historically, this has been achieved through mathematical notation; in this book, we use the <strong>Python programming language</strong>.</li>
+<li><strong>Definiteness</strong>: An algorithm is a formal procedure. It must be described in a language that admits no ambiguity regarding the operations to be performed. Historically, this has been achieved through mathematical notation; in this book, we use the <strong>Python programming language</strong>.</li>
 </ul>
-<p>Most academic texts rely on <strong>pseudo-code</strong>—a high-level, informal description of an algorithm. While pseudo-code is useful for broad strokes, it often hides subtle complexities and can be interpreted in multiple ways.</p>
+<p>Most academic texts rely on <em>pseudo-code</em>–a high-level, informal description of an algorithm. While pseudo-code is useful for broad strokes, it often hides subtle complexities and can be interpreted in multiple ways.</p>
 <p>In <strong>The Algorithm Codex</strong>, we deliberately avoid pseudo-code in favor of actual, runnable <strong>Python 3.13</strong>. By using a real programming language, we ensure that every operation is precisely defined and that the implementations you see are ready to be tested, scrutinized, and executed. This approach removes the “translation layer” between theory and practice, making the logic transparent and absolute.</p>
 </section>
 <section id="analyzing-algorithms" class="level2">
@@ -329,22 +330,21 @@ window.Quarto = {
 </ul>
 <p>Of course, this is an abstraction. In a real computer, multiplication is more expensive than addition, floating-point numbers carry additional costs, and memory is structured into complex layers of cache. However, the RAM model works exceptionally well for comparing algorithms in the abstract because it glosses over details that are often unimportant in the grand scheme of complexity. It only begins to break down in specialized areas, such as <strong>numerical algorithms</strong>, where the exact cost of multiplications versus additions or the precise layout of numbers in memory becomes critical to performance.</p>
 <p>Furthermore, we rarely care about the absolute number of steps. Knowing that a specific sort takes exactly 1,024 operations is less useful than knowing how that cost grows as the input size <span class="math inline">\(n\)</span> increases.</p>
-<p>The core of algorithmic analysis is <strong>scaling</strong>. For example:</p>
-<ul>
-<li><strong>Constant Cost (<span class="math inline">\(O(1)\)</span>):</strong> If you have a list of items and you want to access the 42nd element, that operation has a unitary cost of 1. It does not matter if the list has 1,000 items, 1 million items, or 1 billion items; the effort required to jump to that specific index remains the same.</li>
-<li><strong>Linear Cost (<span class="math inline">\(O(n)\)</span>):</strong> If you want to count every item in that list, you must visit each one. If the size of the input doubles, the cost of the operation doubles. If you have 1,000 items, the cost is 1,000; if you have 1 million, the cost is 1 million.</li>
-</ul>
-<p>To formalize these scaling patterns, we use <strong>asymptotic notation</strong>, a terminology borrowed from mathematical analysis. This allows us to categorize algorithms into growth classes:</p>
-<ul>
-<li><strong><span class="math inline">\(O(1)\)</span> - Constant Time</strong>: The cost is independent of the input size.</li>
-<li><strong><span class="math inline">\(O(n)\)</span> - Linear Time</strong>: The cost grows in direct proportion to the input size.</li>
-<li><strong><span class="math inline">\(O(n^2)\)</span> - Quadratic Time</strong>: The cost grows with the square of the input size, often seen in algorithms with nested loops.</li>
-</ul>
-<p>By focusing on these growth rates, we can determine the “efficiency ceiling” of our solutions and decide whether we have found the optimal approach for a given problem.</p>
+<p>The core of algorithmic analysis is to look at how an algorithm time or memory cost <em>scales</em> with data. For example, an algorith that checks all items in a list exactly once scales <em>linearly</em>, which means if you double the size of the input, you expect the running time to double. However, an algorithm that scales <em>quadratically</em> with the input size–for example, if you compare each item in a list with all others–has a very different behavior: if you double the input size, that algorithm <em>quadruples</em> its runnign time.</p>
+<p>The reason we care about scaling behavior rather than actual runtime cost is thus three-fold. First, it lets us reason about the efficiency of two different algorithms regardless of the hardware. If my algorithm scales better than yours, they will both be faster on fast hardware, and slower on slow hardware, but mine will beat yours in every ocasion. No need to discuss which hardware to buy to decide here.</p>
+<p>But more importantly, if my algorithm is written with poor optimizations or in a slower language–like Python–but yours is written in C++, you might get an edge on small instances because you can run a tight loop in one milisecond while I need ten miliseconds to do the same. However, as the input data becomes larger and larger, there is a point after which your super optimized quadratic algorithm will always be worse than my lazy linear algorithm. This shouldn’t be a justification to write lazy algorithms, but it does tells us we should focus on improving the high-level asymptotic complexity before low-level optimization tricks.</p>
+<p>And finally, as time goes by, we expect hardware to improve, and thus we hope to tackle bigger and bigger problems with the same algorithms. If my algorithm scales linearly, next year when I get access to a twice-as-fast computer, I expect to solve a twice-as-big problem with the same resources (time and memory). However, if my algorithm scales quadratically, I have to wait until I get a computer four-times-as-fast to tackle a twice-as-big problem.</p>
+</section>
+<section id="formalizing-scaling-behavior" class="level2">
+<h2 class="anchored" data-anchor-id="formalizing-scaling-behavior">Formalizing scaling behavior</h2>
+<p>Thus, scaling is what we care about. To formalize this notion we use something called <strong>asymptotic notation</strong>, which looks like this. If we want to say an algorithm scales <em>roughly linearly</em> with input size, we say its running time (or memory) cost is <span class="math inline">\(O(n)\)</span>.</p>
+<p>Formally, this means the running time (or memory) can be expressed as some function <span class="math inline">\(f(n)\)</span> that grows as slow or slower than the linear function <span class="math inline">\(g(n) = n\)</span>. In mathematical terms, we say there exists a constant <span class="math inline">\(c\)</span> and an input size <span class="math inline">\(n_0\)</span> such that for all <span class="math inline">\(n &gt; n_0\)</span> we have <span class="math inline">\(f(n) &lt;= c \cdot g(n)\)</span>.</p>
+<p>The nice thing about this formulation is that it lets us gloss over all the tiny details of an algorithm and talk just about the rough growth rate. It is easy to prove–although we won’t do it–that in asymptotic analysis we can throw away constants and lower order terms, and just keep the higher order function. For example, if some algorithm has a time cost of <span class="math inline">\(f(n) = 3n + 2\)</span>, that is still <span class="math inline">\(O(n)\)</span>.</p>
+<p>In this book, however, we won’t concern ourselves too much with being strict at complexity analysis. For the most part, we will rely on intuitions like a single for loop is <span class="math inline">\(O(n)\)</span> and a double-nested loop is <span class="math inline">\(O(n^2)\)</span>. However, for some algorithms we will need to perform a slightly more nuanced analysis to arrive at asymptotic cost functions like <span class="math inline">\(O(n \log n)\)</span> which are neither linear nor quadratic, and have their own and very interesting scaling behavior.</p>
 </section>
 <section id="final-words" class="level2">
 <h2 class="anchored" data-anchor-id="final-words">Final Words</h2>
-<p>Now that we have settled our expectations, you are ready to start the journey. It will be fast-paced but–I hope–really exciting. We will discover many algorithms, close to a hundred of them! And in each case, we ill ask ourselves these same three questions. And, surprisingly often, we will be able to answer them pretty well!</p>
+<p>Now that we have settled our expectations, you are ready to start the journey. It will be fast-paced but–I hope–really exciting. We will discover many algorithms, close to a hundred of them! And in each case, we will ask ourselves these same three questions. And, surprisingly often, we will be able to answer them pretty well!</p>
 
 
 </section>

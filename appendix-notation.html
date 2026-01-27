@@ -260,16 +260,10 @@ window.Quarto = {
         <nav id="TOC" role="doc-toc" class="toc-active">
     <h2 id="toc-title">Table of contents</h2>
    
-  <ul>
-  <li><a href="#the-big-o-family" id="toc-the-big-o-family" class="nav-link active" data-scroll-target="#the-big-o-family"><span class="header-section-number">B.1</span> The Big-O Family</a>
   <ul class="collapse">
-  <li><a href="#big-o-upper-bound" id="toc-big-o-upper-bound" class="nav-link" data-scroll-target="#big-o-upper-bound"><span class="header-section-number">B.1.1</span> Big-<span class="math inline">\(O\)</span> (Upper Bound)</a></li>
-  <li><a href="#big-omega-lower-bound" id="toc-big-omega-lower-bound" class="nav-link" data-scroll-target="#big-omega-lower-bound"><span class="header-section-number">B.1.2</span> Big-<span class="math inline">\(\Omega\)</span> (Lower Bound)</a></li>
-  <li><a href="#big-theta-tight-bound" id="toc-big-theta-tight-bound" class="nav-link" data-scroll-target="#big-theta-tight-bound"><span class="header-section-number">B.1.3</span> Big-<span class="math inline">\(\Theta\)</span> (Tight Bound)</a></li>
-  <li><a href="#little-o-and-little-omega-strict-bounds" id="toc-little-o-and-little-omega-strict-bounds" class="nav-link" data-scroll-target="#little-o-and-little-omega-strict-bounds"><span class="header-section-number">B.1.4</span> Little-<span class="math inline">\(o\)</span> and Little-<span class="math inline">\(\omega\)</span> (Strict Bounds)</a></li>
-  </ul></li>
-  <li><a href="#the-master-theorem" id="toc-the-master-theorem" class="nav-link" data-scroll-target="#the-master-theorem"><span class="header-section-number">B.2</span> The Master Theorem</a></li>
-  <li><a href="#the-hierarchy-of-growth" id="toc-the-hierarchy-of-growth" class="nav-link" data-scroll-target="#the-hierarchy-of-growth"><span class="header-section-number">B.3</span> The Hierarchy of Growth</a></li>
+  <li><a href="#the-big-o-family" id="toc-the-big-o-family" class="nav-link active" data-scroll-target="#the-big-o-family">The Big-O Family</a></li>
+  <li><a href="#the-master-theorem" id="toc-the-master-theorem" class="nav-link" data-scroll-target="#the-master-theorem">The Master Theorem</a></li>
+  <li><a href="#the-hierarchy-of-growth" id="toc-the-hierarchy-of-growth" class="nav-link" data-scroll-target="#the-hierarchy-of-growth">The Hierarchy of Growth</a></li>
   </ul>
 </nav>
     </div>
@@ -297,37 +291,37 @@ window.Quarto = {
 
 <p>This appendix provides a formal grounding for the “scaling intuition” introduced in the foundations of the Codex. In the study of algorithms, we are less concerned with exact cycle counts and more with <strong>asymptotic behavior</strong>: how the resource requirements of an algorithm grow as the input size <span class="math inline">\(n\)</span> approaches infinity.</p>
 <p>To analyze algorithms rigorously, we use a set of mathematical notations that allow us to ignore constant factors and lower-order terms, focusing instead on the <strong>rate of growth</strong>.</p>
-<section id="the-big-o-family" class="level2" data-number="B.1">
-<h2 data-number="B.1" class="anchored" data-anchor-id="the-big-o-family"><span class="header-section-number">B.1</span> The Big-O Family</h2>
+<section id="the-big-o-family" class="level2">
+<h2 class="anchored" data-anchor-id="the-big-o-family">The Big-O Family</h2>
 <p>Let <span class="math inline">\(f(n)\)</span> and <span class="math inline">\(g(n)\)</span> be functions mapping natural numbers to non-negative real numbers.</p>
-<section id="big-o-upper-bound" class="level3" data-number="B.1.1">
-<h3 data-number="B.1.1" class="anchored" data-anchor-id="big-o-upper-bound"><span class="header-section-number">B.1.1</span> Big-<span class="math inline">\(O\)</span> (Upper Bound)</h3>
+<section id="big-o-upper-bound" class="level3">
+<h3 class="anchored" data-anchor-id="big-o-upper-bound">Big-<span class="math inline">\(O\)</span> (Upper Bound)</h3>
 <p>We say that <span class="math inline">\(f(n) = O(g(n))\)</span> if there exist positive constants <span class="math inline">\(c\)</span> and <span class="math inline">\(n_0\)</span> such that:</p>
 <p><span class="math display">\[0 \leq f(n) \leq c \cdot g(n) \text{ for all } n \geq n_0\]</span></p>
 <p>This notation provides an asymptotic upper bound. If an algorithm is <span class="math inline">\(O(n^2)\)</span>, it will perform no worse than quadratic time for large <span class="math inline">\(n\)</span>.</p>
 </section>
-<section id="big-omega-lower-bound" class="level3" data-number="B.1.2">
-<h3 data-number="B.1.2" class="anchored" data-anchor-id="big-omega-lower-bound"><span class="header-section-number">B.1.2</span> Big-<span class="math inline">\(\Omega\)</span> (Lower Bound)</h3>
+<section id="big-omega-lower-bound" class="level3">
+<h3 class="anchored" data-anchor-id="big-omega-lower-bound">Big-<span class="math inline">\(\Omega\)</span> (Lower Bound)</h3>
 <p>We say that <span class="math inline">\(f(n) = \Omega(g(n))\)</span> if there exist positive constants <span class="math inline">\(c\)</span> and <span class="math inline">\(n_0\)</span> such that:</p>
 <p><span class="math display">\[0 \leq c \cdot g(n) \leq f(n) \text{ for all } n \geq n_0\]</span></p>
 <p><span class="math inline">\(\Omega\)</span> provides a lower bound, representing the minimum amount of work an algorithm must perform.</p>
 </section>
-<section id="big-theta-tight-bound" class="level3" data-number="B.1.3">
-<h3 data-number="B.1.3" class="anchored" data-anchor-id="big-theta-tight-bound"><span class="header-section-number">B.1.3</span> Big-<span class="math inline">\(\Theta\)</span> (Tight Bound)</h3>
+<section id="big-theta-tight-bound" class="level3">
+<h3 class="anchored" data-anchor-id="big-theta-tight-bound">Big-<span class="math inline">\(\Theta\)</span> (Tight Bound)</h3>
 <p>We say that <span class="math inline">\(f(n) = \Theta(g(n))\)</span> if <span class="math inline">\(f(n) = O(g(n))\)</span> and <span class="math inline">\(f(n) = \Omega(g(n))\)</span>. This means there exist positive constants <span class="math inline">\(c_1, c_2,\)</span> and <span class="math inline">\(n_0\)</span> such that:</p>
 <p><span class="math display">\[c_1 \cdot g(n) \leq f(n) \leq c_2 \cdot g(n) \text{ for all } n \geq n_0\]</span></p>
 <p><span class="math inline">\(\Theta\)</span> is the most descriptive notation, as it tells us the algorithm grows exactly like <span class="math inline">\(g(n)\)</span>.</p>
 </section>
-<section id="little-o-and-little-omega-strict-bounds" class="level3" data-number="B.1.4">
-<h3 data-number="B.1.4" class="anchored" data-anchor-id="little-o-and-little-omega-strict-bounds"><span class="header-section-number">B.1.4</span> Little-<span class="math inline">\(o\)</span> and Little-<span class="math inline">\(\omega\)</span> (Strict Bounds)</h3>
+<section id="little-o-and-little-omega-strict-bounds" class="level3">
+<h3 class="anchored" data-anchor-id="little-o-and-little-omega-strict-bounds">Little-<span class="math inline">\(o\)</span> and Little-<span class="math inline">\(\omega\)</span> (Strict Bounds)</h3>
 <ul>
 <li><p><strong><span class="math inline">\(f(n) = o(g(n))\)</span></strong>: The growth of <span class="math inline">\(f(n)\)</span> is strictly less than <span class="math inline">\(g(n)\)</span>. Formally, <span class="math inline">\(\lim_{n \to \infty} \frac{f(n)}{g(n)} = 0\)</span>.</p></li>
 <li><p><strong><span class="math inline">\(f(n) = \omega(g(n))\)</span></strong>: The growth of <span class="math inline">\(f(n)\)</span> is strictly greater than <span class="math inline">\(g(n)\)</span>. Formally, <span class="math inline">\(\lim_{n \to \infty} \frac{f(n)}{g(n)} = \infty\)</span>.</p></li>
 </ul>
 </section>
 </section>
-<section id="the-master-theorem" class="level2" data-number="B.2">
-<h2 data-number="B.2" class="anchored" data-anchor-id="the-master-theorem"><span class="header-section-number">B.2</span> The Master Theorem</h2>
+<section id="the-master-theorem" class="level2">
+<h2 class="anchored" data-anchor-id="the-master-theorem">The Master Theorem</h2>
 <p>Many of the most efficient algorithms in this book (like Merge Sort) use a divide-and-conquer strategy. Their complexity is often expressed as a recurrence of the form:</p>
 <p><span class="math display">\[T(n) = aT(n/b) + f(n)\]</span></p>
 <p>where <span class="math inline">\(a \geq 1\)</span> is the number of subproblems, <span class="math inline">\(b &gt; 1\)</span> is the factor by which the subproblem size is reduced, and <span class="math inline">\(f(n)\)</span> is the cost of work done outside the recursive calls. The Master Theorem provides a “cookbook” solution for such recurrences:</p>
@@ -337,8 +331,8 @@ window.Quarto = {
 <li><strong>If <span class="math inline">\(f(n) = \Omega(n^{\log_b a + \epsilon})\)</span></strong> and satisfies the regularity condition (<span class="math inline">\(af(n/b) \leq cf(n)\)</span>), then <span class="math inline">\(T(n) = \Theta(f(n))\)</span>. (Work is dominated by the root).</li>
 </ol>
 </section>
-<section id="the-hierarchy-of-growth" class="level2" data-number="B.3">
-<h2 data-number="B.3" class="anchored" data-anchor-id="the-hierarchy-of-growth"><span class="header-section-number">B.3</span> The Hierarchy of Growth</h2>
+<section id="the-hierarchy-of-growth" class="level2">
+<h2 class="anchored" data-anchor-id="the-hierarchy-of-growth">The Hierarchy of Growth</h2>
 <p>Understanding the relative order of complexity functions is essential for selecting the right algorithm for a given problem size. Below is the standard hierarchy from slowest to fastest growth:</p>
 <ol type="1">
 <li><strong><span class="math inline">\(O(1)\)</span> — Constant</strong>: Accessing an array element, simple arithmetic.</li>

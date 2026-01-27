@@ -267,14 +267,14 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
         <nav id="TOC" role="doc-toc" class="toc-active">
     <h2 id="toc-title">Table of contents</h2>
    
-  <ul>
-  <li><a href="#variables-and-basic-types" id="toc-variables-and-basic-types" class="nav-link active" data-scroll-target="#variables-and-basic-types"><span class="header-section-number">A.1</span> Variables and Basic Types</a></li>
-  <li><a href="#expressions-and-statements" id="toc-expressions-and-statements" class="nav-link" data-scroll-target="#expressions-and-statements"><span class="header-section-number">A.2</span> Expressions and Statements</a></li>
-  <li><a href="#control-flow-loops-and-conditionals" id="toc-control-flow-loops-and-conditionals" class="nav-link" data-scroll-target="#control-flow-loops-and-conditionals"><span class="header-section-number">A.3</span> Control Flow: Loops and Conditionals</a></li>
-  <li><a href="#functions" id="toc-functions" class="nav-link" data-scroll-target="#functions"><span class="header-section-number">A.4</span> Functions</a></li>
-  <li><a href="#classes-and-objects" id="toc-classes-and-objects" class="nav-link" data-scroll-target="#classes-and-objects"><span class="header-section-number">A.5</span> Classes and Objects</a></li>
-  <li><a href="#type-annotations-and-modern-generics" id="toc-type-annotations-and-modern-generics" class="nav-link" data-scroll-target="#type-annotations-and-modern-generics"><span class="header-section-number">A.6</span> Type Annotations and Modern Generics</a></li>
-  <li><a href="#the-sequence-protocol" id="toc-the-sequence-protocol" class="nav-link" data-scroll-target="#the-sequence-protocol"><span class="header-section-number">A.7</span> The <code>Sequence</code> Protocol</a></li>
+  <ul class="collapse">
+  <li><a href="#variables-and-basic-types" id="toc-variables-and-basic-types" class="nav-link active" data-scroll-target="#variables-and-basic-types">Variables and Basic Types</a></li>
+  <li><a href="#expressions-and-statements" id="toc-expressions-and-statements" class="nav-link" data-scroll-target="#expressions-and-statements">Expressions and Statements</a></li>
+  <li><a href="#control-flow-loops-and-conditionals" id="toc-control-flow-loops-and-conditionals" class="nav-link" data-scroll-target="#control-flow-loops-and-conditionals">Control Flow: Loops and Conditionals</a></li>
+  <li><a href="#functions" id="toc-functions" class="nav-link" data-scroll-target="#functions">Functions</a></li>
+  <li><a href="#classes-and-objects" id="toc-classes-and-objects" class="nav-link" data-scroll-target="#classes-and-objects">Classes and Objects</a></li>
+  <li><a href="#type-annotations-and-modern-generics" id="toc-type-annotations-and-modern-generics" class="nav-link" data-scroll-target="#type-annotations-and-modern-generics">Type Annotations and Modern Generics</a></li>
+  <li><a href="#the-sequence-protocol" id="toc-the-sequence-protocol" class="nav-link" data-scroll-target="#the-sequence-protocol">The <code>Sequence</code> Protocol</a></li>
   </ul>
 </nav>
     </div>
@@ -302,8 +302,8 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 
 <p>This appendix provides a concise overview of the Python 3.13 features and syntax used throughout <strong>The Algorithm Codex</strong>. While this book is not an introductory programming text, this primer serves as a reference for the specific idioms and modern type-system features that enable our clean, algorithmic implementations.</p>
 <p>Python is a high-level, interpreted language that prioritizes readability and expressiveness. In this Codex, we treat Python as a executable notation for algorithms, leveraging its modern type system to ensure our code is both correct and self-documenting.</p>
-<section id="variables-and-basic-types" class="level2" data-number="A.1">
-<h2 data-number="A.1" class="anchored" data-anchor-id="variables-and-basic-types"><span class="header-section-number">A.1</span> Variables and Basic Types</h2>
+<section id="variables-and-basic-types" class="level2">
+<h2 class="anchored" data-anchor-id="variables-and-basic-types">Variables and Basic Types</h2>
 <p>Variables in Python are names that point to objects in memory. Unlike many lower-level languages, variables do not have fixed types; however, the objects they point to do.</p>
 <div class="sourceCode" id="cb1"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Integers and Floats</span></span>
 <span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>n: <span class="bu">int</span> <span class="op">=</span> <span class="dv">42</span></span>
@@ -314,13 +314,13 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>is_active: <span class="bu">bool</span> <span class="op">=</span> <span class="va">True</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <p>In the Codex, we always provide type hints for variables in global or class scopes to maintain clarity.</p>
 </section>
-<section id="expressions-and-statements" class="level2" data-number="A.2">
-<h2 data-number="A.2" class="anchored" data-anchor-id="expressions-and-statements"><span class="header-section-number">A.2</span> Expressions and Statements</h2>
+<section id="expressions-and-statements" class="level2">
+<h2 class="anchored" data-anchor-id="expressions-and-statements">Expressions and Statements</h2>
 <p>An <strong>expression</strong> is a piece of code that evaluates to a value (e.g., <code>2 + 2</code>), while a <strong>statement</strong> is an instruction that performs an action (e.g., an assignment or a function call).</p>
 <p>Python supports standard arithmetic operators (<code>+</code>, <code>-</code>, <code>*</code>, <code>/</code>) and a specific operator for integer division (<code>//</code>), which we use extensively in binary search and partitioning algorithms to find middle indices.</p>
 </section>
-<section id="control-flow-loops-and-conditionals" class="level2" data-number="A.3">
-<h2 data-number="A.3" class="anchored" data-anchor-id="control-flow-loops-and-conditionals"><span class="header-section-number">A.3</span> Control Flow: Loops and Conditionals</h2>
+<section id="control-flow-loops-and-conditionals" class="level2">
+<h2 class="anchored" data-anchor-id="control-flow-loops-and-conditionals">Control Flow: Loops and Conditionals</h2>
 <p>We rely on two primary looping constructs to traverse data structures: <code>for</code> loops for iterating over sequences and <code>while</code> loops for processes that continue until a specific logical condition is met.</p>
 <div class="sourceCode" id="cb2"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Iterating over a sequence</span></span>
 <span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> item <span class="kw">in</span> [<span class="dv">1</span>, <span class="dv">2</span>, <span class="dv">3</span>]:</span>
@@ -335,22 +335,22 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Default case</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <p>In our implementations of Selection Sort and Bubble Sort, we use <code>range()</code> to generate indices for controlled iteration.</p>
 </section>
-<section id="functions" class="level2" data-number="A.4">
-<h2 data-number="A.4" class="anchored" data-anchor-id="functions"><span class="header-section-number">A.4</span> Functions</h2>
+<section id="functions" class="level2">
+<h2 class="anchored" data-anchor-id="functions">Functions</h2>
 <p>Functions are the primary unit of work in this book. We prefer “pure” functions that take inputs, perform a transformation, and return a result without side effects.</p>
 <div class="sourceCode" id="cb3"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> square(x: <span class="bu">int</span>) <span class="op">-&gt;</span> <span class="bu">int</span>:</span>
 <span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> x <span class="op">*</span> x</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </section>
-<section id="classes-and-objects" class="level2" data-number="A.5">
-<h2 data-number="A.5" class="anchored" data-anchor-id="classes-and-objects"><span class="header-section-number">A.5</span> Classes and Objects</h2>
+<section id="classes-and-objects" class="level2">
+<h2 class="anchored" data-anchor-id="classes-and-objects">Classes and Objects</h2>
 <p>While the Codex favors a functional style, we use classes as simple data containers or to implement specific protocols. Python 3.13 allows for clean class definitions that integrate seamlessly with the type system.</p>
 <div class="sourceCode" id="cb4"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> Point:</span>
 <span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> <span class="fu">__init__</span>(<span class="va">self</span>, x: <span class="bu">float</span>, y: <span class="bu">float</span>):</span>
 <span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.x <span class="op">=</span> x</span>
 <span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.y <span class="op">=</span> y</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </section>
-<section id="type-annotations-and-modern-generics" class="level2" data-number="A.6">
-<h2 data-number="A.6" class="anchored" data-anchor-id="type-annotations-and-modern-generics"><span class="header-section-number">A.6</span> Type Annotations and Modern Generics</h2>
+<section id="type-annotations-and-modern-generics" class="level2">
+<h2 class="anchored" data-anchor-id="type-annotations-and-modern-generics">Type Annotations and Modern Generics</h2>
 <p>The most important feature of the Codex’s coding style is the use of <strong>PEP 695 generics</strong>, introduced in Python 3.12 and refined in 3.13. This allows us to write algorithms that work for any data type <code>T</code> while maintaining full type safety.</p>
 <p>Instead of older <code>TypeVar</code> syntax, we use the elegant bracket notation:</p>
 <div class="sourceCode" id="cb5"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="co"># A generic function that works for any type T</span></span>
@@ -361,8 +361,8 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a><span class="bu">type</span> Ordering[T] <span class="op">=</span> Callable[[T, T], <span class="bu">int</span>]</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <p>This syntax is used throughout our searching and sorting implementations to ensure that an algorithm designed for integers works just as correctly for strings or custom objects, provided they satisfy the required protocols.</p>
 </section>
-<section id="the-sequence-protocol" class="level2" data-number="A.7">
-<h2 data-number="A.7" class="anchored" data-anchor-id="the-sequence-protocol"><span class="header-section-number">A.7</span> The <code>Sequence</code> Protocol</h2>
+<section id="the-sequence-protocol" class="level2">
+<h2 class="anchored" data-anchor-id="the-sequence-protocol">The <code>Sequence</code> Protocol</h2>
 <p>In almost every chapter, we use <code>Sequence</code> or <code>MutableSequence</code> from the <code>typing</code> module. These are <strong>Protocols</strong>–they define what a type can <em>do</em> (like being indexed or having a length) rather than what it <em>is</em>. By using <code>Sequence[T]</code> instead of <code>list[T]</code>, our algorithms remain generic enough to work with lists, tuples, or custom array-like structures.</p>
 
 

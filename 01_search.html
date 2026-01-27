@@ -105,6 +105,35 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
   }
 }</script>
 
+  <script src="https://cdnjs.cloudflare.com/polyfill/v3/polyfill.min.js?features=es6"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js" type="text/javascript"></script>
+
+<script type="text/javascript">
+const typesetMath = (el) => {
+  if (window.MathJax) {
+    // MathJax Typeset
+    window.MathJax.typeset([el]);
+  } else if (window.katex) {
+    // KaTeX Render
+    var mathElements = el.getElementsByClassName("math");
+    var macros = [];
+    for (var i = 0; i < mathElements.length; i++) {
+      var texText = mathElements[i].firstChild;
+      if (mathElements[i].tagName == "SPAN") {
+        window.katex.render(texText.data, mathElements[i], {
+          displayMode: mathElements[i].classList.contains('display'),
+          throwOnError: false,
+          macros: macros,
+          fleqn: false
+        });
+      }
+    }
+  }
+}
+window.Quarto = {
+  typesetMath
+};
+</script>
 
 </head>
 
@@ -267,11 +296,11 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
         <nav id="TOC" role="doc-toc" class="toc-active">
     <h2 id="toc-title">Table of contents</h2>
    
-  <ul>
-  <li><a href="#linear-search" id="toc-linear-search" class="nav-link active" data-scroll-target="#linear-search"><span class="header-section-number">1.1</span> Linear Search</a></li>
-  <li><a href="#indexing-and-counting" id="toc-indexing-and-counting" class="nav-link" data-scroll-target="#indexing-and-counting"><span class="header-section-number">1.2</span> Indexing and Counting</a></li>
-  <li><a href="#min-and-max" id="toc-min-and-max" class="nav-link" data-scroll-target="#min-and-max"><span class="header-section-number">1.3</span> Min and Max</a></li>
-  <li><a href="#conclusion" id="toc-conclusion" class="nav-link" data-scroll-target="#conclusion"><span class="header-section-number">1.4</span> Conclusion</a></li>
+  <ul class="collapse">
+  <li><a href="#linear-search" id="toc-linear-search" class="nav-link active" data-scroll-target="#linear-search">Linear Search</a></li>
+  <li><a href="#indexing-and-counting" id="toc-indexing-and-counting" class="nav-link" data-scroll-target="#indexing-and-counting">Indexing and Counting</a></li>
+  <li><a href="#min-and-max" id="toc-min-and-max" class="nav-link" data-scroll-target="#min-and-max">Min and Max</a></li>
+  <li><a href="#conclusion" id="toc-conclusion" class="nav-link" data-scroll-target="#conclusion">Conclusion</a></li>
   </ul>
 </nav>
     </div>
@@ -302,8 +331,8 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <p>In this sense, you can view almost all of Computer Science problems as search problems. In fact, a large part of this book will be devoted to search, in one way or another.</p>
 <p>In this first chapter, we will look at the most explicit form of search: where we are explicitly given a set or collection of items, and asked to find one specific item.</p>
 <p>We will start with the simplest, and most expensive kind of search, and progress towards increasingly more refined algorithms that exploit characteristics of the input items to minimize the time required to find the desired item, or determine if it’s not there at all.</p>
-<section id="linear-search" class="level2" data-number="1.1">
-<h2 data-number="1.1" class="anchored" data-anchor-id="linear-search"><span class="header-section-number">1.1</span> Linear Search</h2>
+<section id="linear-search" class="level2">
+<h2 class="anchored" data-anchor-id="linear-search">Linear Search</h2>
 <p>Let’s start by analyzing the simplest algorithm that does something non-trivial: linear search. Most of these algorithms work on the simplest data structure that we will see, the sequence.</p>
 <p>A sequence (<code>Sequence</code> class) is an abstract data type that represents a collection of items with no inherent structure, other than each element has an index.</p>
 <div class="sourceCode" id="cb1" data-export="src/codex/search/linear.py"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> typing <span class="im">import</span> Sequence</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
@@ -322,9 +351,41 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>    <span class="cf">assert</span> find(<span class="dv">2</span>, [<span class="dv">1</span>,<span class="dv">2</span>,<span class="dv">3</span>]) <span class="kw">is</span> <span class="va">True</span></span>
 <span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>    <span class="cf">assert</span> find(<span class="dv">3</span>, [<span class="dv">1</span>,<span class="dv">2</span>,<span class="dv">3</span>]) <span class="kw">is</span> <span class="va">True</span></span>
 <span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>    <span class="cf">assert</span> find(<span class="dv">4</span>, [<span class="dv">1</span>,<span class="dv">2</span>,<span class="dv">3</span>]) <span class="kw">is</span> <span class="va">False</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<section id="analyzing-linear-search" class="level3">
+<h3 class="anchored" data-anchor-id="analyzing-linear-search">Analyzing Linear Search</h3>
+<p>Once we have an implementation, we must subject it to the three-step analysis established in our foundations.</p>
+<section id="is-it-correct" class="level4">
+<h4 class="anchored" data-anchor-id="is-it-correct">Is it correct?</h4>
+<p>The property of <strong>correctness</strong> ensures that for any valid input, the algorithm produces the expected output. For linear search, we can verify this through three increasingly formal lenses:</p>
+<ul>
+<li><p><strong>The Exhaustive Argument</strong>: Suppose an element <span class="math inline">\(x\)</span> exists in the sequence. By definition, there is some index <span class="math inline">\(i\)</span> such that <code>items[i] == x</code>. Since the algorithm performs an equality test over every single index in the sequence without exception, it is logically impossible to miss the item if it is there.</p></li>
+<li><p><strong>The Inductive Argument</strong>: We can reason about the algorithm’s correctness across different input sizes. For a sequence of length <span class="math inline">\(0\)</span>, the loop never executes, and the algorithm correctly returns <code>False</code>. Assume the algorithm works for a sequence of length <span class="math inline">\(n\)</span>. For a sequence of length <span class="math inline">\(n+1\)</span>, the target <span class="math inline">\(x\)</span> is either in the first <span class="math inline">\(n\)</span> elements—where the inductive hypothesis ensures we find it—or it is the <span class="math inline">\(n+1\)</span>-th element, which we check in the final iteration. If it is in neither, the algorithm correctly concludes it is not present.</p></li>
+<li><p><strong>The Loop Invariant</strong>: We can define a formal invariant for the <code>for</code> loop: <em>At the start of iteration <span class="math inline">\(i\)</span>, the element <span class="math inline">\(x\)</span> has not been found in the first <span class="math inline">\(i-1\)</span> elements of the sequence.</em> By the time the loop completes at iteration <span class="math inline">\(n\)</span>, if the function hasn’t returned <code>True</code>, we know with certainty that <span class="math inline">\(x\)</span> is not in the first <span class="math inline">\(n\)</span> elements, which constitutes the entire sequence.</p></li>
+</ul>
 </section>
-<section id="indexing-and-counting" class="level2" data-number="1.2">
-<h2 data-number="1.2" class="anchored" data-anchor-id="indexing-and-counting"><span class="header-section-number">1.2</span> Indexing and Counting</h2>
+<section id="how-efficient-is-it" class="level4">
+<h4 class="anchored" data-anchor-id="how-efficient-is-it">How efficient is it?</h4>
+<p>We analyze linear search using the <strong>RAM model</strong>, assuming each comparison and iteration step has a unitary cost.</p>
+<ul>
+<li><p><strong>Time Complexity</strong>: In the worst-case scenario (the item is at the very end or not present at all), we must perform <span class="math inline">\(n\)</span> comparisons for a sequence of size <span class="math inline">\(n\)</span>. This gives us a growth rate of <span class="math inline">\(O(n)\)</span>, or <strong>linear time</strong>.</p></li>
+<li><p><strong>Space Complexity</strong>: The algorithm only requires a constant amount of extra memory to store the loop variable and the target, regardless of the input size, resulting in <span class="math inline">\(O(1)\)</span> <strong>space complexity</strong>.</p></li>
+</ul>
+</section>
+<section id="is-it-optimal" class="level4">
+<h4 class="anchored" data-anchor-id="is-it-optimal">Is it optimal?</h4>
+<p>Intuitively, linear search must be <strong>optimal for unstructured data</strong>. If we know <em>nothing</em> about the order or distribution of the elements, we are mathematically forced to look at every single item at least once to be certain <span class="math inline">\(x\)</span> is not there. Any algorithm that skipped an element could be “fooled” if that specific element happened to be the one we were looking for. Thus, for a generic sequence, <span class="math inline">\(O(n)\)</span> is the best possible lower bound.</p>
+<p>To prove this more formally, we employ an <strong>adversarial argument</strong>, a powerful technique in complexity theory where we imagine a game between our algorithm and a malicious adversary.</p>
+<ul>
+<li><p><strong>The Adversary’s Strategy</strong>: Suppose an algorithm claims to find an element <span class="math inline">\(x\)</span> (or prove its absence) by examining fewer than <span class="math inline">\(n\)</span> elements—say, <span class="math inline">\(n-1\)</span> elements. The adversary waits for the algorithm to finish its <span class="math inline">\(n-1\)</span> checks.</p></li>
+<li><p><strong>The “Trap”</strong>: Because there is one element the algorithm did not inspect, the adversary is free to define that specific element as <span class="math inline">\(x\)</span> if the algorithm concludes “False,” or as something other than <span class="math inline">\(x\)</span> if the algorithm concludes “True” without having seen it.</p></li>
+<li><p><strong>The Conclusion</strong>: Since the adversary can always change the unexamined element to make the algorithm’s answer wrong, any correct algorithm <em>must</em> inspect every element in the worst case.</p></li>
+</ul>
+<p>This proves that the lower bound for searching an unstructured sequence is <span class="math inline">\(\Omega(n)\)</span>. Linear search, which operates in <span class="math inline">\(O(n)\)</span>, meets this lower bound exactly, making it a <strong>tightly optimal</strong> solution for the problem as defined. Unless we possess more information about the data’s structure—the central theme of the next chapter—we simply cannot do better.</p>
+</section>
+</section>
+</section>
+<section id="indexing-and-counting" class="level2">
+<h2 class="anchored" data-anchor-id="indexing-and-counting">Indexing and Counting</h2>
 <p>The <code>find</code> method is good to know if an element exists in a sequence, but it doesn’t tell us <em>where</em>. We can easily extend it to return an <em>index</em>. We thus define the <code>index</code> method, with the following condition: if <code>index(x,l) == i</code> then <code>l[i] == x</code>. That is, <code>index</code> returns the <strong>first</strong> index where we can find a given element <code>x</code>.</p>
 <div class="sourceCode" id="cb4" data-export="src/codex/search/linear.py"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> index[T](x: T, items: Sequence[T]) <span class="op">-&gt;</span> <span class="bu">int</span> <span class="op">|</span> <span class="va">None</span>:</span>
 <span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> i,y <span class="kw">in</span> <span class="bu">enumerate</span>(items):</span>
@@ -357,9 +418,13 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a>    <span class="cf">assert</span> count(<span class="dv">1</span>, [<span class="dv">1</span>,<span class="dv">2</span>,<span class="dv">3</span>]) <span class="op">==</span> <span class="dv">1</span></span>
 <span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a>    <span class="cf">assert</span> count(<span class="dv">2</span>, [<span class="dv">1</span>,<span class="dv">2</span>,<span class="dv">2</span>]) <span class="op">==</span> <span class="dv">2</span></span>
 <span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a>    <span class="cf">assert</span> count(<span class="dv">4</span>, [<span class="dv">1</span>,<span class="dv">2</span>,<span class="dv">3</span>]) <span class="op">==</span> <span class="dv">0</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<section id="analysis" class="level3">
+<h3 class="anchored" data-anchor-id="analysis">Analysis</h3>
+<p>We won’t dwell too much in this section since the analysis is very similar to linear search–these are just specialized versions of it. Once more, we have <span class="math inline">\(O(n)\)</span> algorithms (with <span class="math inline">\(O(1)\)</span> memory cost) for a problem that is provable <span class="math inline">\(\Omega(n)\)</span>. Thus, given our assumptions (that there is no intrinsic structure to the elements order), we have optimal algorithms.</p>
 </section>
-<section id="min-and-max" class="level2" data-number="1.3">
-<h2 data-number="1.3" class="anchored" data-anchor-id="min-and-max"><span class="header-section-number">1.3</span> Min and Max</h2>
+</section>
+<section id="min-and-max" class="level2">
+<h2 class="anchored" data-anchor-id="min-and-max">Min and Max</h2>
 <p>Let’s now move to a slightly different problem. Instead of finding one specific element, we want to find the element that ranks minimum or maximum. Consider a sequence of numbers in an arbitrary order. We define the minimum (maximum) element as the element <code>x</code> such as <code>x &lt;= y</code> (<code>x &gt;= y</code>) for all <code>y</code> in the sequence.</p>
 <p>Now, instead of numbers, consider some arbitrary total ordering function <code>f</code>, such that <code>f(x,y) &lt;= 0</code> if and only if <code>x &lt;= y</code>. This allows us to extend the notion of minimum and maximum to arbitrary data types.</p>
 <p>Let’s formalize this notion as a Python type alias. We will define an <code>Ordering</code> as a function that has this signature:</p>
@@ -377,24 +442,18 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <p>Let’s write the <code>minimum</code> method using this convention. Since we have no knowledge of the structure of the sequence other than it supports partial ordering, we have to test all possible items, like before. But now, instead of returning as soon as we find the correct item, we simply store the minimum item we’ve seen so far, and return at the end of the <code>for</code> loop. This guarantees we have seen all the items, and thus the minimum among them must be the one we have marked.</p>
 <div class="sourceCode" id="cb10" data-export="src/codex/search/linear.py"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> codex.types <span class="im">import</span> Ordering, default_order</span>
 <span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> minimum[T](items: Sequence[T], f: Ordering[T] <span class="op">=</span> <span class="va">None</span>) <span class="op">-&gt;</span> T:</span>
-<span id="cb10-4"><a href="#cb10-4" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> f <span class="kw">is</span> <span class="va">None</span>:</span>
-<span id="cb10-5"><a href="#cb10-5" aria-hidden="true" tabindex="-1"></a>        f <span class="op">=</span> default_order</span>
-<span id="cb10-6"><a href="#cb10-6" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb10-7"><a href="#cb10-7" aria-hidden="true" tabindex="-1"></a>    m <span class="op">=</span> <span class="va">None</span></span>
-<span id="cb10-8"><a href="#cb10-8" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb10-9"><a href="#cb10-9" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> x <span class="kw">in</span> items:</span>
-<span id="cb10-10"><a href="#cb10-10" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> m <span class="kw">is</span> <span class="va">None</span> <span class="kw">or</span> f(x,m) <span class="op">&lt;=</span> <span class="dv">0</span>:</span>
-<span id="cb10-11"><a href="#cb10-11" aria-hidden="true" tabindex="-1"></a>            m <span class="op">=</span> x</span>
-<span id="cb10-12"><a href="#cb10-12" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb10-13"><a href="#cb10-13" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> m</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> minimum[T](items: Sequence[T], f: Ordering[T] <span class="op">=</span> default_order) <span class="op">-&gt;</span> T:</span>
+<span id="cb10-4"><a href="#cb10-4" aria-hidden="true" tabindex="-1"></a>    m <span class="op">=</span> items[<span class="dv">0</span>]</span>
+<span id="cb10-5"><a href="#cb10-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-6"><a href="#cb10-6" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> x <span class="kw">in</span> items:</span>
+<span id="cb10-7"><a href="#cb10-7" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> f(x,m) <span class="op">&lt;=</span> <span class="dv">0</span>:</span>
+<span id="cb10-8"><a href="#cb10-8" aria-hidden="true" tabindex="-1"></a>            m <span class="op">=</span> x</span>
+<span id="cb10-9"><a href="#cb10-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-10"><a href="#cb10-10" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> m</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <p>The <code>minimum</code> method can fail only if the <code>items</code> sequence is empty. In the same manner, we can implement <code>maximum</code>. But instead of coding another method with the same functionality, which is not very DRY, we can leverage the fact that we are passing an ordering function that we can manipulate.</p>
 <p>Consider an arbitrary ordering function <code>f</code> such <code>f(x,y) &lt;= 0</code>. This means by definition that <code>x &lt;= y</code>. Now we want to define another function <code>g</code> such that <code>g(y,x) &lt;= 0</code>, that is, it <em>inverts</em> the result of <code>f</code>. We can do this very simply by swaping the inputs in <code>f</code>.</p>
-<div class="sourceCode" id="cb11" data-export="src/codex/search/linear.py"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> maximum[T](items: Sequence[T], f: Ordering[T] <span class="op">=</span> <span class="va">None</span>) <span class="op">-&gt;</span> T:</span>
-<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> f <span class="kw">is</span> <span class="va">None</span>:</span>
-<span id="cb11-3"><a href="#cb11-3" aria-hidden="true" tabindex="-1"></a>        f <span class="op">=</span> default_order</span>
-<span id="cb11-4"><a href="#cb11-4" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb11-5"><a href="#cb11-5" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> minimum(items, <span class="kw">lambda</span> x,y: f(y,x))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode" id="cb11" data-export="src/codex/search/linear.py"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> maximum[T](items: Sequence[T], f: Ordering[T] <span class="op">=</span> default_order) <span class="op">-&gt;</span> T:</span>
+<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> minimum(items, <span class="kw">lambda</span> x,y: f(y,x))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <p>We can easily code a couple of test methods for this new functionality.</p>
 <div class="sourceCode" id="cb12" data-export="tests/search/test_linear.py"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> codex.search.linear <span class="im">import</span> minimum, maximum</span>
 <span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a></span>
@@ -403,9 +462,10 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span id="cb12-5"><a href="#cb12-5" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb12-6"><a href="#cb12-6" aria-hidden="true" tabindex="-1"></a>    <span class="cf">assert</span> minimum(items) <span class="op">==</span> <span class="dv">0</span></span>
 <span id="cb12-7"><a href="#cb12-7" aria-hidden="true" tabindex="-1"></a>    <span class="cf">assert</span> maximum(items) <span class="op">==</span> <span class="dv">7</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<p>The correctness, cost, and optimality analysis is very similar in these cases as well.</p>
 </section>
-<section id="conclusion" class="level2" data-number="1.4">
-<h2 data-number="1.4" class="anchored" data-anchor-id="conclusion"><span class="header-section-number">1.4</span> Conclusion</h2>
+<section id="conclusion" class="level2">
+<h2 class="anchored" data-anchor-id="conclusion">Conclusion</h2>
 <p>Linear search is a powerful paradigm precisely because it is universal. Whether we are checking for the existence of an item, finding its index, or identifying the minimum or maximum element in a collection, the exhaustive approach provides absolute certainty. No matter the nature of the data, if we test every single element and skim through every possibility, the problem will be solved.</p>
 <p>The primary drawback of this certainty is the cost: some search spaces are simply too vast to be traversed one item at a time. To achieve better performance, we must move beyond the assumption of an unstructured sequence. We need to know more about the search space and impose some level of structure.</p>
 <p>In the next chapter, we will explore the most straightforward structure we can impose: order. We will see how knowing the relative position of items allows us to implement what is arguably the most efficient and beautiful algorithm ever designed.</p>
