@@ -54,7 +54,7 @@ Of course, this is an abstraction. In a real computer, multiplication is more ex
 
 Furthermore, we rarely care about the absolute number of steps. Knowing that a specific sort takes exactly 1,024 operations is less useful than knowing how that cost grows as the input size $n$ increases.
 
-The core of algorithmic analysis is to look at how an algorithm time or memory cost _scales_ with data. For example, an algorith that checks all items in a list exactly once scales _linearly_, which means if you double the size of the input, you expect the running time to double. However, an algorithm that scales _quadratically_ with the input size--for example, if you compare each item in a list with all others--has a very different behavior: if you double the input size, that algorithm _quadruples_ its runnign time.
+The core of algorithmic analysis is to look at how an algorithm time or memory cost _scales_ with data. For example, an algorithm that checks all items in a list exactly once scales _linearly_, which means if you double the size of the input, you expect the running time to double. However, an algorithm that scales _quadratically_ with the input size--for example, if you compare each item in a list with all others--has a very different behavior: if you double the input size, that algorithm _quadruples_ its runnign time.
 
 The reason we care about scaling behavior rather than actual runtime cost is thus three-fold. First, it lets us reason about the efficiency of two different algorithms regardless of the hardware. If my algorithm scales better than yours, they will both be faster on fast hardware, and slower on slow hardware, but mine will beat yours in every ocasion. No need to discuss which hardware to buy to decide here.
 
