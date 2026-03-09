@@ -1,4 +1,4 @@
-# Appendix: Python Primer
+# A Python Primer
 
 If the goal of an algorithm is to communicate a precise sequence of thoughts, then the language used to express it must be as transparent as possible. For too long, the study of algorithms was mired in either the dense, often idiosyncratic syntax of low-level languages or the ambiguity of informal pseudocode. Python 3.12+ changes this calculus entirely. It has matured into the premier notation for algorithmic thought—a form of "executable pseudocode" that sacrifices neither formal rigor nor human readability.
 
@@ -8,11 +8,11 @@ Beyond the type system, the language’s ergonomics have reached a new zenith. F
 
 This appendix serves as a conceptual bridge for those familiar with other programming paradigms or older iterations of Python. Our focus here is not on exhaustive documentation, but on the specific idioms that make Python 3.12+ the ideal medium for this *Codex*. We prioritize features that enhance clarity, performance, and maintainability. We begin by examining the foundational syntax—the essential building blocks that form the bedrock of every algorithmic procedure in the chapters ahead.
 
-### Foundational Syntax
+## Foundational Syntax
 
 Python’s syntax is famously minimalist, prioritizing readability through the use of significant indentation rather than curly braces or keywords like `begin` and `end`. For developers transitioning from C-style languages, the most immediate shift is this reliance on whitespace to define block scope. This design choice enforces a consistent visual structure that closely mirrors the logical hierarchy of the code.
 
-#### Variables and Primitive Types
+### Variables and Primitive Types
 
 In Python, variable naming follows the `snake_case` convention as prescribed by PEP 8. This practice enhances legibility, especially in complex algorithmic implementations where descriptive names are paramount. Python is dynamically typed but strongly typed; variables do not require explicit declarations, yet the interpreter maintains strict enforcement of type-specific operations.
 
@@ -28,7 +28,7 @@ is_verified: bool = True
 status_message = f"User {user_id} is {"Active" if is_verified else "Pending"}"
 ```
 
-#### Control Flow Mechanisms
+### Control Flow Mechanisms
 
 Control flow in Python adheres to a straightforward `if`, `elif`, and `else` structure. A key idiomatic feature is Python's concept of "truthiness," where empty collections, zero values, and `None` evaluate to `False` in a boolean context, often allowing for more concise conditional checks.
 
@@ -49,7 +49,7 @@ for index, value in enumerate(data_points):
 
 While loops function as expected, continuing as long as a condition remains true, and supporting standard `break` and `continue` statements for finer control over the execution flow.
 
-#### Functional Building Blocks
+### Functional Building Blocks
 
 Functions are the fundamental units of logic in Python, defined using the `def` keyword. They support positional arguments, keyword arguments, and default parameter values, providing a high degree of flexibility in how they are invoked. Every function returns a value; if no explicit `return` statement is provided, the function implicitly returns `None`.
 
@@ -63,11 +63,11 @@ result_a = calculate_growth(100.0)             # Uses default rate
 result_b = calculate_growth(100.0, rate=0.08)  # Overrides default
 ```
 
-### Intermediate Data Structures & Modern Control Flow
+## Intermediate Data Structures & Modern Control Flow
 
 As we move beyond basic primitives, the focus shifts toward data structures that offer specific structural guarantees and control flow mechanisms capable of handling high-dimensional data. Python 3.12+ provides a sophisticated suite of intermediate structures—most notably tuples and sets—that introduce constraints like immutability and uniqueness. These features allow the interpreter to perform significant optimizations that are critical for efficient algorithmic execution. Furthermore, the introduction of structural pattern matching has fundamentally changed how we implement branching logic in the presence of complex data.
 
-#### Tuples and Sets: Immutability and Performance
+### Tuples and Sets: Immutability and Performance
 
 Tuples serve as Python’s primary immutable sequence. While they share some syntactic similarities with lists, their immutability makes them ideal for representing fixed "records" where the position of an element carries semantic weight—such as a point in space or a database row. Because a tuple’s state cannot change after instantiation, it is hashable (provided its elements are also hashable), which allows it to be used as a key in a dictionary or an element in a set. From a performance perspective, tuples are more memory-efficient than lists, making them the preferred choice for large, static collections of related values.
 
@@ -85,7 +85,7 @@ is_new = 103 not in allowed_ids
 pending_ids = allowed_ids - processed_ids  # {102, 110}
 ```
 
-#### Structural Pattern Matching
+### Structural Pattern Matching
 
 Introduced in recent versions of Python, structural pattern matching via the `match` and `case` keywords provides a powerful alternative to traditional conditional blocks. Unlike a standard `switch` statement, which operates on discrete values, Python's implementation allows for the deep destructuring of objects. One can match against the specific structure of a list, the presence of keys in a dictionary, or even the attributes of a class instance, binding internal values to variables in a single, readable step.
 
@@ -107,7 +107,7 @@ def process_command(command):
             print("Unknown command received")
 ```
 
-#### Modern String Interpolation
+### Modern String Interpolation
 
 Python 3.12 has brought significant ergonomic improvements to f-strings (formatted string literals), integrating them more deeply into the language's formal grammar. Historically, f-strings were limited by a lack of support for nested quotes and backslashes within their expressions. The modern implementation removes these restrictions, allowing for the direct inclusion of complex logic, multiline expressions, and even comments within the string itself.
 
@@ -120,7 +120,7 @@ report = f"Status Summary:\n{"\n".join([f"- {e.upper()}" for e in entries])}"
 print(report)
 ```
 
-### The Modern Type System (PEP 695)
+## The Modern Type System (PEP 695)
 
 The introduction of PEP 695 in Python 3.12 marks a watershed moment for the language’s type system, shifting it from a secondary, bolted-on feature set into a first-class citizen of the Python grammar. Historically, defining generic components required a significant amount of boilerplate: one had to import `TypeVar` from the `typing` module, instantiate it with a string name that matched the variable name, and then explicitly use it in function signatures or by inheriting from `Generic[T]`. This "ceremony" often obscured the underlying algorithmic logic, creating a barrier to entry for developers who wanted the benefits of static analysis without the syntactic noise.
 
@@ -170,7 +170,7 @@ best = find_extremum(data, find_min=False)
 print(f"Top observation: {best.value} at {best.timestamp}")
 ```
 
-### Advanced Objects and Dataclasses
+## Advanced Objects and Dataclasses
 
 Python’s approach to object-oriented programming (OOP) has matured into a system that balances the flexibility of dynamic languages with the structure required for complex architectural design. At its foundation, a Python class is a blueprint for creating objects, where the `self` parameter explicitly represents the instance being operated upon within its methods. While Python supports traditional inheritance—allowing a subclass to derive behavior and state from a parent class—the modern idiomatic preference has shifted toward composition and structural subtyping. This evolution reflects a broader trend in software engineering: prioritizing the "shape" and "behavior" of data over rigid, hierarchical taxonomies.
 
@@ -212,11 +212,11 @@ child = SearchNode(
 )
 ```
 
-### Iteration & Concurrency: Streaming and Structured Execution
+## Iteration & Concurrency: Streaming and Structured Execution
 
 The efficiency of an algorithmic implementation is often as much a function of how data is accessed and managed as it is of the underlying logic. In modern Python, the iteration and concurrency models have converged to provide a framework that balances memory efficiency with robust, high-performance execution. At the core of this convergence are iterators and generators—features that transition the language from "eager" collection-based processing to "lazy" stream-based processing—and structured concurrency, which provides a disciplined approach to asynchronous execution.
 
-#### Iterators and the $O(1)$ Space Advantage
+### Iterators and the $O(1)$ Space Advantage
 
 Python’s iteration model is built upon the formal iterator protocol. An object is considered "iterable" if it implements the `__iter__` method, which is tasked with returning an **iterator**. This iterator must itself implement both `__iter__` (returning the instance itself) and `__next__`. The `__next__` method is the engine of iteration, responsible for returning the subsequent value in the sequence or signaling completion via the `StopIteration` exception.
 
@@ -242,7 +242,7 @@ for value in fibonacci_generator(1_000_000_000):
     # Logic performed on 'value'
 ```
 
-#### Structured Concurrency with Task Groups
+### Structured Concurrency with Task Groups
 
 While generators manage the spatial flow of data, the `async/await` syntax manages the temporal flow of execution. With the release of Python 3.11 and 3.12, the language has moved toward a "structured" model of concurrency, primarily through the introduction of `asyncio.TaskGroup`. This shift addresses the inherent dangers of unstructured asynchronous code, where "orphaned" tasks can continue to run after their parent has failed or finished, leading to resource leaks and silent errors.
 
@@ -274,7 +274,7 @@ async def run_concurrent_fetches():
 # asyncio.run(run_concurrent_fetches())
 ```
 
-### Performance & The Future: Specialization and Parallelism
+## Performance & The Future: Specialization and Parallelism
 
 The traditional critique of Python—that its high-level abstraction comes at a significant cost in raw execution speed—is being systematically dismantled by the "Faster CPython" project. For the algorithmic practitioner, these changes are not merely incremental; they alter the "back-of-the-envelope" constants that define the practical efficiency of a solution. The introduction of the Specialist Interpreter in Python 3.11 and its refinement in 3.12 (PEP 659) represents a fundamental shift in how the virtual machine handles bytecode.
 
