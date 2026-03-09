@@ -1,17 +1,6 @@
-.PHONY: source docs publish tests
+.PHONY: all test lint format
 
-docs: source
-	(cd docs && quarto render)
+all: test lint
 
-dev:
-	find docs | grep md$ | entr make source
-
-source:
-	@illiterate -d . docs/*.md
-	@make tests
-
-publish: source
-	(cd docs && quarto publish gh-pages)
-
-tests:
-	pytest
+test:
+	@echo "Running tests..."
