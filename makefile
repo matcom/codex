@@ -1,5 +1,7 @@
 .PHONY: source docs publish tests
 
+all: source tests
+
 docs: source
 	(cd docs && quarto render)
 
