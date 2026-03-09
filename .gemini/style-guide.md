@@ -14,10 +14,13 @@ This guide defines the authoritative technical and narrative style for all proje
 *Goal: Ensure a clear narrative arc and logical progression.*
 
 ### DO:
+- **Hierarchical Structure**: Follow the mandatory hierarchy: **Part** (Thematic Group) > **Chapter** (Problem Area) > **Algorithm** (Specific implementation).
+- **The "Intuition-First" Pattern**: Explain the problem and the core concept (the "Why" and "How") before presenting any code.
+- **Complexity Analysis**: Every algorithm must include a dedicated section for Big O analysis of both time and space complexity.
+- **Correctness Sketch**: Provide a brief, logical justification or proof-sketch of why the algorithm works.
 - Start with a provocative hook (question, bold statement, or personal stake).
 - Use a clear hierarchical structure with descriptive subheadings.
 - Follow a "Multilayered Explanation" pattern: High-level concept -> Concrete example -> Technical deep dive -> Broader implications.
-- End with a personal reflection or a clear call to action.
 
 ### DON'T:
 - Write "sedative" text that lacks conflict or a driving question.
@@ -29,6 +32,9 @@ This guide defines the authoritative technical and narrative style for all proje
 *Goal: Ground the writing in specific, concrete imagery.*
 
 ### DO:
+- **Literate Programming**: Ensure all code is contained in `{export=...}` blocks.
+- **Test-Driven Design**: Every implementation must include corresponding tests, also exported via `{export=...}` blocks.
+- **Python 3.13+ Syntax**: Use modern generic syntax and type hints consistently.
 - Replace abstract nouns with concrete ones (things you can hold, smell, or see).
 - Ensure every paragraph contains at least one concrete image.
 - Show external behavior instead of stating internal states (e.g., "He glanced at the door" instead of "He wanted to leave").

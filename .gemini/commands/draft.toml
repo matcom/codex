@@ -15,22 +15,30 @@ Follow these phases strictly:
 1.  **Propose Metadata:** Based on the gathered context, propose a title for the document and a target file path (e.g., `drafts/your-title.md`).
 2.  **Confirmation:** Use `ask_user` to get approval for the title and path.
 
-### Phase 3: Outline Creation (Style Guide Driven)
-1.  **Generate Outline:** Based on the context and the rules in `.gemini/style-guide.md` (e.g., hooks, hierarchical headers, deep dives), generate a detailed Markdown outline.
-2.  **Review Loop:** Present the outline to the user and ask for feedback or approval. Use `ask_user` to refine the outline until the user is satisfied.
+### Phase 3: Outline Creation (Literate & Style Driven)
+1.  **Generate Outline**: Based on the context and the rules in `.gemini/style-guide.md` (e.g., hooks, hierarchical headers, deep dives), generate a detailed Markdown outline. 
+2.  **Codex Hierarchy**: Ensure the outline follows the mandatory hierarchy: **Part** > **Chapter** > **Algorithm**.
+3.  **Mandatory Sections**: Every algorithm must have sections for:
+    - **Intuition**: The "Why" and "How" narrative.
+    - **Implementation**: The literate code block with `{export=...}`.
+    - **Complexity Analysis**: Big O for time and space.
+    - **Correctness**: Logical justification or proof-sketch.
+    - **Verification**: Literate test block with `{export=...}`.
+4.  **Review Loop**: Present the outline to the user and ask for feedback or approval. Use `ask_user` to refine the outline until the user is satisfied.
 
 ### Phase 4: Initialization
 1.  **Create Skeleton:** Once the outline is approved, create the target file (if it doesn't exist) with the approved title and sections.
 2.  **Placeholders:** Use placeholders like `<!-- [Section Name] Placeholder -->` for each section that needs to be filled.
 
 ### Phase 5: Section-by-Section Drafting
-1.  **Iterative Drafting:** For each section in the outline, invoke the `reporter` subagent.
-2.  **Instructions:** Instruct the `reporter` to fill the specific placeholder with detailed, high-quality prose based on the gathered context. Ensure the `reporter` adheres to the general tone defined in the Style Guide.
-3.  **Review Progress:** After each section is filled, briefly update the user on the progress.
+1.  **Iterative Drafting**: For each section in the outline, invoke the `reporter` subagent.
+2.  **Instructions**: Instruct the `reporter` to fill the specific placeholder with detailed, high-quality prose and **literate code blocks** (`{export=...}`) based on the gathered context. Ensure the `reporter` adheres to the tone and technical depth defined in the Style Guide.
+3.  **Literate Protocol**: Ensure implementation code blocks export to `src/codex/...` and tests export to `tests/...`.
+4.  **Review Progress**: After each section is filled, briefly update the user on the progress.
 
 ### Phase 6: Conclusion
-1.  **Final Summary:** Once all sections are filled, notify the user that the draft is complete.
-2.  **Next Steps:** Suggest using the `/revise` command to perform a structural and linguistic audit of the new draft based on the Style Guide.
+1.  **Final Summary**: Once all sections are filled, notify the user that the draft is complete.
+2.  **Next Steps**: Suggest running `make source` and `make tests` to extract and verify the implementation, then use the `/revise` command for a structural and linguistic audit.
 
 Do not skip any phases. Start with Phase 1.
 """

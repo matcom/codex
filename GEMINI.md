@@ -28,6 +28,33 @@ This document is your soul, treat it with love and care.
 
 ---
 
+## Engineering Protocol
+
+### 1. Literate Programming (illiterate)
+- **Single Source of Truth**: All source code and tests MUST be defined within Markdown files in the `docs/` directory.
+- **Extraction Syntax**: Use code blocks with the `{export=path/to/file.py}` attribute.
+- **Workflow**: 
+    1. Modify the `.md` file in `docs/`.
+    2. Run `make source` to extract code and tests.
+    3. Run `make tests` to verify.
+- **Prohibition**: NEVER edit files in `src/` or `tests/` directly. Your changes will be overwritten by the next extraction.
+
+### 2. Python 3.13+ Standards
+- **Generic Syntax**: Use modern generic syntax (e.g., `def func[T](...)`).
+- **Typing**: All functions must be fully typed. Use `Sequence[T]` for collections.
+- **Ordering Protocol**: For all comparisons, use `Ordering[T]` and `default_order` from `codex.types`.
+
+### 3. Narrative-Driven Development
+- **Intuition First**: Every algorithm must be preceded by an explanation of the problem and the core intuition behind the solution.
+- **Complexity Analysis**: Every implementation must include a Big O analysis for both time and space complexity.
+- **Correctness**: Provide a brief justification or sketch of why the algorithm is correct.
+
 ## Project Notes
 
-> (!) NOTE: This section is MEANT to be updated with relevant project information. Keep this note for future reference, and feel free to modify below this line.
+### Stack & Tooling
+- **Language**: Python 3.13+
+- **Literate Tool**: `illiterate`
+- **Documentation**: Quarto
+- **Dependency Management**: `uv`
+- **Testing**: `pytest`
+- **Automation**: `makefile` (use `make source`, `make tests`, `make docs`)
