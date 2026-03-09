@@ -15,7 +15,7 @@ from typing import MutableSequence
 from codex.types import Ordering, default_order
 
 def selection_sort[T](
-    items: MutableSequence[T], f: Ordering[T] = default_oder
+    items: MutableSequence[T], f: Ordering[T] = default_order
 ) -> None:
     n = len(items)
 
