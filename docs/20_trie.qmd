@@ -1,0 +1,424 @@
+# One branch per character
+
+Chapter 12's hash table answered "is this key in my dictionary?" by computing the key's address from its content. It's the fastest membership test the book has shown you, and for pure existence checks I'd reach for it first. The hash table is fast precisely *because* it threw the key's structure away — `"apple"` ran through a hash function and became an integer with no relationship to any other key. That throw-away is what buys the constant time, and it's also what makes one whole class of question impossible: "give me all words starting with `"app"`." The keys `"app"`, `"apple"`, `"application"`, `"apricot"` hash to four unrelated slots; there's no way to start at `"app"` and walk outward. Asking a prefix query forces an $O(n)$ scan, and the asymptotic gap chapter 12 bought you disappears.
+
+By the end of this chapter you'll have built a structure that keeps the keys' structure — a **trie**, where each character of a string key is one edge in a tree, and the path from the root to a node spells the key out one character at a time. You'll have insert, search, and a prefix query that walks to the prefix and DFS-enumerates the completions. You'll have seen why a naive trie's per-node bookkeeping can balloon past the size of the strings themselves, and you'll have built a **radix trie** that collapses single-child chains into one fat edge to fix the cost. And you'll have **longest-prefix matching** — almost free on a trie, and the operation that powers IP routing in every router on the internet.
+
+The cynosure to hold: **the path from root to a node *is* the key — keys aren't stored, they're walked.** The string `"apple"` doesn't sit anywhere as a contiguous chunk; it's distributed along five edges of a tree, and reading it back means walking from the root down to a terminal node.
+
+## Strings as a special case of keys
+
+The hash table treats every key the same: `"alice"`, `(3, 4, 5)`, and `42` get hashed, modulo'd, and probed identically. That uniformity is its strength and, for string keys specifically, its weakness. Strings have *internal structure* the hash function can't see — `"apple"` shares its first three characters with `"application"`, `"app"` is a prefix of `"apple"` — and those relationships are exactly what a hash scrambles. The structure has been spent by the time the hash returns.
+
+The trie is the data structure that *keeps* the structure. It stores keys character by character, one character per edge, so two keys sharing a prefix share the corresponding initial path. `"apple"` and `"application"` walk the same five edges before they diverge; the shared prefix is shared *storage* — one copy of `"appl"` in the tree, two distinct continuations below. That sharing is what makes prefix queries cheap. Asking "give me all words starting with `"app"`" reduces to walking three edges down to the `"app"` node and enumerating its subtree. Cost proportional to the answer plus the prefix length, never proportional to the dictionary size.
+
+What you give up is hash-table-fast membership. A trie's lookup costs $O(|k|)$ — every character walked — and so does a hash table's, since hashing a string reads every character too. But the hash table's constant is smaller and its cache behaviour is much better. For pure membership on string keys, hash tables still win in practice; the trie's advantage shows up exactly when the prefix structure matters.
+
+## The standard trie
+
+Here's the basic structure. Each node has two pieces of state: a dictionary mapping single characters to child nodes, and a `terminal` flag that's `True` if some stored key ends at this node. I also keep an optional `value` so the trie can stand in as a `str → V` map, the way chapter 12's hash table did.
+
+```python {export=src/codex/trees/trie.py}
+class TrieNode:
+    def __init__(self) -> None:
+        self.children: dict[str, "TrieNode"] = {}
+        self.terminal: bool = False
+        self.value: object | None = None
+```
+
+The `terminal` flag is doing real work. It distinguishes a stored key from a mere prefix of one. If I insert `"apple"`, the trie has nodes for `a`, `p`, `p`, `l`, `e`, and only the last one — the `e` — is terminal. Asking "is `"appl"` in the trie?" walks four edges, arrives at the `l` node, which exists but is *not* terminal, so the answer is `False`. Asking "is `"apple"` in the trie?" arrives at the terminal `e` and answers `True`. If I then *also* insert `"app"`, the depth-3 `p` node acquires its own `terminal = True` while keeping its `l` child for the `"apple"` branch. Both keys are stored, neither interferes with the other — the flag exists specifically to support that coexistence.
+
+Now the trie itself. The constructor builds an empty root and tracks the number of stored keys for `__len__`.
+
+```python {export=src/codex/trees/trie.py}
+class Trie:
+    def __init__(self) -> None:
+        self._root = TrieNode()
+        self._size = 0
+
+    def __len__(self) -> int:
+        return self._size
+```
+
+`insert` walks character by character from the root, creating any missing child node on the way. After the walk, the node where the key ends is marked terminal and the value is attached.
+
+```python {export=src/codex/trees/trie.py}
+    def insert(self, key: str, value: object = None) -> None:
+        node = self._root
+        for ch in key:
+            if ch not in node.children:
+                node.children[ch] = TrieNode()
+            node = node.children[ch]
+        if not node.terminal:
+            self._size += 1
+        node.terminal = True
+        node.value = value
+```
+
+The `if not node.terminal` guard is what makes re-inserting an existing key update the value without inflating the count. If you insert `"apple"` twice, the second call walks to the same terminal node, sees it's already terminal, and just rewrites the value — `_size` stays at 1.
+
+I'll factor the "walk to a node, returning `None` if the path doesn't exist" step into a helper, because three operations want it — membership, `get`, and `starts_with` all start by descending along a string.
+
+```python {export=src/codex/trees/trie.py}
+    def _descend(self, key: str) -> TrieNode | None:
+        node = self._root
+        for ch in key:
+            if ch not in node.children:
+                return None
+            node = node.children[ch]
+        return node
+```
+
+Returns the node where the walk ends, or `None` if any intermediate character has no edge. Note this doesn't say anything about whether `key` is *stored* — it only says the path exists. The terminal check is the caller's job.
+
+Membership and value lookup both consume `_descend`. I split the API the way Python's `dict` does: `__contains__` for "is this key stored?" and `get` for "if it's stored, give me the value." Splitting them rather than returning a `(found, value)` tuple from one method is the Pythonic call — `key in trie` reads more clearly when the caller only needs the boolean, and `trie.get(key)` covers the value case.
+
+```python {export=src/codex/trees/trie.py}
+    def __contains__(self, key: str) -> bool:
+        node = self._descend(key)
+        return node is not None and node.terminal
+
+    def get(self, key: str) -> object | None:
+        node = self._descend(key)
+        if node is None or not node.terminal:
+            return None
+        return node.value
+```
+
+Both cost $O(|k|)$ — one pointer hop per character. Bilingually: looking up a 20-character word in a trie of a million words costs 20 dictionary probes, regardless of how many words are stored. The lookup cost depends on the *query's* length, not the dictionary's size.
+
+Demonstrating insert and membership on a small word set:
+
+```{python}
+from codex.trees.trie import Trie
+
+trie = Trie()
+for word in ["apple", "app", "apricot", "banana", "band", "bandana"]:
+    trie.insert(word)
+
+print(f"size: {len(trie)}")
+
+# 'app' is stored — the inner p is terminal even though apple continues past it
+print(f"'app' in trie:   {'app' in trie}")
+
+# 'apple' is stored too — the terminal 'e' is its own marker
+print(f"'apple' in trie: {'apple' in trie}")
+
+# 'appl' walks four edges and lands on a non-terminal node — prefix, not stored
+print(f"'appl' in trie:  {'appl' in trie}")
+
+# 'banana' is stored; 'banan' is just a prefix
+print(f"'banan' in trie: {'banan' in trie}")
+print(f"'banana' in trie: {'banana' in trie}")
+```
+
+Both cases the `terminal` flag exists to disambiguate show up: `"app"` is stored *and* a prefix of `"apple"`, so it counts as stored; `"appl"` is *only* a prefix, so it counts as absent.
+
+## Prefix queries — what tries can do
+
+Now the move the trie exists to make. `starts_with(prefix)` returns every stored key for which `prefix` is an initial segment. Walk down to the prefix's landing node — if the prefix isn't even a path in the trie, return the empty list. Otherwise, DFS the subtree rooted there, collecting every terminal node's path along the way.
+
+```python {export=src/codex/trees/trie.py}
+    def starts_with(self, prefix: str) -> list[str]:
+        node = self._descend(prefix)
+        if node is None:
+            return []
+        results: list[str] = []
+        self._collect(node, prefix, results)
+        return results
+```
+
+The DFS helper walks the subtree, appending each terminal node's path to the result list. The `path` parameter is the string accumulated so far — the prefix plus whatever characters this branch of the DFS has descended through.
+
+```python {export=src/codex/trees/trie.py}
+    def _collect(self, node: TrieNode, path: str, results: list[str]) -> None:
+        if node.terminal:
+            results.append(path)
+        for ch, child in node.children.items():
+            self._collect(child, path + ch, results)
+```
+
+The cost is $O(|p| + |\text{output}|)$ where $|p|$ is the prefix length and $|\text{output}|$ is the total length of returned strings. The prefix walk is linear in the prefix; the DFS visits exactly the nodes that contribute to the output. Bilingually: enumerating every word starting with `"app"` in a million-word dictionary costs three character steps to reach the `"app"` node plus a tour of just the `"app"` subtree — never a scan of the million.
+
+```{python}
+from codex.trees.trie import Trie
+
+trie = Trie()
+for word in ["apple", "app", "apricot", "banana", "band", "bandana"]:
+    trie.insert(word)
+
+# Everything starting with 'ap' — three completions, in DFS order
+print(f"starts_with('ap'):  {sorted(trie.starts_with('ap'))}")
+
+# Everything starting with 'ban' — also three completions
+print(f"starts_with('ban'): {sorted(trie.starts_with('ban'))}")
+
+# A prefix that doesn't exist returns the empty list, not an error
+print(f"starts_with('z'):   {trie.starts_with('z')}")
+```
+
+Three `"ap…"` completions and three `"ban…"` completions, each from a localised DFS over a small subtree. The hash table from chapter 12 couldn't have answered either query without a full scan; the trie answers in time proportional to the prefix plus the output, which is exactly the cost shape autocomplete and spell-check ask for. I sort the output in the demo because `starts_with` promises "every key with this prefix," not any particular order — sort at the call site when order matters.
+
+## Longest-prefix matching — the IP-routing use case
+
+A third operation puts tries decisively ahead of hash tables: **longest-prefix matching**. Given a query string, return the longest stored key that's a prefix of the query. The canonical application is internet routing: a router holds a table of network prefixes like `192.168.0.0/16` and `192.168.42.0/24`, and when a packet arrives bound for `192.168.42.7`, the router has to find the longest stored prefix matching the destination — `/24` if it's there, falling back to `/16` if not. The match has to happen on every packet at line rate.
+
+A hash table can't even define this natively — you'd have to enumerate every prefix of the query and look each up, $O(|q|^2)$ total. A trie does it in one descent. Walk character by character; every time you pass a terminal node, remember it as a candidate longest match; if the walk falls off the tree, stop. Return the deepest terminal seen, or `None`.
+
+```python {export=src/codex/trees/trie.py}
+    def longest_prefix_of(self, query: str) -> str | None:
+        node = self._root
+        deepest: str | None = None
+        for i, ch in enumerate(query):
+            if ch not in node.children:
+                break
+            node = node.children[ch]
+            if node.terminal:
+                deepest = query[: i + 1]
+        return deepest
+```
+
+One walk, $O(|q|)$ pointer hops. The `deepest` variable is the trick — it remembers the longest terminal seen even when the walk later descends past it without hitting another. Bilingually: matching a 32-bit IP against a routing table of any size costs at most 32 pointer hops, irrespective of how many prefixes the table holds.
+
+Demo with string-shaped prefixes for legibility — the same code runs unmodified on bit-string keys, which is the form real IP routers use.
+
+```{python}
+from codex.trees.trie import Trie
+
+# A small routing table — prefixes ordered from least to most specific
+routes = Trie()
+for prefix in ["10.", "10.0.", "10.0.0.", "192.168.", "192.168.1."]:
+    routes.insert(prefix)
+
+# Each query gets the longest matching prefix the table can offer
+for ip in ["10.0.0.5", "192.168.1.42", "10.0.5.5", "10.5.5.5", "172.16.0.1"]:
+    match = routes.longest_prefix_of(ip)
+    print(f"{ip:<14} -> {match!r}")
+```
+
+The query `"10.0.0.5"` matched the most specific entry `"10.0.0."` — the walk passed through three terminal nodes and remembered the last. `"10.0.5.5"` matched `"10.0."` because the walk continued past `"10.0."` along `5` but `"10.0.5"` isn't stored. `"10.5.5.5"` matched only `"10."`. `"172.16.0.1"` matched nothing — the very first character has no edge from the root, and `deepest` stays `None`. That single $O(|q|)$ descent is what makes tries the structure of choice for routing tables, IP-prefix lookups, and any workload whose query asks "what's the longest stored key that fits inside this input?"
+
+## The pointer-overhead cost
+
+The trie's storage is where the trade shows up. Every character of every stored key generates a node, and each node carries a Python `dict` — empty `dict`s included. A million English words at ~7 characters each is 7 megabytes of raw character data, but the trie's seven-million-ish nodes each carry a dict, a boolean, and a `value` pointer, running to a few hundred bytes per node on CPython. The 7 megabytes of characters become several hundred megabytes of trie nodes. You run out of cache, then out of RAM.
+
+The cost-per-character is most painful on the *unshared* parts of the tree — the deep branches descending through single-child chains to reach a stored key. If `"banana"` is the only key starting with `"ban"`, the trie has six nodes along `b → a → n → a → n → a`, each with one child, none serving any purpose beyond "spell out one more character." The fix is to collapse single-child chains into one fat edge — the resulting structure is called a **radix trie**, or sometimes a Patricia trie after Donald Morrison's 1968 paper that introduced the binary-string version.
+
+## Compressed (radix) tries
+
+In a radix trie, each edge is labelled with a *substring* rather than a single character. A node still has a `terminal` flag and a `value`, but represents an end-or-branch point rather than a per-character step.
+
+```python {export=src/codex/trees/trie.py}
+class RadixNode:
+    def __init__(self) -> None:
+        self.children: dict[str, "RadixNode"] = {}
+        self.terminal: bool = False
+        self.value: object | None = None
+```
+
+The structure looks identical to `TrieNode`, but the dictionary key is now an arbitrary-length substring. Single-character edges are still allowed — they just mean "no useful compression possible at this branch point."
+
+Insert is where the work moves. Walking a query string down the trie now involves consuming a whole edge, splitting an edge mid-label, or attaching a fresh edge.
+
+```python {export=src/codex/trees/trie.py}
+class RadixTrie:
+    def __init__(self) -> None:
+        self._root = RadixNode()
+        self._size = 0
+
+    def __len__(self) -> int:
+        return self._size
+```
+
+At each step, I look for the outgoing edge whose first character matches the next character of the remaining query. If none exists, I attach a new edge labelled with the remaining query. If one exists, I compute the longest common prefix between the edge label and the query remainder. Three cases follow: common prefix is the whole edge (consume it, descend, recurse on what's left); common prefix shorter than both (split the edge at the divergence and attach the remainder as a sibling); common prefix is the whole query but the edge is longer (split the edge at the query's end and make the split point the terminal).
+
+```python {export=src/codex/trees/trie.py}
+    def insert(self, key: str, value: object = None) -> None:
+        node = self._root
+        rest = key
+        while rest:
+            edge = self._matching_edge(node, rest[0])
+            if edge is None:
+                leaf = RadixNode()
+                leaf.terminal = True
+                leaf.value = value
+                node.children[rest] = leaf
+                self._size += 1
+                return
+            n_common = self._common_prefix_length(edge, rest)
+            if n_common == len(edge):
+                # consume the whole edge, descend
+                node = node.children[edge]
+                rest = rest[n_common:]
+                continue
+            self._split_edge(node, edge, n_common, rest[n_common:], value)
+            self._size += 1
+            return
+        if not node.terminal:
+            self._size += 1
+        node.terminal = True
+        node.value = value
+```
+
+Three helpers do the local work. The first finds the outgoing edge starting with a given character — at most one such edge exists by construction, since two edges from the same node sharing a first character would mean a missed split.
+
+```python {export=src/codex/trees/trie.py}
+    def _matching_edge(self, node: RadixNode, ch: str) -> str | None:
+        for edge in node.children:
+            if edge[0] == ch:
+                return edge
+        return None
+```
+
+The second computes the length of the longest common prefix between two strings.
+
+```python {export=src/codex/trees/trie.py}
+    def _common_prefix_length(self, a: str, b: str) -> int:
+        i = 0
+        while i < len(a) and i < len(b) and a[i] == b[i]:
+            i += 1
+        return i
+```
+
+The third is the actual edge split. The edge gets cut at position `n_common`, the original child moves below a new intermediate `split` node, and the remaining query (if any) attaches as a sibling. If the query ends at the split point — the new key is a proper prefix of the original edge — the `split` node *is* the terminal.
+
+```python {export=src/codex/trees/trie.py}
+    def _split_edge(
+        self,
+        node: RadixNode,
+        edge: str,
+        n_common: int,
+        rest: str,
+        value: object,
+    ) -> None:
+        original_child = node.children[edge]
+        split = RadixNode()
+        split.children[edge[n_common:]] = original_child
+        del node.children[edge]
+        node.children[edge[:n_common]] = split
+        if rest:
+            leaf = RadixNode()
+            leaf.terminal = True
+            leaf.value = value
+            split.children[rest] = leaf
+        else:
+            split.terminal = True
+            split.value = value
+```
+
+That's the insert. Search is much simpler because it never has to split anything — it just walks down, consuming whole edges or failing if a partial match shows up.
+
+```python {export=src/codex/trees/trie.py}
+    def __contains__(self, key: str) -> bool:
+        node = self._root
+        rest = key
+        while rest:
+            edge = self._matching_edge(node, rest[0])
+            if edge is None or not rest.startswith(edge):
+                return False
+            node = node.children[edge]
+            rest = rest[len(edge):]
+        return node.terminal
+```
+
+A partial match — where the remaining query shares some but not all of an edge's characters — means the query string isn't stored. The radix structure's invariant is that any stored key's path consumes a sequence of complete edges; anything that ends mid-edge isn't there.
+
+I've left `starts_with`, `get`, and `longest_prefix_of` as exercises for the radix variant — each follows the same pattern as the standard trie's, with "walk by edge" substituted for "walk by character." Delete is the more interesting omission: a radix delete might need to *merge* edges back together after removing a key that was holding apart a chain that could now collapse. Worth working through on paper.
+
+Comparing the two structures on the same six-word dictionary, both by membership and by node count:
+
+```{python}
+from codex.trees.trie import Trie, RadixTrie
+
+words = ["apple", "app", "apricot", "banana", "band", "bandana"]
+
+trie = Trie()
+radix = RadixTrie()
+for word in words:
+    trie.insert(word)
+    radix.insert(word)
+
+# Membership agrees across both structures — the contract is the same
+for query in ["app", "apple", "appl", "bandana", "bandanas", "apricot"]:
+    print(f"{query!r:<12} trie={query in trie!s:<5}  radix={query in radix!s:<5}")
+```
+
+Both structures agree on every query: stored keys come back `True`, prefixes-that-aren't-stored come back `False`, queries extending past a stored key (like `"bandanas"`) come back `False`. The compression is transparent to the membership API. To see it directly, walk each tree and count nodes including the root.
+
+```{python}
+from codex.trees.trie import Trie, RadixTrie, TrieNode, RadixNode
+
+
+def count_trie_nodes(trie: Trie) -> int:
+    def walk(node: TrieNode) -> int:
+        return 1 + sum(walk(c) for c in node.children.values())
+    return walk(trie._root)
+
+
+def count_radix_nodes(rt: RadixTrie) -> int:
+    def walk(node: RadixNode) -> int:
+        return 1 + sum(walk(c) for c in node.children.values())
+    return walk(rt._root)
+
+
+words = ["apple", "app", "apricot", "banana", "band", "bandana"]
+trie = Trie()
+radix = RadixTrie()
+for word in words:
+    trie.insert(word)
+    radix.insert(word)
+
+print(f"standard trie nodes: {count_trie_nodes(trie)}")
+print(f"radix trie nodes:    {count_radix_nodes(radix)}")
+print(f"compression ratio:   {count_trie_nodes(trie) / count_radix_nodes(radix):.2f}x")
+```
+
+Twenty-one nodes for the standard trie, nine for the radix. The standard trie pays a node per character of every word's *unshared* tail — the `"icot"` in `"apricot"`, the `"ana"` in `"bandana"`. The radix trie collapses each tail into a single edge, with one node at the branch point where the shared prefix ends. On this tiny example the ratio is already 2.3x; on a real English-dictionary trie, compression often exceeds 5x because the deep-and-unshared region dominates the node count.
+
+The radix trie's per-operation asymptotic cost is the same as the standard trie's — the work is just distributed differently. What changes is the constant, and the constant is what makes the difference between a structure that fits in RAM and one that doesn't.
+
+## The three questions, applied
+
+### Is it correct?
+
+A trie is correct if `__contains__(k)` returns `True` exactly when `k` was inserted and `starts_with(p)` returns exactly the inserted keys for which `p` is a prefix. The shared invariant is that **the path from the root to any node spells, character by character, the prefix that node represents**, and a node is `terminal` iff some inserted key ended at exactly that prefix.
+
+`insert(k)` preserves the invariant: it walks `k`'s characters, creating missing edges, and sets `terminal = True` at the destination. Any future search for `k` walks the same path and finds the same terminal. A search for a key that *isn't* `k` either takes a different path or stops at a non-terminal — correct rejection. The radix trie's split operation preserves the invariant pointwise: after splitting edge `e` into `e[:i]` and `e[i:]`, the path from the root to the new intermediate node spells the same characters as the original partial walk, no terminals moved, no characters lost or gained.
+
+Longest-prefix matching is correct because the loop's invariant is "`deepest` is the longest stored prefix of `query[:i]`." At every terminal node encountered, `query[:i+1]` is a stored prefix and is longer than anything previously seen. The loop terminates when the walk falls off the tree or when the query is exhausted; either way, `deepest` holds the longest stored prefix of the whole query.
+
+### How efficient is it?
+
+The cost table for a trie holding $n$ keys with maximum key length $\ell$.
+
+| Operation | Time | Extra space |
+|-----------|------|-------------|
+| `insert(k)` | $O(\|k\|)$ | $O(\|k\|)$ worst-case new nodes |
+| `__contains__(k)`, `get(k)` | $O(\|k\|)$ | $O(1)$ |
+| `starts_with(p)` | $O(\|p\| + \|\text{output}\|)$ | $O(\|\text{output}\|)$ for the returned list |
+| `longest_prefix_of(q)` | $O(\|q\|)$ | $O(1)$ |
+| `__len__` | $O(1)$ | $O(1)$ |
+
+Every operation's time depends on the query length, never on $n$. That's the trie's distinctive cost shape: a million-key trie and a thousand-key trie answer membership in the same time, *provided the query has the same length*. The hash table from chapter 12 has the same property for membership; only the trie keeps it for `starts_with` and `longest_prefix_of`.
+
+Space is the rough spot. A standard trie storing $n$ keys with $C$ total characters uses $O(C)$ nodes, each carrying a Python `dict` plus a boolean plus a `value` slot. The radix trie cuts that to $O(n)$ branching nodes at the cost of a more involved insert. Bilingually: a million 20-character strings cost ~20 MB in a hash table, hundreds of megabytes in a standard trie, and roughly 30–50 MB in a radix trie — bigger than the hash table, but in the same order of magnitude, and with prefix-and-longest-prefix operations the hash table can't do at all.
+
+### Is it optimal?
+
+For exact membership on string keys, hash tables win the constants — one hash plus one probe beats character-by-character walking, and a contiguous slot array beats pointer-chasing through a tree. No asymptotic gap, but a real practical one.
+
+For prefix and longest-prefix queries, the trie is asymptotically optimal. Any `starts_with` has to read at least $|p|$ characters of the prefix and emit at least $|\text{output}|$ characters of output; the trie hits both bounds. Longest-prefix matching has to read at least $|q|$ characters, and the trie hits that bound too. No structure can be faster than $O(|p| + |\text{output}|)$ or $O(|q|)$ because every input character has to be examined.
+
+The radix trie storing $n$ keys uses $O(n)$ nodes plus $O(C)$ characters across edge labels. You can't do better asymptotically — the keys have to be stored somewhere — but the constants tighten further with *suffix tries* and *suffix arrays*, which Part IV takes up. The trie is the structure where the path-encoded-key idea first appears; its sophisticated relatives are refinements of the same idea.
+
+## What tries teach you
+
+The path from the root to a node is the key. That's the cynosure, and everything in the chapter rests on it. Keys aren't stored as opaque blobs; they're stored as *paths through a tree*, one character per edge in the standard trie or one substring per edge in the radix variant. Walking the path is the lookup.
+
+Three lessons worth carrying forward. **First, the way you store something determines what you can do with it.** A hash table stores keys as scrambled integers, which is why it can't answer prefix questions — the structural information prefix queries need was destroyed by the hash. A trie stores keys as paths, and prefix queries fall out of the structure for free. When the workload's questions depend on a particular relationship between keys, the data structure has to preserve that relationship rather than scramble it. **Second, compression isn't always a bolted-on concern — it can be the core of the design.** The radix trie isn't a trie with compression added; it's a different structure, defined by collapsing single-child chains into substring edges. The compression happens in the type, not as an afterthought. **Third, sometimes the right operation reads the data once.** Longest-prefix matching could be defined naively as $|q|$ separate lookups, $O(|q|^2)$ total; a trie does it in a single $O(|q|)$ descent because the structure was already laid out to support it. When the structure matches the workload, the cost goes from quadratic to linear without anyone optimising anything.
+
+Chapter 21 takes the implicit-array idea chapter 19's heap pioneered and applies it to a different question. Where a heap uses index arithmetic over a flat array to maintain "find the minimum in $O(\log n)$," a **segment tree** uses the same layout to maintain "find the sum (or min, or max, or any associative aggregate) of an arbitrary range in $O(\log n)$." The tree is implicit, the storage is contiguous, and the range-query power is what tries gave you for prefixes — generalised to any aggregate over any range, on any underlying array.
+
+## Notes and further reading
+
+The trie was independently introduced by René de la Briandais in 1959 (*Proceedings of the Western Joint Computer Conference*, "File Searching Using Variable Length Keys") and named "trie" — from re*trie*val — by Edward Fredkin in 1960 (*Communications of the ACM* 3(9):490–499, "Trie Memory"). The radix-trie variant, in its binary-string form, is Donald Morrison's 1968 *Journal of the ACM* paper "PATRICIA — Practical Algorithm to Retrieve Information Coded in Alphanumeric," which gives the structure its alternate name (Patricia trie). Knuth's *The Art of Computer Programming* Vol. 3 §6.3 has the canonical textbook treatment of trie searching, including the digital-search-tree variants and the careful complexity analysis. Sedgewick & Wayne's *Algorithms* (4th ed.) §5.2 covers tries, ternary search tries, and a small comparison against hash-based string-keyed dictionaries. For the asymptotic-space lower-bound argument, see Kurt Mehlhorn's 1982 "A Best Possible Bound for the Weighted Path Length of Binary Search Trees" and Arne Andersson and Stefan Nilsson's 1995 "Improved Behaviour of Tries by Adaptive Branching." The IP-routing application is treated in detail in Marcel Waldvogel et al.'s 1997 SIGCOMM paper "Scalable High Speed IP Routing Lookups," which shows how a radix trie variant achieves single-digit-microsecond lookups on full BGP tables.

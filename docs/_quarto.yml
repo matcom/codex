@@ -39,6 +39,7 @@ book:
       - 17_avl.qmd
       - 18_treap.qmd
       - 19_heap.qmd
+      - 20_trie.qmd
     - part: String Matching
       chapters: []
     - part: Graphs
