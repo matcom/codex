@@ -1,0 +1,333 @@
+# Pulling from the other end
+
+A queue is what you get when you invert the stack's discipline. Where a stack restricts both input and output to the same end of a sequence — last in, first out — a queue restricts input to one end and output to the *other*. First in, first out, like a line at a coffee shop. That single change makes queues the natural shape for breadth-first graph traversal (chapter 5 of Part V), for scheduling problems where fairness over time matters, and for any online algorithm where work has to come out in the order it came in.
+
+By the end of this chapter you'll have built three queue-like structures — a circular-buffer queue, a linked queue, and a doubly-linked deque — and then used the deque in a less-obvious role as a **monotonic deque** that solves the sliding-window-maximum problem in $\Theta(n)$ time. The naive algorithm for sliding-window-max is $\Theta(nk)$. The deque-based one is linear in the input size, independent of the window size. That's the second cynosure for the chapter — *the monotonic deque as a sliding evidence pruner* — and it's the move that earns this chapter its keep beyond what stacks already taught you.
+
+The first cynosure is simpler: **two pointers chasing each other around a fixed-size buffer**. A circular-buffer queue is the most elegant data-layout idea in Part II, and the entire FIFO discipline lives in two modular-arithmetic operations.
+
+## FIFO, and why the obvious implementation is wrong
+
+The naive way to build a queue is to use a Python list and have `enqueue` `append` to one end and `dequeue` `pop(0)` from the other. That works — the FIFO discipline holds — but `pop(0)` on a list is $\Theta(n)$, because every element after position 0 has to shift left by one slot. So the obvious implementation has $O(1)$ enqueue and $\Theta(n)$ dequeue, which means $n$ enqueues followed by $n$ dequeues costs $\Theta(n^2)$. That's the same death sentence the dynamic array dodged in chapter 8 by growing instead of shifting.
+
+The fix follows the same pattern as that chapter: stop moving elements around, and start moving the *bookkeeping* instead. There are two ways to do that. The first uses a fixed-size array with two indices that wrap around — a *circular buffer*. The second uses a linked list with explicit head and tail pointers. Both give you $O(1)$ enqueue and $O(1)$ dequeue. They differ in memory layout and in whether the structure has a maximum capacity.
+
+## The circular buffer
+
+Imagine an array of fixed capacity laid out on a circle instead of a line — the slot after the last is the slot before the first. Keep two indices: `head` (the next slot to dequeue from) and `tail` (the next slot to enqueue into). Enqueue writes to `tail` and advances `tail` by one, modulo capacity. Dequeue reads from `head` and advances `head` by one, modulo capacity. Both indices wrap around the end of the array; the queue's data occupies the (possibly wrapped) range from `head` to `tail`.
+
+The subtlety is distinguishing *empty* from *full*. Both states have `head == tail`. The textbook fix is to track size separately — an explicit counter that increments on enqueue and decrements on dequeue. With that counter, empty is `size == 0` and full is `size == capacity`, and the indices can be equal in either case without ambiguity.
+
+```python {export=src/codex/structures/queue.py}
+class CircularBuffer[T]:
+    def __init__(self, capacity: int) -> None:
+        self._items: list[T | None] = [None] * capacity
+        self._capacity = capacity
+        self._head = 0
+        self._tail = 0
+        self._size = 0
+
+    def __len__(self) -> int:
+        return self._size
+
+    def __bool__(self) -> bool:
+        return self._size > 0
+
+    def is_full(self) -> bool:
+        return self._size == self._capacity
+```
+
+The constructor allocates one block of $n$ slots and tracks three integers. The whole structure is the array plus those three numbers — `_capacity`, `_head`, `_tail`, `_size` — and nothing else. No allocation happens at enqueue or dequeue time.
+
+```python {export=src/codex/structures/queue.py}
+    def enqueue(self, value: T) -> None:
+        if self._size == self._capacity:
+            raise OverflowError("circular buffer is full")
+        self._items[self._tail] = value
+        self._tail = (self._tail + 1) % self._capacity
+        self._size += 1
+
+    def dequeue(self) -> T:
+        if self._size == 0:
+            raise IndexError("dequeue from empty buffer")
+        value = self._items[self._head]
+        self._items[self._head] = None
+        self._head = (self._head + 1) % self._capacity
+        self._size -= 1
+        return value  # type: ignore[return-value]
+```
+
+Two operations, each three writes and one modular addition. The `% capacity` is what turns the linear array into a circle — when an index hits `capacity`, it wraps back to 0 instead of overrunning. That's the whole geometric trick.
+
+```{python}
+from codex.structures.queue import CircularBuffer
+
+buf = CircularBuffer[int](capacity=5)
+for x in [10, 20, 30, 40, 50]:
+    buf.enqueue(x)
+
+print(f"size: {len(buf)}, full: {buf.is_full()}")    # size: 5, full: True
+popped = []
+while buf:
+    popped.append(buf.dequeue())
+print(popped)                                         # [10, 20, 30, 40, 50] — FIFO
+```
+
+Same order in, same order out. Now the wrap-around case, which is what justifies the modular arithmetic:
+
+```{python}
+buf = CircularBuffer[int](capacity=4)
+buf.enqueue(1); buf.enqueue(2); buf.enqueue(3)        # head=0, tail=3
+buf.dequeue(); buf.dequeue()                          # head=2, tail=3 — drained two
+buf.enqueue(4); buf.enqueue(5); buf.enqueue(6)        # tail wraps from 3 → 0 → 1 → 2
+
+print(f"head idx: {buf._head}, tail idx: {buf._tail}, size: {len(buf)}")
+# head idx: 2, tail idx: 2, size: 4 — head meets tail, buffer is full but indices match
+
+popped = []
+while buf:
+    popped.append(buf.dequeue())
+print(popped)                                         # [3, 4, 5, 6] — FIFO preserved across wrap
+```
+
+The data is laid out across positions 2, 3, 0, 1 in the underlying array — a wrapped span — but the FIFO discipline is preserved exactly. That `head idx: 2, tail idx: 2` row is the case the size counter exists for: without it, you couldn't tell whether the buffer was empty or full.
+
+The structure has one limitation worth naming: the capacity is fixed at construction. If you want to enqueue past it, you either get the `OverflowError` above or you add the same doubling logic from chapter 8 to grow the underlying array. A *growable* circular buffer is what CPython's `collections.deque` is built on. I'm keeping this version fixed-size on purpose — the doubling discipline is well-trodden ground at this point, and the geometric trick is the new idea.
+
+## Backed by a linked list
+
+The linked variant doesn't have a capacity limit and never needs to resize. The structure tracks head and tail pointers; enqueue appends to tail, dequeue unhooks from head. Both operations rewrite two pointers each, with no `%` and no fixed allocation.
+
+```python {export=src/codex/structures/queue.py}
+from codex.structures.linked import Node
+
+
+class LinkedQueue[T]:
+    def __init__(self) -> None:
+        self._head: Node[T] | None = None
+        self._tail: Node[T] | None = None
+        self._size = 0
+
+    def __len__(self) -> int:
+        return self._size
+
+    def __bool__(self) -> bool:
+        return self._head is not None
+
+    def enqueue(self, value: T) -> None:
+        node = Node(value)
+        if self._tail is None:
+            self._head = node
+        else:
+            self._tail.next = node
+        self._tail = node
+        self._size += 1
+
+    def dequeue(self) -> T:
+        if self._head is None:
+            raise IndexError("dequeue from empty queue")
+        value = self._head.value
+        self._head = self._head.next
+        if self._head is None:
+            self._tail = None
+        self._size -= 1
+        return value
+```
+
+Notice the edge case in `dequeue`: when the head was the last node, you have to null out the tail too, otherwise the next enqueue would attach to a dangling tail pointer. That's the same kind of edge-case footnote linked-list code is full of, and it's the kind of bug that doesn't show up under tests that only exercise the steady state.
+
+```{python}
+from codex.structures.queue import LinkedQueue
+
+q = LinkedQueue[str]()
+for word in ["alpha", "beta", "gamma", "delta"]:
+    q.enqueue(word)
+
+popped = []
+while q:
+    popped.append(q.dequeue())
+print(popped)                                         # ['alpha', 'beta', 'gamma', 'delta']
+```
+
+Same contract as `CircularBuffer`, different cost shape. Strict $O(1)$ per operation, unbounded capacity, but every enqueue allocates a node — so per-operation memory churn is higher than the circular buffer's, which never allocates after construction. The trade is the same one between `ArrayStack` and `LinkedStack` in the last chapter, just applied to the queue contract instead of the stack contract.
+
+## Two-ended: the deque
+
+A *deque* (pronounced "deck," short for "double-ended queue") relaxes the queue's restriction by letting you push and pop at *both* ends. Now you have four operations — `push_front`, `push_back`, `pop_front`, `pop_back` — and any of them is $O(1)$. The deque generalizes both the stack (use one end only) and the queue (push at one end, pop at the other). It also lights up some algorithms that don't fit cleanly into either, including the monotonic deque from the next section.
+
+The natural backing is a doubly linked list — chapter 9's `DoublyLinkedNode` — because the deque needs to move backward from the tail to delete the last element, which a singly linked list can't do in $O(1)$.
+
+```python {export=src/codex/structures/queue.py}
+from codex.structures.linked import DoublyLinkedNode
+
+
+class Deque[T]:
+    def __init__(self) -> None:
+        self._head: DoublyLinkedNode[T] | None = None
+        self._tail: DoublyLinkedNode[T] | None = None
+        self._size = 0
+
+    def __len__(self) -> int:
+        return self._size
+
+    def __bool__(self) -> bool:
+        return self._head is not None
+```
+
+The four push/pop operations mirror each other across the front/back axis. Each one handles two cases — empty deque (both head and tail need to be set) and non-empty deque (just one pointer rewrite at the relevant end).
+
+```python {export=src/codex/structures/queue.py}
+    def push_front(self, value: T) -> None:
+        node = DoublyLinkedNode(value, prev=None, next=self._head)
+        if self._head is None:
+            self._tail = node
+        else:
+            self._head.prev = node
+        self._head = node
+        self._size += 1
+
+    def push_back(self, value: T) -> None:
+        node = DoublyLinkedNode(value, prev=self._tail, next=None)
+        if self._tail is None:
+            self._head = node
+        else:
+            self._tail.next = node
+        self._tail = node
+        self._size += 1
+
+    def pop_front(self) -> T:
+        if self._head is None:
+            raise IndexError("pop_front from empty deque")
+        node = self._head
+        self._head = node.next
+        if self._head is None:
+            self._tail = None
+        else:
+            self._head.prev = None
+        self._size -= 1
+        return node.value
+
+    def pop_back(self) -> T:
+        if self._tail is None:
+            raise IndexError("pop_back from empty deque")
+        node = self._tail
+        self._tail = node.prev
+        if self._tail is None:
+            self._head = None
+        else:
+            self._tail.next = None
+        self._size -= 1
+        return node.value
+
+    def peek_front(self) -> T:
+        if self._head is None:
+            raise IndexError("peek_front of empty deque")
+        return self._head.value
+
+    def peek_back(self) -> T:
+        if self._tail is None:
+            raise IndexError("peek_back of empty deque")
+        return self._tail.value
+```
+
+Six methods, all $O(1)$, all roughly the same shape. The implementations look like a lot of code, but that's because Python is verbose about generic pointer manipulation — each operation does at most three pointer writes plus the size decrement.
+
+```{python}
+from codex.structures.queue import Deque
+
+dq = Deque[int]()
+dq.push_back(1); dq.push_back(2); dq.push_back(3)
+dq.push_front(0)
+print(f"front={dq.peek_front()}, back={dq.peek_back()}, size={len(dq)}")
+# front=0, back=3, size=4
+
+print(dq.pop_back())                                  # 3 — most recent push_back
+print(dq.pop_front())                                 # 0 — most recent push_front
+print([dq.pop_front() for _ in range(len(dq))])       # [1, 2] — remaining FIFO
+```
+
+Both ends are equally cheap. That symmetry is what enables the monotonic deque.
+
+## The monotonic deque, working harder
+
+Here's a problem: given an array of $n$ numbers and a window size $k$, return the maximum within each of the $n - k + 1$ contiguous length-$k$ windows. For example, for `[1, 3, -1, -3, 5, 3, 6, 7]` with `k = 3`, the windows are `[1,3,-1]`, `[3,-1,-3]`, `[-1,-3,5]`, `[-3,5,3]`, `[5,3,6]`, `[3,6,7]`, and the maxima are `[3, 3, 5, 5, 6, 7]`.
+
+The naive algorithm is $\Theta(nk)$: for each window, scan all $k$ elements and find the max. For small $k$ that's fine. For large $k$ — or for streaming applications where the window slides one element at a time across a long sequence — the redundancy hurts. Each window shares $k - 1$ elements with the next; the naive algorithm doesn't exploit that overlap.
+
+The monotonic-deque approach does. The idea is to maintain a deque of *indices* (not values) with two invariants. First, the indices in the deque are in increasing order (oldest at the front, newest at the back). Second, the values at those indices are in strictly *decreasing* order (so the front of the deque always holds the index of the current window's maximum). Every time the window slides one step right, you do three things: kick out the front index if it just left the window, kick out any back indices whose values are dominated by the new element, and push the new index at the back. After each slide, peek at the front to read off the answer.
+
+Why the second invariant holds: at any moment, if some older element $a$ has value smaller than (or equal to) a newer element $b$ that's still in the window, then $a$ can never again be the maximum of any future window — $b$ dominates it. So when you push $b$, you can safely throw away every dominated $a$ on the way in. The deque ends up holding exactly the *candidates* for being the maximum in the current or some future window. Every other index has been pruned.
+
+```python {export=src/codex/structures/queue.py}
+from typing import Sequence
+
+
+def monotonic_window_max(items: Sequence[int], k: int) -> list[int]:
+    result: list[int] = []
+    dq: Deque[int] = Deque()  # holds indices
+    for i, x in enumerate(items):
+        # drop indices that have just slid out of the window
+        while dq and dq.peek_front() <= i - k:
+            dq.pop_front()
+        # drop back-indices whose values are dominated by the new one
+        while dq and items[dq.peek_back()] <= x:
+            dq.pop_back()
+        dq.push_back(i)
+        if i >= k - 1:
+            result.append(items[dq.peek_front()])
+    return result
+```
+
+The amortization argument is the move that makes the analysis work. Each index $i$ is pushed onto the deque exactly once and popped at most once across the whole pass. The inner `while` loops can each iterate many times in a single outer step — but those iterations are *paying down* pushes that happened in earlier outer steps, not doing new work. Total work across the whole pass: $\Theta(n)$ pushes, $\Theta(n)$ pops, $\Theta(n)$ result appends. Linear in $n$, independent of $k$.
+
+```{python}
+from codex.structures.queue import monotonic_window_max
+
+items = [1, 3, -1, -3, 5, 3, 6, 7]
+print(monotonic_window_max(items, k=3))               # [3, 3, 5, 5, 6, 7]
+
+# Naive verification on a small random case
+import random
+random.seed(42)
+items = [random.randint(0, 100) for _ in range(20)]
+k = 5
+fast = monotonic_window_max(items, k)
+slow = [max(items[i:i + k]) for i in range(len(items) - k + 1)]
+print(f"fast and slow agree: {fast == slow}")        # True
+```
+
+The fast version and the naive version produce the same answers, every time. That's the verification a `{python}` chunk gives you — not a static assertion, but a comparison against the obvious-but-slow algorithm, run at render time. If a future change breaks the monotonic invariant, the comparison row prints `False` and the chapter visibly fails to render correctly.
+
+This pattern — the deque as a *sliding evidence pruner* — generalizes. The same idea appears in chapter 9 of Part V (sliding-window shortest path with a deque holding candidate predecessors), and in chapter 5 of Part VI (DP with a deque as the dominated-state filter). Wherever you have a window moving across a sequence and a question that asks for "the best item in the current window" by some monotone criterion, the monotonic deque turns $\Theta(nk)$ into $\Theta(n)$.
+
+## The three questions, applied
+
+### Is it correct?
+
+The three queue structures all preserve FIFO by construction. The `CircularBuffer` is correct because the modular arithmetic on `_head` and `_tail` exactly tracks where the active window of the array starts and ends, and the size counter unambiguously distinguishes empty from full. The `LinkedQueue` is correct because the head and tail pointers always identify the oldest and newest unprocessed nodes respectively, with the empty case handled explicitly. The `Deque` is correct because each of the four push/pop operations preserves the invariant that head and tail are either both `None` (empty) or both pointing at the boundary nodes of a non-empty chain.
+
+`monotonic_window_max` is correct because of the two-invariant argument: at every step, the deque holds exactly the candidate indices for being the maximum in the current or any future overlapping window, in increasing order of index and strictly decreasing order of value. The front of the deque is therefore always the current window's maximum, modulo the bookkeeping that drops indices as they slide out.
+
+### How efficient is it?
+
+Per operation: enqueue and dequeue on `CircularBuffer` are strict $O(1)$ (no allocation, no resize). On `LinkedQueue` they're also strict $O(1)$, but with a heap allocation per enqueue. On `Deque` all six operations are strict $O(1)$.
+
+`monotonic_window_max` runs in $\Theta(n)$ time and $O(k)$ space — the deque can hold at most $k$ candidate indices at any moment, since any candidate older than $k$ steps would be outside the current window and would have been popped. Independent of $k$ in the time bound; that's the win over the naive $\Theta(nk)$ algorithm.
+
+### Is it optimal?
+
+For the basic queue and deque operations, yes — $O(1)$ matches the trivial write-the-value-to-memory lower bound. For sliding-window maximum, $\Omega(n)$ is the lower bound (you have to read every element of the input), and the monotonic-deque algorithm achieves $\Theta(n)$. The constant factor is worse than the naive algorithm for small $k$ — there's overhead from the deque operations that the naive scan doesn't pay — so the crossover where the monotonic algorithm wins depends on the workload. In practice the crossover is around $k = 5$ or $k = 10$, well below typical streaming-window sizes.
+
+A subtle structural optimality claim: any algorithm that answers sliding-window-max in one pass *cannot* avoid maintaining some kind of pruned-candidate set. You need to know which historical values are still in play and which have been dominated, and the monotonic deque is the smallest data structure that maintains exactly that information. Less wouldn't suffice; more would be redundant.
+
+## What queues teach you
+
+The four structures in this chapter — circular buffer, linked queue, deque, monotonic deque — are all variations on the same theme: a sequence with restrictions on where you can read and where you can write. Each restriction buys a specific algorithm. The queue's FIFO discipline is what makes breadth-first search work in Part V. The deque's symmetric access is what makes the LRU-cache pattern work. The monotonic-deque pruning is what turns a quadratic sliding-window problem into a linear one.
+
+The lesson worth carrying forward is the second cynosure: **a data structure can be more interesting than its surface contract**. A deque is "obviously" useful as a generalized queue. The monotonic-deque pattern, where the deque holds a *pruned set of historical candidates*, is the non-obvious move — same data structure, completely different role in the algorithm. The same shift happens with hash tables (chapter 12, where the obvious dictionary contract isn't where the interesting algorithms live), with stacks (last chapter, where stacks-as-deferred-decisions is the real insight), and with priority queues in Part III (where the heap is "just" a priority queue except when it's the engine behind Dijkstra's algorithm).
+
+The chapter that follows introduces a different atom entirely: not a slot or a node, but a *hash function* — a way of turning an arbitrary key into a memory address. That move is the most consequential single trick in Part II, and it makes some operations cheap that no array or linked-list structure could ever match.
+
+## Notes and further reading
+
+The circular buffer goes back to Knuth Vol. 1 §2.2.2; the head-and-tail-with-size-counter convention used here is the form CLRS (4th ed.) §10.1 calls "queue using an array." Sedgewick & Wayne's *Algorithms* (4th ed.) §1.3 covers both the array-backed and the linked variants. The monotonic deque appears in the competitive-programming literature in the 1990s and reached a wider audience through Topcoder and Codeforces; the canonical reference for the sliding-window-maximum application is Hsiu-Han Lu's note "On the Sliding Window Maximum Problem" (1996). CPython's `collections.deque` is implemented as a doubly linked list of fixed-size array blocks — a hybrid of the two backings shown here — which gives strict $O(1)$ per operation with much better cache behavior than the pure linked version.

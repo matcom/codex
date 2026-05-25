@@ -23,7 +23,15 @@ book:
       - 07_sort_practice.qmd
       - lessons_1.qmd
     - part: part2.qmd
-      chapters: []
+      chapters:
+      - 08_memory.qmd
+      - 09_linked.qmd
+      - 10_stack.qmd
+      - 11_queue.qmd
+      - 12_hash.qmd
+      - 13_bloom.qmd
+      - 14_union_find.qmd
+      - lessons_2.qmd
     - part: Trees
       chapters: []
     - part: String Matching

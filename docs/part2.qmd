@@ -1,0 +1,15 @@
+# Fundamental Data Structures
+
+This second part of the Codex is where you meet **the operation-versus-layout trade**, the negotiation that runs underneath every data structure in the rest of the book. The structures in Part I treated their inputs as abstract sequences and asked algorithmic questions about them. The seven chapters in this part ask the opposite question: *given that I want certain operations to be cheap, how should I lay the data out in memory?*
+
+The answers turn out to compose. Each chapter picks one or two operations to make cheap, gives up something to get there, and hands its design to the next chapter as a building block.
+
+* **Memory and sequences** (chapter 8) starts with the most consequential trade — contiguous storage versus linked storage — and earns its keep with the dynamic array's *doubling discipline*, where amortized $O(1)$ append is paid for by the rare $\Theta(n)$ resize. The accountant's view of cost it introduces returns three more times before the part ends.
+* **Linked lists** (chapter 9) gives up random access entirely in exchange for $O(1)$ pointer surgery in the middle of a chain. Singly, doubly, circular, with reverse, merge, and Floyd's cycle detection as the standard manipulations.
+* **Stacks** (chapter 10) restrict you to operating at one end of a sequence. That restriction is the whole value — function calls, parser state, undo histories, and Shunting Yard all become the same shape underneath: a memory of pending decisions.
+* **Queues and deques** (chapter 11) invert the stack's discipline (queues) or relax it (deques). The monotonic deque used as a *sliding evidence pruner* turns the $\Theta(nk)$ sliding-window-maximum problem into $\Theta(n)$ — the same data structure, in a non-obvious role.
+* **Hash tables** (chapter 12) introduce the chapter's most consequential single trick: letting the key compute its own address. Chaining and open addressing are two ways of handling the inevitable collisions, and the load factor is the parameter that controls how the structure behaves between $\Theta(1)$ and $\Theta(n)$.
+* **Bloom filters** (chapter 13) push the key-as-address idea in a different direction: instead of storing the keys, store only the *fact* that someone hashed there. Accept a tunable false-positive rate, get a million-element set in a megabyte.
+* **Disjoint-set / Union-Find** (chapter 14) is the chapter that pushes amortized analysis to its most striking conclusion — operations whose worst-case cost is $O(\log n)$ but whose amortized cost is the inverse Ackermann function, *effectively* constant for any input you'll ever construct.
+
+By the end of this part you'll be fluent in seven structures and five moves that come back through the rest of the book: **the amortized doubling discipline** for absorbing growth, **pointer surgery** for local modification, **discipline-as-restriction** for clarifying which operations matter, **escaping the comparison model** by computing on key content, and **trading certainty for space** when memory is the binding constraint. Every part that follows leans on at least one of them without re-deriving it.
