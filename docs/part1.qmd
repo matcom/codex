@@ -1,0 +1,15 @@
+# Searching and Sorting
+
+This first part of the Codex is where you meet **the structure-versus-cost trade**, the recurring negotiation that runs through every chapter in the rest of the book. Searching and sorting look like utility problems — *"find this thing,"* *"put these things in order"* — but underneath them sits the deepest question in algorithm design: **what can structure buy you, and what does it cost to create?**
+
+The seven chapters in this part walk that trade from end to end.
+
+* **Linear search** (chapter 1) sets the baseline: when you know nothing about your data, you have to look at all of it. The adversary argument proves this is unavoidable.
+* **Binary search** (chapter 2) shows what one structural assumption — order — buys you: an exponential collapse in the search cost, from $O(n)$ to $O(\log n)$.
+* **Basic sorting** (chapter 3) asks how to *create* that order, and lands at the cynosure that organizes the rest of the part: an **inversion** is a pair of elements that's out of order, and sorting is the process of driving the inversion count to zero.
+* **Efficient sorting** (chapter 4) breaks the quadratic ceiling by attacking inversions in bulk — the **local-vs-global** duality that makes merge sort and quick sort reflections of each other across the recursive split.
+* **Selection** (chapter 5) collapses the cost further by recursing on only *one* side of a partition: $T(n) = T(n/2) + O(n)$ instead of $T(n) = 2T(n/2) + O(n)$, which turns $O(n \log n)$ into $O(n)$.
+* **Linear-time sorting** (chapter 6) takes the lower bound apart. The $\Omega(n \log n)$ floor was a property of the *comparison model*, not of sorting itself. Look inside the elements — use their intrinsic structure as an address — and the floor drops to $\Omega(n)$.
+* **Sorting in practice** (chapter 7) closes the loop by showing what production code actually does: not any single algorithm uniformly, but a *composition* of them, with insertion sort for small subarrays, quicksort or merge sort for the recursive divide, and run-detection or depth-limited fallbacks for the corner cases.
+
+By the end of this part you'll be fluent in five distinct algorithmic moves that come back through the rest of the book: **exploit structure when it exists, halve the problem when you can, randomize to escape worst cases, look inside the data when comparison runs out of information, and compose rather than choose**. Every part that follows builds on at least one of them.

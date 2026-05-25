@@ -1,52 +1,30 @@
 from typing import MutableSequence
 from codex.types import Ordering, default_order
 
-def selection_sort[T](
-    items: MutableSequence[T], f: Ordering[T] = None
-) -> None:
-    if f is None:
-        f = default_order
 
+def selection_sort[T](
+    items: MutableSequence[T], order: Ordering[T] = default_order
+) -> None:
     n = len(items)
     for i in range(n):
-        # Find the index of the minimum element in the unsorted suffix
         min_idx = i
         for j in range(i + 1, n):
-            if f(items[j], items[min_idx]) < 0:
+            if order(items[j], items[min_idx]) < 0:
                 min_idx = j
-
-        # Swap it into the current position
         items[i], items[min_idx] = items[min_idx], items[i]
-
 def insertion_sort[T](
-    items: MutableSequence[T], f: Ordering[T] = None
+    items: MutableSequence[T], order: Ordering[T] = default_order
 ) -> None:
-    if f is None:
-        f = default_order
-
     for i in range(1, len(items)):
         j = i
-        # Move the element backward as long as it is smaller than its predecessor
-        while j > 0 and f(items[j], items[j-1]) < 0:
-            items[j], items[j-1] = items[j-1], items[j]
+        while j > 0 and order(items[j], items[j - 1]) < 0:
+            items[j], items[j - 1] = items[j - 1], items[j]
             j -= 1
-
 def bubble_sort[T](
-    items: MutableSequence[T], f: Ordering[T] = None
+    items: MutableSequence[T], order: Ordering[T] = default_order
 ) -> None:
-    if f is None:
-        f = default_order
-
     n = len(items)
-    for i in range(n):
-        swapped = False
-        for j in range(0, n - i - 1):
-            # If we find a consecutive inversion, fix it
-            if f(items[j+1], items[j]) < 0:
-                items[j], items[j+1] = items[j+1], items[j]
-                swapped = True
-
-        # If no swaps occurred, the list is already sorted
-        if not swapped:
-            break
-
+    for i in range(n - 1):
+        for j in range(n - 1 - i):
+            if order(items[j], items[j + 1]) > 0:
+                items[j], items[j + 1] = items[j + 1], items[j]

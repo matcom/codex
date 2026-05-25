@@ -7,8 +7,7 @@ dev:
 	find docs | grep md$ | entr make source
 
 source:
-	@illiterate -d . docs/*.md
-	@make tests
+	@illiterate -d . docs/*.qmd
 
 publish: source
 	(cd docs && quarto publish gh-pages)

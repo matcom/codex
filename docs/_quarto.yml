@@ -11,17 +11,18 @@ book:
   date: "1/18/2026"
   chapters:
     - index.qmd
-    - 00_intro.md
-    - part: part1.md
+    - 00_intro.qmd
+    - part: part1.qmd
       chapters:
-      - 01_search.md
-      - 02_binary.md
-      - 03_sort.md
-      - 04_sort_fast.md
-      - 05_rankings.md
-      - 06_linear_sort.md
-      - lessons_1.md
-    - part: part2.md
+      - 01_search.qmd
+      - 02_binary.qmd
+      - 03_sort.qmd
+      - 04_sort_fast.qmd
+      - 05_rankings.qmd
+      - 06_linear_sort.qmd
+      - 07_sort_practice.qmd
+      - lessons_1.qmd
+    - part: part2.qmd
       chapters: []
     - part: Trees
       chapters: []
@@ -36,8 +37,8 @@ book:
     - part: Advanced Complexity
       chapters: []
   appendices:
-    - appendix-python.md
-    - appendix-notation.md
+    - appendix-python.qmd
+    - appendix-notation.qmd
 
 toc-depth: 2
 number-depth: 1
@@ -49,3 +50,10 @@ format:
       - brand
   pdf:
     documentclass: scrreprt
+    papersize: a4
+    geometry:
+      - margin=2cm
+    fontsize: 10pt
+    toc: true
+    toc-depth: 2
+    number-sections: true

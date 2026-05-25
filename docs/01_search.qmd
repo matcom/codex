@@ -1,0 +1,186 @@
+# Looking at everything, in order
+
+You have a list of names — say, the guest list for a wedding — and you need to know whether someone in particular is on it. There's no order to the list; someone typed names in as people RSVPed. What do you do?
+
+You read the list, top to bottom, until you either find the name or run out of list. That's it. That's the algorithm. By the end of this chapter, you'll have implemented this in five lines of Python, and — more interestingly — you'll have proven that **nothing can do better** when the input has no structure. Linear search isn't just the obvious algorithm; it's the *only* algorithm, up to symmetry. That's a surprisingly satisfying thing to learn in chapter one.
+
+The image to hold in your head for this chapter is **the adversary**: someone who can rearrange the list while you're not looking, specifically to make you look at every element before you can answer. The adversary is going to come back several times in this book. Linear search is where you meet them.
+
+## The problem and the data
+
+The setting is the simplest one possible. You have a **sequence** of items — a finite ordered collection where each item has an index and you can ask for the $i$-th element. You don't know anything else about it. The items might be sorted, might not. There might be duplicates, might not. You're just walking the indices.
+
+Python's standard library captures this with the `Sequence` protocol. Lists, tuples, strings, `range` objects — all of them are sequences. I'll use `Sequence[T]` as the type hint for input, and that's the most generic shape the algorithms in this chapter can handle.
+
+```python {export=src/codex/search/linear.py}
+from typing import Sequence
+
+
+def find[T](x: T, items: Sequence[T]) -> bool:
+    for y in items:
+        if x == y:
+            return True
+    return False
+```
+
+The whole algorithm in five lines. You walk the sequence; if you ever match, you stop and answer yes; if you fall off the end, you answer no. Notice the early return — that's what makes the *average* case better than the worst case, though only by a constant factor.
+
+Running it on a few inputs:
+
+```{python}
+from codex.search.linear import find
+
+print(find(3, [1, 2, 3, 4, 5]))   # True — found at position 2, walked three elements
+print(find(9, [1, 2, 3, 4, 5]))   # False — walked all five, gave up
+print(find("apple", ["banana", "cherry", "apple"]))  # True — strings work fine
+print(find(1, []))                # False — nothing to check, answer is immediate
+```
+
+## From "is it there?" to "where?" and "how many?"
+
+`find` tells you whether an item exists. Often, you want more. **Where is it?** Or, when duplicates matter, **how many of it are there?**
+
+The first variation is `index` — the smallest index $i$ where `items[i] == x`. If the item is not present, you have to return something signalling absence; I'll use `None` rather than raising an exception, so the caller doesn't have to wrap the call in a `try`.
+
+```python {export=src/codex/search/linear.py}
+def index[T](x: T, items: Sequence[T]) -> int | None:
+    for i, y in enumerate(items):
+        if x == y:
+            return i
+    return None
+```
+
+```{python}
+from codex.search.linear import index
+
+print(index(3, [1, 2, 3, 4]))     # 2 — found at position 2
+print(index(9, [1, 2, 3, 4]))     # None — not present
+print(index(2, [2, 2, 2]))        # 0 — first occurrence wins; this is the contract
+```
+
+The contract on the duplicates case matters. `index` returns the *first* occurrence — the smallest index. That's by convention; some libraries return the last. Pick a side, document it, never let your callers wonder.
+
+The second variation is `count`. Instead of bailing out on the first match, you walk the whole sequence and tally.
+
+```python {export=src/codex/search/linear.py}
+def count[T](x: T, items: Sequence[T]) -> int:
+    c = 0
+    for y in items:
+        if x == y:
+            c += 1
+    return c
+```
+
+```{python}
+from codex.search.linear import count
+
+print(count(2, [1, 2, 2, 3, 2]))  # 3 — three twos
+print(count(9, [1, 2, 3]))        # 0 — none
+print(count("a", "banana"))       # 3 — strings are sequences of characters
+```
+
+Notice that `count` has no early-out — it has to look at every element, every time. That'll matter when I get to the cost analysis.
+
+## Finding the extremes
+
+A different question, same paradigm. Instead of asking *"is $x$ in the sequence?"*, you ask *"what's the smallest element?"* or *"what's the largest?"* The algorithm is the same shape: walk everything, keep the best so far.
+
+But before I write it, I need to settle one thing. *"Smallest"* and *"largest"* assume some way to compare items. For numbers and strings, Python's built-in `<` works. For arbitrary types, you might want to define your own ordering — for example, comparing tuples by their second element, or sorting URLs by domain. So I'll factor the comparison out into a parameter.
+
+The book's convention for this lives in `codex/types.py` — a small module of cross-cutting protocols. An `Ordering[T]` is a callable that takes two `T`s and returns a negative number if the first is smaller, zero if they're equal, positive if the first is larger. That's the same convention C uses for `qsort` and Java uses for `Comparator.compare`.
+
+```python {export=src/codex/types.py}
+from typing import Callable
+
+type Ordering[T] = Callable[[T, T], int]
+```
+
+For the common case — numbers, strings, anything with a built-in `<` — you don't want to write a comparator by hand. So `default_order` delegates to the items themselves.
+
+```python {export=src/codex/types.py}
+def default_order[T](x: T, y: T) -> int:
+    if x < y:
+        return -1
+    elif x == y:
+        return 0
+    else:
+        return 1
+```
+
+Now `minimum` writes itself. Start with the first element as a placeholder for "best so far"; walk the rest; update whenever you find something smaller.
+
+```python {export=src/codex/search/linear.py}
+from codex.types import Ordering, default_order
+
+
+def minimum[T](items: Sequence[T], order: Ordering[T] = default_order) -> T:
+    m = items[0]
+    for x in items:
+        if order(x, m) < 0:
+            m = x
+    return m
+```
+
+The only way `minimum` can fail is if the sequence is empty — there's no "smallest of nothing." That'll raise an `IndexError` on the first line, which is the right behavior. Don't catch it; let it propagate.
+
+For `maximum`, you might be tempted to write a near-copy of `minimum` with `>` instead of `<`. Don't. The asymmetry between the two is just the direction of the ordering — and you already have a parameter that controls the direction. Flip its arguments.
+
+```python {export=src/codex/search/linear.py}
+def maximum[T](items: Sequence[T], order: Ordering[T] = default_order) -> T:
+    return minimum(items, lambda x, y: order(y, x))
+```
+
+That's the whole implementation: `maximum` is `minimum` with the comparison reversed. The lambda swaps the arguments to `order`, which is the cleanest way to say *"flip the direction of this ordering."*
+
+```{python}
+from codex.search.linear import minimum, maximum
+
+items = [4, 2, 6, 5, 7, 1, 0]
+print(minimum(items))              # 0 — smallest
+print(maximum(items))              # 7 — largest
+print(minimum(["banana", "apple", "cherry"]))  # apple — strings compare lexicographically
+
+# A custom ordering: compare strings by length, shortest first
+by_length = lambda x, y: len(x) - len(y)
+print(minimum(["hippopotamus", "cat", "elephant"], by_length))  # cat
+```
+
+## The three questions, applied
+
+You've now seen five variations of the same algorithm. The shape is identical in every case — walk every element, do some bookkeeping, return. Time to put it to the three questions.
+
+### Is it correct?
+
+`find` is correct because **there's nowhere for $x$ to hide.** If $x$ is in the sequence, then there's some index $i$ where `items[i] == x`. The `for` loop visits every index without exception. When it gets to $i$, the equality check succeeds, and the function returns `True`. If $x$ is not in the sequence, the loop completes without ever finding a match, and the function returns `False`. There's no gap in the argument.
+
+If you want a more formal flavor, you can express the same idea as a **loop invariant**: *at the start of iteration $i$, the target $x$ has not been found among the first $i-1$ elements.* The invariant holds before the loop starts ($i = 0$, no elements examined, the statement is vacuously true), is preserved by each iteration (if $x$ matched at iteration $i-1$, the function would have returned `True` and the loop wouldn't be running), and at termination tells you that $x$ is not in the first $n$ elements — which is the entire sequence. The variants (`index`, `count`, `minimum`, `maximum`) all use the same shape of invariant; I'll leave you to write them out yourself if you want to practice.
+
+### How efficient is it?
+
+In the RAM model, each comparison costs one unit of time. The loop runs at most $n$ times — exactly $n$ times in the worst case for `find` (target absent, or present at the very last position). For `count`, `minimum`, and `maximum`, the loop *always* runs $n$ times, since they have no early exit. Either way: **$O(n)$ time, linear in the size of the input.**
+
+Space is $O(1)$. The loop variable and the running "best so far" each occupy constant memory; the input doesn't need to be copied. Nothing about the algorithm grows with $n$.
+
+### Is it optimal?
+
+This is the interesting one. Linear search is $O(n)$ — but is it the *best possible* $O(n)$? Could some cleverer algorithm answer in, say, $O(\sqrt{n})$ or $O(\log n)$ on an unstructured sequence?
+
+The answer is no, and the proof is the **adversary argument**. Imagine you're playing a game against me. You bring an algorithm that claims to decide whether $x$ is in a sequence of length $n$ by inspecting fewer than $n$ elements — say, $n - 1$ of them. I'm the adversary, and I get to choose what's in the sequence *as you go* — I only have to commit to a value when you actually look at a position.
+
+You inspect $n - 1$ positions. There's exactly one position you didn't look at. Whatever answer you give me — *"yes, $x$ is present"* or *"no, $x$ is not present"* — I can falsify it by retroactively setting the unexamined position to the value that makes you wrong. If you answered yes without ever seeing $x$, I'll fill the unexamined slot with something else. If you answered no, I'll fill the unexamined slot with $x$ itself.
+
+So any correct algorithm must inspect every element in the worst case. That gives you a lower bound of $\Omega(n)$ — any algorithm solving this problem on an unstructured sequence has to do at least linear work. Linear search hits that bound exactly, which makes it **tightly optimal** for this problem.
+
+That's a strong statement. It means: until the input has more structure than *"a finite ordered collection where I can ask for the $i$-th element,"* you cannot do better than reading the whole thing. Knowing nothing has a price, and the price is linear.
+
+## What linear search teaches you
+
+Linear search is correct because the loop has nowhere to hide a missed match. It runs in $O(n)$ time and $O(1)$ space. And it's optimal — the adversary argument says no algorithm can answer the "is $x$ in this sequence?" question with fewer than $n$ inspections in the worst case, when the input has no structure.
+
+That last point is the one to take away. Linear search isn't *a* solution to unstructured search — it's *the* solution, the one any other approach has to beat by knowing something the algorithm here doesn't. The rest of the book is, in a sense, the story of what happens when you know that "something" — when the input is sorted, or hashed, or arranged in a tree, or laid out on a graph.
+
+In the next chapter, you'll meet the simplest piece of structure you can demand: **order**. If the sequence is sorted, you can do dramatically better than $O(n)$ — and the algorithm that exploits this is, in my opinion, the most beautiful one in the book.
+
+## Notes and further reading
+
+The adversary argument is the standard lower-bound technique for comparison-based search and is treated formally in CLRS (4th ed.) §8.1 in the context of sorting; the same logic applies here. Sedgewick and Wayne's *Algorithms* (4th ed.) §1.2 introduces sequential search alongside the basic API. The `Ordering` convention used here (negative / zero / positive) is the one Python's now-removed `cmp` parameter used, the one C's `qsort` uses, and the one Java's `Comparator.compare` returns; it generalizes more cleanly than a boolean less-than for the comparison-based algorithms that come later in the book.

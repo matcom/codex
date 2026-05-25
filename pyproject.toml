@@ -17,5 +17,9 @@ build-backend = "hatchling.build"
 
 [dependency-groups]
 dev = [
+    "ipykernel>=7.2.0",
+    "nbclient>=0.10.4",
+    "nbformat>=5.10.4",
+    "pyyaml>=6.0.3",
     "tesserax>=0.2.0",
 ]
