@@ -33,7 +33,8 @@ book:
       - 14_union_find.qmd
       - lessons_2.qmd
     - part: Trees
-      chapters: []
+      chapters:
+      - 15_binary_trees.qmd
     - part: String Matching
       chapters: []
     - part: Graphs
