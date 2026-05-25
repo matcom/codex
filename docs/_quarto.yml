@@ -47,6 +47,7 @@ book:
   appendices:
     - appendix-python.qmd
     - appendix-notation.qmd
+    - appendix-math.qmd
 
 toc-depth: 2
 number-depth: 1
