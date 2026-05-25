@@ -36,6 +36,7 @@ book:
       chapters:
       - 15_binary_trees.qmd
       - 16_bst.qmd
+      - 17_avl.qmd
     - part: String Matching
       chapters: []
     - part: Graphs
