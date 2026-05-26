@@ -43,8 +43,9 @@ book:
       - 21_segment.qmd
       - 22_fenwick.qmd
       - lessons_3.qmd
-    - part: String Matching
-      chapters: []
+    - part: String Algorithms
+      chapters:
+      - 23_brute.qmd
     - part: Graphs
       chapters: []
     - part: Dynamic Programming and Greedy Algorithms
