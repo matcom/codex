@@ -1,0 +1,431 @@
+# Counting the edits between two strings
+
+Chapter 29 closed Part IV's pattern-matching arc and promised a sharp turn. Every algorithm from chapter 23 onward answered the same question in different shapes — "where does this pattern occur exactly in this text?" — and the suffix array's parting move was to flip preprocessing from patterns to text, so any pattern query was cheap. I want to flip the *question* now. Forget exact occurrence. Two strings sit in front of me, and I want a single number that says how *close* they are — how many character-level edits separate one from the other. That number is the **edit distance**, and the structure that computes it is the cynosure of this chapter: **an n×m grid where each cell is the cost of aligning two prefixes**.
+
+By the end of the chapter you'll have built four functions: `hamming` for the trivial case of two equal-length strings, `levenshtein` for the general case where insertions and deletions are also allowed, `align` to recover the actual edits behind the distance number, and `lcs` and `lcss` for two close cousins (longest common subsequence, longest common substring) that share the same grid-of-cells engine. You'll have watched the kitten-to-sitting DP table fill in row by row, traced the backtracking path that produces the alignment, and seen how exact substring search falls out as a special case of longest-common-substring. The empower-promise: by chapter's end, the phrase "dynamic programming over a 2D table" stops being a research-paper incantation and becomes a small Python loop you've watched run on six-character strings.
+
+One framing note I owe you up front: this is also the origin story for Part VI. The book hasn't named "dynamic programming" yet, and won't name it formally until Part VI's landing page, but edit distance is the canonical example — the one every DP textbook reaches for first — so I'll spend the closing sections of this chapter pulling out the pattern explicitly. The grid you fill, the cell-by-cell recurrence, the optimal-substructure property, the overlapping subproblems: all of those are concepts Part VI generalizes. For now, treat the n×m grid as the chapter's central image and let the abstraction wait.
+
+## When the match is fuzzy
+
+Suppose you type `recieve` into a search box. The dictionary has `receive`. Should the search engine say "no match" and walk away? It shouldn't — and the reason it shouldn't is that those two strings differ by one transposition's worth of editing work, and a sensible spell-checker recognizes that as a likely typo. Suppose you have two DNA sequences and you want to know whether they come from related organisms. Their letters don't agree exactly — a few substitutions here, an insertion there from a duplication event, a deletion there from a frameshift — and you want a single similarity number that summarizes the alignment. Suppose you have two text files and you want a `diff`: a minimal description of how to turn one into the other. All three problems reduce to the same primitive: given two strings $a$ and $b$, count the minimum number of single-character edits — insertions, deletions, substitutions — that transform $a$ into $b$.
+
+That count is the **Levenshtein distance**, named after Vladimir Levenshtein who introduced it in a 1965 Russian paper (translated to English in 1966). It's the workhorse distance metric for strings in essentially every domain that deals with sequences: bioinformatics (`needle` and `water` in the EMBOSS suite, BLAST's local alignment, every modern DNA aligner), spell correction (every search engine and every word processor), version control (`diff` and `patch`), record linkage (matching `John Smith` against `Jon Smyth`), plagiarism detection, fuzzy text search. If a tool measures string similarity, the Levenshtein distance or a close variant is probably underneath.
+
+The naive approach — try every possible sequence of edits and pick the shortest — is hopeless. A string of length $n$ has exponentially many edit sequences, and brute force would melt down on any input longer than a few characters. The dynamic-programming approach I'll build in this chapter computes the same number in $O(nm)$ time and $O(nm)$ space, which is fast enough to handle string pairs of length tens of thousands without breaking a sweat.
+
+Before I get to the general case, I want to start with the simpler relative — the one where insertions and deletions are off the table and only substitutions are allowed.
+
+## Hamming as the trivial case
+
+When the two strings have equal length and the only edits you allow are substitutions, the edit distance has a name of its own: the **Hamming distance**. Richard Hamming defined it in his 1950 paper on error-detecting codes — the question he cared about was how many bit-flips it took to turn one codeword into another, and the answer was simply the number of positions where the two codewords disagreed.
+
+For strings, the definition is identical: count the positions at which the two strings differ. It's a single-pass $O(n)$ scan with no auxiliary structure beyond a counter.
+
+```python {export=src/codex/strings/edit_distance.py}
+def hamming(a: str, b: str) -> int:
+    """Number of positions at which two equal-length strings differ.
+    Raises ValueError if lengths disagree."""
+    if len(a) != len(b):
+        raise ValueError(f"hamming requires equal lengths, got {len(a)} vs {len(b)}")
+    return sum(1 for x, y in zip(a, b) if x != y)
+```
+
+One line of work plus a guard. The guard is what makes Hamming an honest answer to a narrower question: equal-length strings only. I raise a `ValueError` rather than silently truncating because conflating Hamming with something else would defeat the whole point — Hamming is the distance when alignment is fixed character-by-character, and unequal lengths break that assumption.
+
+Running it on a famously dissimilar pair:
+
+```{python}
+from codex.strings.edit_distance import hamming
+
+print(f"hamming('hello', 'world') = {hamming('hello', 'world')}")
+print(f"hamming('karolin', 'kathrin') = {hamming('karolin', 'kathrin')}")
+print(f"hamming('abcde', 'abcde') = {hamming('abcde', 'abcde')}")
+```
+
+`hello` versus `world` differs at four of five positions — the two strings agree only on the `l` at index 3 (`hello[3] = 'l'` and `world[3] = 'l'`) — so the distance is 4. `karolin` versus `kathrin` differs at three positions (positions 2, 3, 4: `r` vs `t`, `o` vs `h`, `l` vs `r`) and agrees at the other four, so the distance is 3. Equal strings have distance 0, which is the property a metric needs.
+
+The limitation is severe. Hamming insists that the two strings line up character-by-character with no shifting. If I'm comparing `kitten` against `sitten` (one substitution at position 0), Hamming gives me 1 — fine. But `kitten` against `sitting` — same first four characters, plus an extra letter at the end and a swap in the middle — has different lengths, so Hamming refuses to answer. And even `kitten` against `kittten` (one extra `t` inserted) — same length difference, same intuitive answer of one edit — falls outside Hamming's scope. The whole shape of typo-correction, version control, biological alignment depends on tolerating insertions and deletions, not just substitutions, and Hamming gives me no purchase on those.
+
+That's the pedagogical setup: Hamming is the right answer to a narrow question, and the narrow question shows you what the harder question needs. The harder question is the Levenshtein distance, and the algorithm that computes it is the centerpiece of the chapter.
+
+## The edit-distance recurrence
+
+Three operations are on the table: **insert** a character into $a$, **delete** a character from $a$, or **substitute** one character of $a$ with another. Each operation costs 1. The edit distance between strings $a$ and $b$ is the minimum total cost over all sequences of operations that transform $a$ into $b$.
+
+The trick — and it's the trick that earns dynamic programming its name in this chapter — is to phrase the question in terms of *prefixes* of the two strings. Define `dp[i][j]` to be the edit distance between the prefix `a[:i]` (the first $i$ characters of $a$) and the prefix `b[:j]` (the first $j$ characters of $b$). The full answer I want is `dp[n][m]` where $n = \mathrm{len}(a)$ and $m = \mathrm{len}(b)$.
+
+The recurrence I claim:
+
+$$
+\mathrm{dp}[i][j] = \begin{cases}
+j & \text{if } i = 0 \\
+i & \text{if } j = 0 \\
+\mathrm{dp}[i-1][j-1] & \text{if } i, j > 0 \text{ and } a[i-1] = b[j-1] \\
+1 + \min\!\big(\mathrm{dp}[i-1][j],\ \mathrm{dp}[i][j-1],\ \mathrm{dp}[i-1][j-1]\big) & \text{otherwise}
+\end{cases}
+$$
+
+Bilingually: if either prefix is empty, the answer is the length of the other prefix — you have no choice but to insert (or delete) every character of the non-empty one. If both prefixes are non-empty and their last characters agree, the last character is free: the distance between `a[:i]` and `b[:j]` equals the distance between `a[:i-1]` and `b[:j-1]`, because once you've aligned the prefixes-minus-one, the matching final character costs zero. If the last characters disagree, you pay 1 for some edit at the end, and the rest of the work is whichever of three subproblems is cheapest:
+
+- **Delete `a[i-1]`** — the last character of `a` is removed and you're left aligning `a[:i-1]` against the full `b[:j]`. Subproblem: `dp[i-1][j]`.
+- **Insert `b[j-1]`** — you tack `b[j-1]` onto the end of `a`, which accounts for the last character of `b[:j]`, and you're left aligning the full `a[:i]` against `b[:j-1]`. Subproblem: `dp[i][j-1]`.
+- **Substitute** — replace `a[i-1]` with `b[j-1]`, accounting for the last character of both prefixes, and align `a[:i-1]` against `b[:j-1]`. Subproblem: `dp[i-1][j-1]`.
+
+Add 1 to whichever subproblem cost is smallest and that's your `dp[i][j]`.
+
+That recurrence is the whole algorithm. The work that's left is mechanical: fill the table in an order that has every needed subproblem computed before you ask for it. Since `dp[i][j]` depends on `dp[i-1][j]`, `dp[i][j-1]`, and `dp[i-1][j-1]` — three neighbors above and to the left — filling row-by-row from top to bottom, left-to-right within each row, guarantees that every reference is already populated.
+
+## Filling the table bottom-up
+
+Here's the function. It allocates an $(n+1) \times (m+1)$ table, seeds the first row and column with the base cases, then walks the recurrence cell-by-cell.
+
+```python {export=src/codex/strings/edit_distance.py}
+def levenshtein(a: str, b: str) -> int:
+    """Minimum number of insert/delete/substitute edits to transform a into b.
+    Bottom-up DP, O(nm) time, O(nm) space."""
+    n, m = len(a), len(b)
+    if n == 0:
+        return m
+    if m == 0:
+        return n
+    # dp[i][j] = edit distance between a[:i] and b[:j]
+    dp = [[0] * (m + 1) for _ in range(n + 1)]
+    for i in range(n + 1):
+        dp[i][0] = i
+    for j in range(m + 1):
+        dp[0][j] = j
+    for i in range(1, n + 1):
+        for j in range(1, m + 1):
+            if a[i - 1] == b[j - 1]:
+                dp[i][j] = dp[i - 1][j - 1]
+            else:
+                dp[i][j] = 1 + min(
+                    dp[i - 1][j],      # delete a[i-1]
+                    dp[i][j - 1],      # insert b[j-1]
+                    dp[i - 1][j - 1],  # substitute a[i-1] with b[j-1]
+                )
+    return dp[n][m]
+```
+
+The early-exit cases handle empty inputs — if either string is empty, the answer is the length of the other, which falls out of the base case but is faster to short-circuit. The double loop is the recurrence transcribed directly. Each cell touches three predecessors, so each cell does $O(1)$ work, and there are $(n+1)(m+1)$ cells — that's where the $O(nm)$ time bound comes from. The table allocation is also $O(nm)$, which I'll come back to in the efficiency discussion.
+
+Running it on the canonical example — Levenshtein's own kitten/sitting pair — and a few neighbors:
+
+```{python}
+from codex.strings.edit_distance import levenshtein
+
+print(f"levenshtein('kitten', 'sitting') = {levenshtein('kitten', 'sitting')}")
+print(f"levenshtein('Saturday', 'Sunday') = {levenshtein('Saturday', 'Sunday')}")
+print(f"levenshtein('', 'abc') = {levenshtein('', 'abc')}")
+print(f"levenshtein('abc', '') = {levenshtein('abc', '')}")
+print(f"levenshtein('hello', 'hello') = {levenshtein('hello', 'hello')}")
+```
+
+The kitten/sitting answer is 3, matching Levenshtein's hand-worked example: `kitten` → `sitten` (substitute `k`→`s`) → `sittin` (substitute `e`→`i`) → `sitting` (insert `g`). `Saturday` against `Sunday` is also 3 — delete `a`, delete `t`, substitute `r`→`n`. The two empty-prefix cases are 3 apiece (the length of the non-empty string). Equal strings give 0.
+
+I want to actually look at the table, not just the final number. Let me write a small helper that prints the full DP grid for `levenshtein('kitten', 'sitting')`, with the two strings labeling the rows and columns.
+
+```{python}
+def print_dp_table(a: str, b: str) -> None:
+    n, m = len(a), len(b)
+    dp = [[0] * (m + 1) for _ in range(n + 1)]
+    for i in range(n + 1):
+        dp[i][0] = i
+    for j in range(m + 1):
+        dp[0][j] = j
+    for i in range(1, n + 1):
+        for j in range(1, m + 1):
+            if a[i - 1] == b[j - 1]:
+                dp[i][j] = dp[i - 1][j - 1]
+            else:
+                dp[i][j] = 1 + min(dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1])
+
+    # Header row: blank corner, then "" placeholder, then b's characters
+    header = "       ''  " + "  ".join(f" {c}" for c in b)
+    print(header)
+    for i in range(n + 1):
+        label = "''" if i == 0 else f" {a[i - 1]}"
+        row_cells = "  ".join(f"{dp[i][j]:>2}" for j in range(m + 1))
+        print(f"  {label}  {row_cells}")
+
+print_dp_table("kitten", "sitting")
+```
+
+Read the grid like a coordinate plane. The top-left cell is `dp[0][0] = 0` (two empty prefixes are at distance 0). The first row is the base case for an empty `a`: `dp[0][j] = j` because turning the empty string into `b[:j]` costs $j$ insertions. The first column is symmetric: `dp[i][0] = i` because turning `a[:i]` into the empty string costs $i$ deletions.
+
+Now follow the interior. `dp[1][1]` is the distance between `'k'` and `'s'` — different characters, so it's $1 + \min(\mathrm{dp}[0][1], \mathrm{dp}[1][0], \mathrm{dp}[0][0]) = 1 + \min(1, 1, 0) = 1$. One substitution. `dp[2][2]` is the distance between `'ki'` and `'si'` — last characters agree (`i` = `i`), so it inherits `dp[1][1] = 1`. The match-cost-zero rule shows up on the diagonal whenever the running prefixes' last characters align, and the table's diagonal between `dp[2][2]` and `dp[4][4]` is exactly that — `kit` vs `sit` (last char `t` = `t`, distance 1), `kitt` vs `sitt` (last char `t` = `t`, distance 1).
+
+The final cell `dp[6][7] = 3` is the answer. You can read the value off the bottom-right corner of any edit-distance table — that cell is the distance between the two full strings.
+
+The grid is the cynosure. Every entry is the cost of aligning two prefixes; the final entry is the cost of aligning the two full strings; and every interior cell is one decision step computed from three neighbors. The whole structure of edit distance is on display.
+
+## Reconstructing the alignment
+
+The distance number tells you *how many* edits separate the two strings, but not *which* edits. For many applications — `diff`'s output, biological alignment displays, spell-correction hints — you also want the alignment itself: a column-by-column display showing which characters of `a` match which characters of `b`, where the substitutions happened, and where the gaps (insertions and deletions) fell.
+
+To recover the alignment, I backtrack from `dp[n][m]` to `dp[0][0]`, asking at each cell "which of the three predecessors produced this value?" — and the predecessor I find tells me which edit was at this step:
+
+- If `a[i-1] == b[j-1]` and `dp[i][j] == dp[i-1][j-1]`, the step is a **match** (no edit). Move diagonally to `dp[i-1][j-1]`.
+- If `dp[i][j] == dp[i-1][j-1] + 1`, the step is a **substitution**. Move diagonally.
+- If `dp[i][j] == dp[i-1][j] + 1`, the step is a **deletion from `a`** (a `'-'` in `b`'s column). Move up to `dp[i-1][j]`.
+- If `dp[i][j] == dp[i][j-1] + 1`, the step is an **insertion into `a`** (a `'-'` in `a`'s column). Move left to `dp[i][j-1]`.
+
+I emit each step as a `(char_a, char_b)` pair as I walk, then reverse the list at the end so it reads in forward order.
+
+```python {export=src/codex/strings/edit_distance.py}
+def align(a: str, b: str) -> list[tuple[str, str]]:
+    """Edit-distance alignment as a list of (char_a, char_b) pairs.
+    '-' is the gap marker. Reconstructed via backtracking through the DP
+    table from dp[n][m] to dp[0][0]."""
+    n, m = len(a), len(b)
+    dp = [[0] * (m + 1) for _ in range(n + 1)]
+    for i in range(n + 1):
+        dp[i][0] = i
+    for j in range(m + 1):
+        dp[0][j] = j
+    for i in range(1, n + 1):
+        for j in range(1, m + 1):
+            if a[i - 1] == b[j - 1]:
+                dp[i][j] = dp[i - 1][j - 1]
+            else:
+                dp[i][j] = 1 + min(
+                    dp[i - 1][j],
+                    dp[i][j - 1],
+                    dp[i - 1][j - 1],
+                )
+
+    # Backtrack to reconstruct alignment
+    alignment: list[tuple[str, str]] = []
+    i, j = n, m
+    while i > 0 or j > 0:
+        if i > 0 and j > 0 and a[i - 1] == b[j - 1]:
+            alignment.append((a[i - 1], b[j - 1]))
+            i -= 1
+            j -= 1
+        elif i > 0 and j > 0 and dp[i][j] == dp[i - 1][j - 1] + 1:
+            alignment.append((a[i - 1], b[j - 1]))  # substitute
+            i -= 1
+            j -= 1
+        elif i > 0 and dp[i][j] == dp[i - 1][j] + 1:
+            alignment.append((a[i - 1], "-"))  # delete from a
+            i -= 1
+        else:
+            alignment.append(("-", b[j - 1]))  # insert into a (delete from b)
+            j -= 1
+    alignment.reverse()
+    return alignment
+```
+
+The function rebuilds the DP table from scratch — the same lines as `levenshtein`. You'll notice the table-fill code is duplicated verbatim between the two functions. I keep it that way deliberately: each function should stand on its own as a self-contained algorithm you can read top-to-bottom, and tucking the table-fill behind a shared helper would force you to flip between three functions to understand `align`. Explicit duplication wins on pedagogical clarity here, and the cost is a few extra lines of identical Python — Python will define each function fresh when `illiterate` appends the blocks to the same module.
+
+The backtracking loop terminates when both `i` and `j` reach zero — every cell on the way back to `dp[0][0]` consumes either a character from `a`, a character from `b`, or both. The four branches inside the loop correspond to the four edit possibilities I sketched above, with match handled separately from substitution so the match's zero cost is recorded correctly. The trailing `alignment.reverse()` flips the path back to forward order.
+
+Running it on `('kitten', 'sitting')` and printing each pair with a label:
+
+```{python}
+from codex.strings.edit_distance import align
+
+def print_alignment(a: str, b: str) -> None:
+    pairs = align(a, b)
+    for ca, cb in pairs:
+        if ca == "-":
+            label = "insert"
+        elif cb == "-":
+            label = "delete"
+        elif ca == cb:
+            label = "match"
+        else:
+            label = "substitute"
+        print(f"  {ca} | {cb}   {label}")
+
+print_alignment("kitten", "sitting")
+```
+
+Seven columns: substitute `k`→`s`, three matches (`i`, `t`, `t`), substitute `e`→`i`, match (`n`), insert `g`. Three non-match operations total — the same 3 the distance function gave me. The alignment lets you *see* which characters survived and which got rewritten.
+
+Some pairs have multiple optimal alignments — `('abc', 'cba')` could be solved with three substitutions or with three deletions plus three insertions, both costing 3 substitutions' worth or 3 indels' worth in different unit-cost models. My function returns *one* optimal alignment, the one the backtracking branches happen to prefer (match > substitute > delete > insert in tie-breaking). Other implementations make different choices; for the chapter's purposes, *some* optimal alignment is enough.
+
+## Subsequences and substrings
+
+Edit distance is one specific question about string similarity, but the same grid-of-cells engine answers a small family of related questions. Two of them — **longest common subsequence** (LCS) and **longest common substring** (LCSS) — are worth seeing here, both because they show how the engine generalizes and because they help fix the difference between "subsequence" and "substring" in your head.
+
+A **subsequence** of a string is what you get by deleting zero or more characters without reordering the rest. So `"ace"` is a subsequence of `"abcde"` (delete `b` and `d`), as is `"bd"` and `"abcd"` and the empty string. A subsequence doesn't have to be contiguous in the source string. A **substring**, in contrast, is a contiguous slice — `"bcd"` is a substring of `"abcde"`, but `"ace"` is not.
+
+The **longest common subsequence** of two strings is the longest string that's a subsequence of both. For `"AGCAT"` and `"GAC"`, possible common subsequences include `"AC"`, `"GC"`, `"GA"` — all of length 2 — and the answer can be any of them depending on tie-breaking.
+
+The recurrence for LCS is structurally similar to Levenshtein, but the values count *agreements* instead of *edits*, so `dp[i][j]` is the length of the LCS of `a[:i]` and `b[:j]`:
+
+- If `a[i-1] == b[j-1]`, the last characters agree, so they extend the LCS: `dp[i][j] = dp[i-1][j-1] + 1`.
+- Otherwise, the last characters can't both be part of the LCS, so I throw one away: `dp[i][j] = max(dp[i-1][j], dp[i][j-1])`.
+
+Backtracking reconstructs the actual subsequence: walk from `dp[n][m]` to `dp[0][0]`, prepending `a[i-1]` whenever the diagonal-up move was a "match" extension, and following whichever in-edge yielded the max otherwise.
+
+```python {export=src/codex/strings/edit_distance.py}
+def lcs(a: str, b: str) -> str:
+    """Longest common subsequence — a string that is a subsequence of both
+    a and b, of maximum length. Returns one such LCS (there can be many)."""
+    n, m = len(a), len(b)
+    dp = [[0] * (m + 1) for _ in range(n + 1)]
+    for i in range(1, n + 1):
+        for j in range(1, m + 1):
+            if a[i - 1] == b[j - 1]:
+                dp[i][j] = dp[i - 1][j - 1] + 1
+            else:
+                dp[i][j] = max(dp[i - 1][j], dp[i][j - 1])
+    # Backtrack
+    result: list[str] = []
+    i, j = n, m
+    while i > 0 and j > 0:
+        if a[i - 1] == b[j - 1]:
+            result.append(a[i - 1])
+            i -= 1
+            j -= 1
+        elif dp[i - 1][j] >= dp[i][j - 1]:
+            i -= 1
+        else:
+            j -= 1
+    return "".join(reversed(result))
+```
+
+The base cases are implicit — the table is initialized to zero, which is the right answer when either prefix is empty. The interior loop is the recurrence above. The backtracking loop emits matched characters and otherwise moves toward the larger of the two in-edges; ties go upward (`dp[i-1][j] >= dp[i][j-1]`), but any consistent tie-break works.
+
+```{python}
+from codex.strings.edit_distance import lcs
+
+print(f"lcs('AGCAT', 'GAC') = {lcs('AGCAT', 'GAC')!r}")
+print(f"lcs('ABCBDAB', 'BDCAB') = {lcs('ABCBDAB', 'BDCAB')!r}")
+print(f"lcs('hello', 'world') = {lcs('hello', 'world')!r}")
+print(f"lcs('identical', 'identical') = {lcs('identical', 'identical')!r}")
+```
+
+`lcs('AGCAT', 'GAC')` returns `'GA'` of length 2 — my tie-breaking happened to prefer that one over `'AC'` and `'GC'`. `lcs('ABCBDAB', 'BDCAB')` returns `'BDAB'` of length 4. `'hello'` and `'world'` share the single letter `'o'`, length 1. Identical strings have themselves as their LCS.
+
+LCS shows up in `diff` (the longest common subsequence of two files is the "unchanged" part, and everything else is insertions and deletions), in bioinformatics (gap-tolerant similarity scoring), and in version-control merge algorithms. It's also closely related to edit distance: if substitutions are *not* allowed and only insertions and deletions count, the edit distance between $a$ and $b$ is $n + m - 2 \cdot \mathrm{lcs}(a, b)$ — the characters that don't survive in the LCS are the ones you have to delete from $a$ or insert into $b$.
+
+The **longest common substring** is the contiguous-slice version. The DP is again structurally similar, but the recurrence resets to zero whenever there's a mismatch — a common substring can't span a gap.
+
+```python {export=src/codex/strings/edit_distance.py}
+def lcss(a: str, b: str) -> str:
+    """Longest common SUBSTRING — a contiguous run of characters appearing
+    in both a and b, of maximum length."""
+    n, m = len(a), len(b)
+    if n == 0 or m == 0:
+        return ""
+    dp = [[0] * (m + 1) for _ in range(n + 1)]
+    best_len = 0
+    best_end_in_a = 0
+    for i in range(1, n + 1):
+        for j in range(1, m + 1):
+            if a[i - 1] == b[j - 1]:
+                dp[i][j] = dp[i - 1][j - 1] + 1
+                if dp[i][j] > best_len:
+                    best_len = dp[i][j]
+                    best_end_in_a = i
+    return a[best_end_in_a - best_len:best_end_in_a]
+```
+
+`dp[i][j]` now means "the length of the longest common substring ending at `a[i-1]` and `b[j-1]`" — note "ending at," not "of `a[:i]` and `b[:j]`." That's a different per-cell invariant from LCS. Matches extend the run from the diagonal predecessor; mismatches leave `dp[i][j]` at zero (the table's default), because a mismatch means no common substring ends here. I track the overall maximum across all cells as I fill the table, and at the end I slice it out of `a` using the recorded end-position and length.
+
+```{python}
+from codex.strings.edit_distance import lcss
+
+print(f"lcss('introduction', 'education') = {lcss('introduction', 'education')!r}")
+print(f"lcss('abcdef', 'xyzabcw') = {lcss('abcdef', 'xyzabcw')!r}")
+print(f"lcss('hello', 'world') = {lcss('hello', 'world')!r}")
+```
+
+`introduction` and `education` share `'tion'` — four contiguous characters at the end of `introduction` (positions 8–11) and at the end of `education` (positions 5–8). Spelling both out: `i-n-t-r-o-d-u-c-t-i-o-n` and `e-d-u-c-a-t-i-o-n` both end in `tion`. They share `duc` and `tion` separately, but not as one run — between `duc` and `tion`, `introduction` has a `t` while `education` has an `a`, so the contiguous match breaks. `abcdef` and `xyzabcw` share `abc` of length 3. `hello` and `world` share a single character `'l'` (the same column-3 match Hamming flagged earlier).
+
+One nice connection to the previous chapters' pattern-matching work: if `pattern` appears as a substring of `text`, then `lcss(text, pattern) == pattern`, because the entire pattern is the longest possible common substring. The substring-search problem from Part IV is a degenerate case of longest-common-substring where one of the two strings is the pattern and the answer either is or isn't the pattern itself.
+
+```{python}
+from codex.strings.edit_distance import lcss
+
+text = "the rain in spain"
+print(f"lcss({text!r}, 'rain')    = {lcss(text, 'rain')!r}    (pattern is in text)")
+print(f"lcss({text!r}, 'snow')    = {lcss(text, 'snow')!r}    (pattern is NOT in text)")
+print(f"lcss({text!r}, 'rainbow') = {lcss(text, 'rainbow')!r}    (partial match)")
+```
+
+When the pattern is present, the LCSS is the pattern itself — exact substring search is the special case where the longest common substring has the pattern's full length. When the pattern is absent, the LCSS is the *longest prefix-or-substring of the pattern* that does occur, which is sometimes useful as a fuzzy fallback ("you searched for `rainbow` but I found `rain`"). The orientation between exact and approximate matching falls out cleanly from the LCSS perspective.
+
+## A bridge to Part VI
+
+Every algorithm I've written in this chapter — `levenshtein`, `align`, `lcs`, `lcss` — has the same structural shape: allocate a 2D table, fill it cell-by-cell with a recurrence that references a small fixed set of neighbors, read the answer off the table (sometimes also backtracking through it). That shape is **dynamic programming**, and Part VI will give it the name and the theory.
+
+For now, two properties are what matters, because they're what justifies the technique:
+
+**Optimal substructure.** The edit distance between two full strings depends, via the recurrence, on the edit distances between their prefixes. The optimal answer at `dp[i][j]` is composed from optimal answers at three predecessor cells. If the predecessors had been suboptimal, the recurrence would not have produced an optimal `dp[i][j]` — but they're not, because the same recurrence makes them optimal in turn, all the way down to the base cases. The optimal solution to the big problem is built out of optimal solutions to smaller subproblems of the same shape. That's the property called "optimal substructure," and it's the structural prerequisite for any DP formulation.
+
+**Overlapping subproblems.** The cell `dp[i][j]` is referenced by `dp[i+1][j]`, `dp[i][j+1]`, and `dp[i+1][j+1]` — three different successors all want to read the same value. A naive recursive computation would re-derive `dp[i][j]` once per reference, leading to exponential blowup; the DP approach materializes each cell once, in a table, and lets every successor consume the cached value. The exponential collapse to polynomial that DP produces is exactly because the subproblems overlap and the table eliminates re-computation. If the subproblems didn't overlap — if each was referenced exactly once — there'd be no benefit over plain recursion, and the technique wouldn't earn its name.
+
+Part VI's landing page will name those two properties, generalize them, and walk through more DP problems (knapsack, matrix-chain multiplication, longest increasing subsequence, all-pairs shortest paths) whose structure mirrors the edit-distance recurrence. For now, log the pattern: optimal substructure plus overlapping subproblems equals DP. Edit distance is the first textbook example for a reason.
+
+## The three questions, applied
+
+### Is it correct?
+
+The correctness argument for `levenshtein` is induction on the size of the subproblem — specifically, on $i + j$. The base case is the row and column of zero-indexed entries: `dp[i][0] = i` and `dp[0][j] = j`. Both are correct by direct argument — transforming a length-$i$ string to the empty string requires $i$ deletions, and transforming the empty string to a length-$j$ string requires $j$ insertions, and there's no cheaper edit sequence.
+
+The inductive step is the recurrence itself. Assume `dp[i'][j']` is correct for every $(i', j')$ with $i' + j' < i + j$. I want to show that `dp[i][j]`, computed by the recurrence, is also correct — i.e., equal to the true edit distance between `a[:i]` and `b[:j]`. The argument splits on the last edit in some optimal edit sequence. Every edit sequence that transforms `a[:i]` to `b[:j]` ends in either a match (which exists only if `a[i-1] == b[j-1]`), a substitution, an insertion, or a deletion. In each case, removing the last edit leaves a shorter edit sequence on smaller prefixes, whose cost is bounded below by the inductive hypothesis. Taking the minimum across the four cases — match takes priority when the characters agree, because it costs zero rather than one — gives the recurrence. The minimum is achieved by some choice, so the recurrence is *tight*, not just an upper bound.
+
+`align`'s correctness rides on `levenshtein`'s. The DP table is the same, so the cell values are correct. The backtracking walk reads off, for each cell visited, *one* of the predecessors that achieved the cell's value — exactly the operation that produced the optimal answer at that cell. The resulting sequence of operations, in reverse, is therefore an optimal edit sequence between the two full strings.
+
+`lcs` and `lcss` are inductions on the same shape with different recurrences. For LCS: the longest common subsequence either does or doesn't include the last character of each prefix. If both last characters agree and the LCS uses them, the LCS extends a smaller LCS by one; if the last characters don't agree or aren't both used, the LCS is the better of dropping one or the other. For LCSS: a common substring ends at `(i, j)` only if `a[i-1] == b[j-1]` and the previous characters formed a (possibly empty) common substring ending one position back; the global maximum scans all cells.
+
+### How efficient is it?
+
+The cost table:
+
+| Function | Time | Extra space |
+|-----------|------|-------------|
+| `hamming(a, b)` | $O(n)$ | $O(1)$ |
+| `levenshtein(a, b)` | $O(nm)$ | $O(nm)$ |
+| `align(a, b)` | $O(nm)$ | $O(nm)$ |
+| `lcs(a, b)` | $O(nm)$ | $O(nm)$ |
+| `lcss(a, b)` | $O(nm)$ | $O(nm)$ |
+
+Each cell in the $(n+1) \times (m+1)$ table is computed in $O(1)$ work (a min or max over a fixed-size constant number of predecessors), and there are $\Theta(nm)$ cells, so the per-function time and space are both $\Theta(nm)$. Bilingually: for two strings of length $1000$ apiece, each function does about $10^6$ cell-fills — fraction of a second in Python, much less in C. For strings of length $10^5$, that's $10^{10}$ — already a serious computation, around a minute in Python and seconds in C; for strings of length $10^6$, $10^{12}$ — out of reach for the dense $O(nm)$ approach, and you'd want to reach for one of the algorithmic improvements I mention below.
+
+There's an easy space optimization I'll point at but not implement. Since `dp[i][j]` depends only on row $i$ and row $i-1$, you can throw away every row before the most recent two and bring space down to $O(\min(n, m))$ — keep two rolling arrays and overwrite the older one as you walk forward. This works for the *distance* computation (`levenshtein`, the length output of `lcs`, the length output of `lcss`), but **not** for alignment reconstruction (`align` and the actual-string outputs of `lcs` and `lcss`), because backtracking needs the full table. **Hirschberg's algorithm** (1975) is the clever trick that achieves both at once: it recovers the alignment in $O(\min(n, m))$ space by a divide-and-conquer scheme that recomputes the DP twice in halves rather than storing the full table. I'll point at Hirschberg in the Notes and leave the implementation for a reference.
+
+### Is it optimal?
+
+Asking whether the $O(nm)$ bound is asymptotically optimal turns out to be one of the more interesting open questions in fine-grained complexity. The trivial lower bound is $\Omega(n + m)$ — you have to look at every character of both strings — and that bound is achievable for Hamming distance ($O(n)$ in equal-length strings) but seems to fall short of what edit distance requires.
+
+For decades, no algorithm beat $O(nm / \log^2 n)$ asymptotically — modest log-factor improvements via various bit-packing tricks (the **Four Russians** technique from the 1970s), but nothing close to $O(n^{1.5})$ or $O(n \sqrt{m})$ or any other genuinely sub-quadratic bound. In **2014**, Backurs and Indyk showed (in their STOC paper "Edit Distance Cannot Be Computed in Strongly Subquadratic Time Unless SETH is False") that this isn't a failure of imagination: under the **Strong Exponential Time Hypothesis** (SETH), no algorithm can compute edit distance in $O(n^{2-\varepsilon})$ time for any constant $\varepsilon > 0$. That's a conditional lower bound — it's contingent on SETH being true, which is widely believed but unproven — but it's strong enough that the field treats $O(n^2)$ as essentially tight.
+
+So my $O(nm)$ algorithm is, up to log factors, optimal under SETH. The gap between "best known upper bound" and "SETH lower bound" is just polylogarithmic, and closing it isn't expected. If you want better than quadratic for edit distance, you have to either restrict the input (small alphabet, bounded distance) or give up on the exact answer (approximation algorithms — Andoni and Onak's 2009 result gives a $(\log n)^{O(1/\varepsilon)}$ approximation in $n^{1+\varepsilon}$ time, and more recent work pushes this further). For exact edit distance on arbitrary inputs, $O(nm)$ is the wall, and the algorithm in this chapter sits at it.
+
+LCS shares the same conditional lower bound (Abboud et al., 2015), for essentially the same reason — there's a reduction between the two problems that preserves complexity. LCSS is asymptotically easier — Knuth-Morris-Pratt and suffix-tree approaches achieve $O(n + m)$ for the exact-substring-search special case, and suffix automaton or generalized suffix tree achieves $O(n + m)$ for the general LCSS too. My $O(nm)$ DP for LCSS is *not* optimal; I'm presenting the DP version because it sits in the same family as the others and the implementation parallels Levenshtein cleanly. For production LCSS on long strings, reach for the suffix-automaton approach from a string-algorithms library.
+
+## What edit distance teaches you
+
+Three lessons from this chapter, and one structural observation about where the chapter sits in the book.
+
+**First, when a problem decomposes over prefixes, build a grid.** Edit distance is a question about whole strings, but the recurrence is about *prefixes* of those strings — the answer for `(a, b)` depends on the answers for shorter prefix pairs. Once you've spotted that prefix decomposition, the grid follows mechanically: one axis per string, one cell per prefix pair, and the recurrence fills the grid bottom-up. This pattern shows up well beyond strings — knapsack decomposes over item-count prefixes, matrix chain multiplication decomposes over subchain endpoints, longest increasing subsequence decomposes over array prefixes. Whenever you can express "the answer for the whole input" as "the answer for a smaller input, combined with a local decision," you've found a grid-of-cells problem.
+
+**Second, alignment is a path through the grid, not just a number at the corner.** The distance is a single cell value, but the *alignment* — the actual sequence of edits — is a path from the top-left corner of the grid to the bottom-right, with each diagonal step a match-or-substitute, each down step a deletion, each right step an insertion. That path-through-a-grid framing extends beyond edit distance: Needleman-Wunsch (global biological alignment) and Smith-Waterman (local biological alignment) are explicitly described in those terms — "path through the alignment matrix" is the standard vocabulary, and the optimal path is the one with the highest cumulative score under whatever scoring function the application uses. Substitution-cost matrices (BLOSUM, PAM), affine gap penalties, anti-diagonal sweeps — all of those are variants on the same grid-and-path framing.
+
+**Third, every chapter in this part has been DP without naming it.** I won't belabor this — Part VI will do the naming — but it's worth noting that the suffix-array construction in chapter 29 was DP (prefix-doubling fills a rank table from a smaller one), Kasai's LCP was DP (each iteration uses the carry-over from the previous), KMP's failure function was DP (each entry is computed from a smaller one). The 2D grid here is the first textbook *example* of DP because the two-axis decomposition is so visually clear, but the pattern has been with you since Part IV opened. Part VI will pull the pattern up to the top level and run it across half a dozen more problems.
+
+The chapter sits at the closing edge of Part IV — string algorithms in their pattern-matching shape (chapters 23–28) and their indexing shape (chapter 29), now extended to the similarity-measurement shape that doesn't ask "where does this occur?" but "how close are two things?" The grid-of-cells is the bridge object: it's the right tool for similarity measurement, and it's the bridge into Part VI's broader DP territory.
+
+## Notes and further reading
+
+The Levenshtein distance was introduced by Vladimir Levenshtein in his 1965 paper "Binary codes capable of correcting deletions, insertions, and reversals" in *Doklady Akademii Nauk SSSR* 163(4):845–848, translated to English the following year in *Soviet Physics Doklady* 10(8):707–710. Levenshtein's motivation was coding theory — the same concern Hamming had a decade and a half earlier, extended from substitutions to insertions and deletions — and his paper proves bounds on error-correcting codes under the extended distance metric.
+
+The dynamic-programming algorithm for computing Levenshtein distance was published by Robert A. Wagner and Michael J. Fischer in 1974, "The String-to-String Correction Problem" in *Journal of the ACM* 21(1):168–173. Wagner and Fischer's paper is the canonical reference for the algorithm I've implemented here, and the algorithm is often called the **Wagner-Fischer algorithm** in the literature. The paper also handles arbitrary edit costs (rather than the unit-cost model I've used), and extends naturally to the weighted edit distance you find in biological scoring schemes.
+
+Hamming distance is from Richard Hamming's 1950 paper "Error detecting and error correcting codes" in *Bell System Technical Journal* 29(2):147–160 — one of the foundational papers of coding theory, well worth reading in its own right.
+
+For biological sequence alignment, the two essential papers are Saul B. Needleman and Christian D. Wunsch's 1970 *Journal of Molecular Biology* paper "A general method applicable to the search for similarities in the amino acid sequence of two proteins" — global alignment, which is the direct biological analog of `levenshtein` and `align` — and Temple F. Smith and Michael S. Waterman's 1981 *Journal of Molecular Biology* paper "Identification of common molecular subsequences" — local alignment, which finds the highest-scoring aligned region between two sequences rather than the whole alignment, more like `lcss` than `levenshtein`. Both papers are short and readable, and their algorithms are the foundation of modern bioinformatics tools.
+
+The $O(\min(n, m))$ space optimization for edit-distance alignment is Daniel S. Hirschberg's 1975 *Communications of the ACM* paper "A linear space algorithm for computing maximal common subsequences." Hirschberg's trick is the divide-and-conquer scheme I gestured at — compute the middle column of the DP table from both ends, find the optimal split point, and recurse on the two halves — and the same idea applies to edit distance and other prefix-decomposable DPs.
+
+The SETH-conditional quadratic lower bound is Arturs Backurs and Piotr Indyk's 2015 STOC paper "Edit Distance Cannot Be Computed in Strongly Subquadratic Time (unless SETH is false)" — the paper title says it all. The LCS analog is Amir Abboud, Arturs Backurs, and Virginia Vassilevska Williams's 2015 FOCS paper "Tight Hardness Results for LCS and other Sequence Similarity Measures," which extends the same conditional lower bound to LCS and several related problems. For lighter reading on the fine-grained complexity landscape, Vassilevska Williams's 2018 survey "On Some Fine-grained Questions in Algorithms and Complexity" is a good entry point.
+
+CLRS covers edit distance briefly in §15.5 (in the 3rd edition), under the section on optimal-substructure problems. Sedgewick and Wayne's *Algorithms* (4th ed.) doesn't cover edit distance in detail, but their substring-search material in chapter 5 is the right neighbor. The textbook reference for the DP pattern itself — which is what I'll cite when Part VI opens — is Bertsekas's *Dynamic Programming and Optimal Control*, but for the discrete combinatorial version most directly relevant to this book, Kleinberg and Tardos's *Algorithm Design* chapter 6 is the cleanest pedagogical treatment.
+
+This chapter closes Part IV. The next file is `lessons_4.md`, where I step back across all of chapters 23–30 and name the patterns that recurred — pattern-matching as a problem family, the trade between preprocessing patterns and preprocessing text, the role of automaton and array structures, and the path-through-a-grid framing that opens onto Part VI's territory.

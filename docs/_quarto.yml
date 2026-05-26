@@ -52,6 +52,7 @@ book:
       - 27_rabin_karp.qmd
       - 28_aho_corasick.qmd
       - 29_suffix_array.qmd
+      - 30_edit_distance.qmd
     - part: Graphs
       chapters: []
     - part: Dynamic Programming and Greedy Algorithms
