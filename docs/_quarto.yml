@@ -41,6 +41,7 @@ book:
       - 19_heap.qmd
       - 20_trie.qmd
       - 21_segment.qmd
+      - 22_fenwick.qmd
     - part: String Matching
       chapters: []
     - part: Graphs

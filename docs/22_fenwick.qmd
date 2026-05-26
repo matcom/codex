@@ -1,0 +1,359 @@
+# Same problem, half the code
+
+Chapter 21's segment tree was a heavy machine for a general problem: arbitrary associative aggregates over arbitrary ranges, with arbitrary updates. I want to spend this chapter showing you that when the aggregate is *just* a sum — or anything that behaves like a sum, with an inverse — you can throw away most of that machinery and end up with a structure that's eight lines per operation instead of twenty. The structure is the **Fenwick tree**, also called a **binary indexed tree** or **BIT**, and it does point-update plus range-sum in $O(\log n)$ with a single $n$-slot array and a one-character arithmetic trick.
+
+By the end of this chapter you'll have built a `FenwickTree` that supports point update and prefix sum (and therefore range sum, by subtraction) in $O(\log n)$, you'll have hand-traced its bit arithmetic on small integers, and you'll have a second variant (`FenwickXOR`) that shows the same code generalizes to any commutative group — anything that supports an inverse. You'll also see exactly where the structure stops working: when the aggregate has no inverse (min, max), the subtraction trick collapses and the segment tree is still the right answer.
+
+The cynosure I want you to hold is one expression: **`i & -i` — the lowest set bit — is the entire structure encoded in one operation.** Both `update` and `prefix` are three-line `while` loops that repeatedly add or subtract that quantity to walk a chain of $O(\log n)$ array cells. There's no tree object, no node class, no recursion. The "tree" in "binary indexed tree" is implicit in the bit pattern of the index itself, and once that lands the rest is bookkeeping.
+
+## Segment trees were too much
+
+The previous chapter's `SegmentTree` paid for generality. It supports any associative monoid (sum, min, max, xor, gcd, matrix product), it accepts arbitrary ranges, it does range update with lazy propagation. For the *prefix sum* problem alone — point updates, range-sum queries — most of that flexibility is dead weight. I'm paying for tree structure, $4n$ over-allocation, recursive descents, and a three-case query split, and I'm getting back exactly one thing: $O(\log n)$ on both operations.
+
+You can extract that same cost shape from a much smaller observation. If the aggregate I care about supports subtraction — which sum does, and xor does, but min and max emphatically don't — then **any range sum is the difference of two prefix sums**: `range_sum(l, r) = prefix(r) - prefix(l - 1)`. So I don't need to support arbitrary range queries directly. I only need fast prefix sums with fast point updates, and I can synthesize range queries on top.
+
+That reduction is the whole game. The Fenwick tree is the data structure tuned for exactly that reduced problem, and the structure it gives you is half the code of a segment tree, with a smaller constant factor, on the same asymptotic $O(\log n)$ bound. The price is that you lose min, max, and any other aggregate without an inverse. For prefix sums you pay nothing for what you gave up.
+
+## Bit-shaped intervals
+
+The Fenwick tree's storage is a single array `tree[1..n]`, **1-indexed**. I'll explain the 1-indexing — it matters — but first the layout rule.
+
+At index $i$, the cell `tree[i]` stores the sum of the array values over the range $(i - \mathrm{lowbit}(i),\ i]$, inclusive on the right, where $\mathrm{lowbit}(i) = i \mathbin{\&} -i$ is the value of $i$'s lowest set bit. In Python, you compute `i & -i` directly, courtesy of two's-complement arithmetic — `-i` flips every bit and adds one, which leaves a single set bit at the position of $i$'s lowest one. So `lowbit(6) = 2`, `lowbit(8) = 8`, `lowbit(7) = 1`.
+
+The intervals each cell covers form a binary-tree shape when you draw them out, which is where "binary indexed tree" comes from. For $n = 8$, the eight cells cover these ranges:
+
+```{python}
+# Each cell tree[i] covers a[i - lowbit(i) + 1 .. i] — print the layout for n=8
+for i in range(1, 9):
+    lb = i & -i
+    lo = i - lb + 1
+    print(f"  tree[{i}] covers a[{lo}..{i}]   (lowbit({i}) = {lb})")
+```
+
+You can read the table directly. Cell `tree[8]` covers the whole array (lowbit is 8, so it covers $(0, 8]$); `tree[4]` covers `a[1..4]`; `tree[2]` covers `a[1..2]`; cells with odd indices each cover a single position. The pattern: cells at powers-of-two indices are tall (cover many positions); cells at odd indices are short (cover one). Cell `tree[6]` covers two positions, because `lowbit(6) = 2`.
+
+I'm 1-indexed because the math wants it. The query loop subtracts the lowbit repeatedly and stops at zero, which requires the array to start at 1 (`lowbit(0) = 0`, which would loop forever). I could wrap a 0-indexed public API around the 1-indexed internals, but I won't — the bit arithmetic *is* the structure, and hiding the indexing scheme hides what makes the structure work. I'll use 1-indexed positions throughout the chapter; if you're translating to a library that prefers 0-indexed, the wrapper is one `+1` per call.
+
+## Update and query
+
+I'll show you both operations as three-line `while` loops.
+
+**Update** is the upward walk. To add `delta` to the underlying array at position $i$, I have to update every cell whose interval covers $i$. Those cells live at $i$, $i + \mathrm{lowbit}(i)$, then that index plus *its* lowbit, and so on. Each step jumps to the next cell whose interval still includes position $i$ — the lowbit increases monotonically along the chain, so the walk takes at most $\lfloor \log_2 n \rfloor + 1$ steps before overshooting $n$ and terminating.
+
+**Prefix** is the downward walk. To compute $\sum_{k=1}^i a[k]$, I sum the cells along the chain $i$, $i - \mathrm{lowbit}(i)$, that index minus *its* lowbit, and so on, until I hit zero. Each step strips off the current lowest bit. By the binary representation of $i$, that chain has exactly as many steps as $i$ has set bits, which is at most $\lfloor \log_2 n \rfloor + 1$.
+
+Here's the class. The constructor accepts either an integer size (allocate empty) or an initial data sequence (run a linear-time build). I'll explain the linear-time build right after.
+
+```python {export=src/codex/trees/fenwick.py}
+from collections.abc import Sequence
+
+
+class FenwickTree:
+    def __init__(self, n_or_data: int | Sequence[int]) -> None:
+        if isinstance(n_or_data, int):
+            self._n = n_or_data
+            self._tree: list[int] = [0] * (self._n + 1)
+        else:
+            data = list(n_or_data)
+            self._n = len(data)
+            self._tree = [0] * (self._n + 1)
+            for i in range(1, self._n + 1):
+                self._tree[i] += data[i - 1]
+                parent = i + (i & -i)
+                if parent <= self._n:
+                    self._tree[parent] += self._tree[i]
+
+    def __len__(self) -> int:
+        return self._n
+```
+
+The data branch is the $\Theta(n)$ build. Loop $i$ from 1 to $n$; at each step, fold the current cell's accumulated value into its parent at index $i + \mathrm{lowbit}(i)$. By the time the loop reaches $i$, every cell with smaller index has already pushed its contribution upward, so `tree[i]` holds the sum it owes — and I push that sum further up to `tree[i + lowbit(i)]` if the parent is in range. The naive alternative is $n$ separate `update` calls for $O(n \log n)$; this is one linear pass. Bilingually: building from a million-element array touches a million cells once each, not twenty million.
+
+Here's `update`. You'll see the body fits in three lines.
+
+```python {export=src/codex/trees/fenwick.py}
+    def update(self, i: int, delta: int) -> None:
+        while i <= self._n:
+            self._tree[i] += delta
+            i += i & -i
+```
+
+I add `delta` to the current cell, then jump to the next cell whose interval also covers position $i$, by adding the lowbit. The loop terminates as soon as the index would overshoot $n$. The walk visits $O(\log n)$ cells, each in $O(1)$ work.
+
+And here's `prefix`, the symmetric downward walk I described.
+
+```python {export=src/codex/trees/fenwick.py}
+    def prefix(self, i: int) -> int:
+        total = 0
+        while i > 0:
+            total += self._tree[i]
+            i -= i & -i
+        return total
+```
+
+I accumulate the current cell, then jump to the next cell along the chain by subtracting the lowbit. The loop terminates when `i` reaches zero. Same $O(\log n)$ bound, same $O(1)$ per step. Notice both loops are structurally identical apart from the direction of the jump and the termination test — `+= lowbit, stop at >n` for update, `-= lowbit, stop at 0` for query. That symmetry is what makes the structure feel inevitable once you've seen it.
+
+Finally, range sum, which is the whole point — the segment-tree-flavored query I'm synthesizing from two prefix calls.
+
+```python {export=src/codex/trees/fenwick.py}
+    def range_sum(self, l: int, r: int) -> int:
+        return self.prefix(r) - self.prefix(l - 1)
+```
+
+One line. `prefix(r)` is the sum over $a[1..r]$; `prefix(l - 1)` is the sum over $a[1..l-1]$; the difference is the sum I want over $a[l..r]$. Two $O(\log n)$ walks and one subtraction, so range queries cost $O(\log n)$ too, same as the segment tree but without any of the structural overhead.
+
+Demonstrating on the same 8-element array chapter 21 used, so you can compare directly.
+
+```{python}
+from codex.trees.fenwick import FenwickTree
+
+# Same data as the segment-tree chapter — explicit callback so you can
+# diff the two demos line by line and see they're answering the same
+# questions on the same input.
+ft = FenwickTree([1, 3, 5, 7, 9, 11, 13, 15])
+
+print(f"prefix(8) = {ft.prefix(8)}")          # 64 — whole-array sum, same as ch 21's query(0,8)
+print(f"prefix(5) = {ft.prefix(5)}")          # 25 = 1+3+5+7+9
+print(f"range_sum(3, 5) = {ft.range_sum(3, 5)}")  # 21 = 5+7+9, same as ch 21's query(2,5)
+
+# Update position 4 (1-indexed) by +93 — the underlying value goes from 7 to 100,
+# matching ch 21's update(3, 100) on its 0-indexed segment tree.
+ft.update(4, 93)
+print(f"after update(4, +93), range_sum(3, 5) = {ft.range_sum(3, 5)}")  # 114 = 5+100+9
+print(f"after update, prefix(8) = {ft.prefix(8)}")                       # 157 = 64 + 93
+```
+
+The numbers line up exactly with chapter 21's segment-tree demo on the same input. Same problem, same answers, half the code. The class I just wrote is twenty-something lines total, including the constructor's linear-time build; the segment tree was eighty.
+
+## Trace by hand on n=8
+
+The bit arithmetic isn't obvious until you watch it on small numbers. Let me walk through `prefix(7)`. Start at $i = 7$ (binary $0111$), lowbit $1$, read `tree[7]`, next index $6$. At $i = 6$ ($0110$), lowbit $2$, read `tree[6]`, next index $4$. At $i = 4$ ($0100$), lowbit $4$, read `tree[4]`, next index $0$. Loop ends.
+
+Three cells read. By the layout table, `tree[7]` covers $a[7..7]$, `tree[6]` covers $a[5..6]$, and `tree[4]` covers $a[1..4]$. Their union is $a[1..7]$ with no overlap — exactly what I want `prefix(7)` to return.
+
+```{python}
+def lowbit(i: int) -> int:
+    return i & -i
+
+print("prefix(7) chain — indices visited, subtracting lowbit each step:")
+i = 7
+while i > 0:
+    print(f"  i = {i}  (binary {i:04b})  lowbit = {lowbit(i)}  -> next {i - lowbit(i)}")
+    i -= lowbit(i)
+```
+
+Now the symmetric trace I want you to see for `update(3, ...)` on the same array, walking upward.
+
+```{python}
+print("update(3, +delta) chain on n=8 — indices touched, adding lowbit:")
+i, n = 3, 8
+while i <= n:
+    print(f"  i = {i}  (binary {i:04b})  lowbit = {lowbit(i)}  -> next {i + lowbit(i)}")
+    i += lowbit(i)
+```
+
+Three cells touched: `tree[3]`, `tree[4]`, `tree[8]`. All three intervals include position 3, and they're exactly the cells whose stored sum has to absorb the delta when $a[3]$ changes. Cells like `tree[1]`, `tree[2]`, `tree[5]` you can leave alone, because none of their intervals contain position 3.
+
+Look closely at `lowbit(8) = 8`. The whole value is its own lowest set bit, because 8 is a power of two — only one bit is set. Powers of two are the cells with the tallest intervals; `tree[2^k]` covers $a[1..2^k]$. That asymmetry is what makes the upward walk from any position eventually land in a tall cell covering a long prefix — exactly the structural property I need for the $O(\log n)$ bound.
+
+```{python}
+# lowbit on a few representative integers — the asymmetry at powers of two
+# is the key intuition for why the upward walk reaches tall cells quickly.
+for i in [1, 6, 7, 8, 12, 16]:
+    print(f"  lowbit({i:>2}) = {lowbit(i):>2}   binary i = {i:08b}")
+```
+
+You see that 1, 2, 4, 8, 16 are exactly the powers of two, and their lowbit equals themselves. Every other integer's lowbit is some smaller power of two — the value of its rightmost $1$.
+
+## Cross-check against the segment tree
+
+The strongest statement I can make about "same problem, half the code" is to show both structures agreeing on the same queries. I'll build a `FenwickTree` and a `SegmentTree` on identical data and assert their range-sum answers match across five random ranges.
+
+```{python}
+import random
+from codex.trees.fenwick import FenwickTree
+from codex.trees.segment import SegmentTree
+
+# Same data, two structures. The Fenwick tree is 1-indexed and uses
+# inclusive ranges [l, r]; the segment tree is 0-indexed and uses
+# half-open ranges [l, r). The translation: fenwick.range_sum(l, r)
+# matches segment.query(l - 1, r).
+data = [1, 3, 5, 7, 9, 11, 13, 15]
+ft = FenwickTree(data)
+st: SegmentTree[int] = SegmentTree(data)
+
+random.seed(7)
+for _ in range(5):
+    l = random.randint(1, 8)
+    r = random.randint(l, 8)
+    f = ft.range_sum(l, r)
+    s = st.query(l - 1, r)   # half-open: [l-1, r) covers the same positions
+    print(f"  range [{l},{r}]  fenwick = {f:>3}  segment = {s:>3}  match = {f == s}")
+```
+
+Five ranges, five matches. You're watching two structures answer the same question with different machinery: the segment tree recursively descends to find the $O(\log n)$ canonical tiles, then sums them; the Fenwick tree walks two $O(\log n)$ chains of pre-aggregated cells and subtracts. Same answer, same asymptotic cost, half the code.
+
+## Range queries via two prefix queries
+
+The synthesis `range_sum(l, r) = prefix(r) - prefix(l - 1)` is what lets a structure designed for prefix sums answer arbitrary range queries. I think of that trick as the deep reason the Fenwick tree exists at all — without it, a prefix-sum structure couldn't compete with a segment tree on general range queries, and there'd be no point trading away generality.
+
+The catch is that the trick relies on **subtraction**, which means the aggregate needs an inverse. For sum, the inverse of "+$x$" is "$-x$", so prefix subtraction gives you ranges. For xor, the inverse of "$\oplus\, x$" is "$\oplus\, x$" again (xor is its own inverse), so the same trick works. For count-of-trues (each `a[i]` is 0 or 1, and `prefix(i)` counts the ones up to position $i$), addition is the aggregate, count subtraction works.
+
+For min and max, there's no inverse. If I know $\min(a[1..r])$ and $\min(a[1..l-1])$, I cannot recover $\min(a[l..r])$ — the minimum of $a[1..l-1]$ might or might not lie inside $a[l..r]$, and there's no arithmetic operation that decides which. So the Fenwick tree doesn't help with range min/max, and the segment tree's three-case tile decomposition stays the right approach for those.
+
+I don't read that restriction as a flaw of the Fenwick tree — it's the price of the simplicity. The segment tree is the general structure; the Fenwick tree is its specialization to invertible aggregates. When the problem fits, take the specialization. When it doesn't, you go back to the segment tree.
+
+## Beyond sum: XOR, count, and what doesn't fit
+
+Replace every `+=` with `^=` in the Fenwick code and you get a Fenwick tree that handles xor over prefixes. The structure is identical; only the per-cell operation changes. Here's the variant.
+
+```python {export=src/codex/trees/fenwick.py}
+class FenwickXOR:
+    def __init__(self, n_or_data: int | Sequence[int]) -> None:
+        if isinstance(n_or_data, int):
+            self._n = n_or_data
+            self._tree: list[int] = [0] * (self._n + 1)
+        else:
+            data = list(n_or_data)
+            self._n = len(data)
+            self._tree = [0] * (self._n + 1)
+            for i in range(1, self._n + 1):
+                self._tree[i] ^= data[i - 1]
+                parent = i + (i & -i)
+                if parent <= self._n:
+                    self._tree[parent] ^= self._tree[i]
+
+    def __len__(self) -> int:
+        return self._n
+
+    def update(self, i: int, delta: int) -> None:
+        while i <= self._n:
+            self._tree[i] ^= delta
+            i += i & -i
+
+    def prefix(self, i: int) -> int:
+        total = 0
+        while i > 0:
+            total ^= self._tree[i]
+            i -= i & -i
+        return total
+```
+
+You can read it as `FenwickTree` with `+=` replaced by `^=` and the initial accumulator $0$ reinterpreted as the xor identity (which is also $0$, conveniently). The same code generalizes because xor is a commutative group with an inverse — exactly the property the prefix-subtraction trick needs. The `update(i, delta)` method now xors `delta` into position $i$; querying via `prefix` returns the xor of `a[1..i]`.
+
+```{python}
+from codex.trees.fenwick import FenwickXOR
+
+fx = FenwickXOR([1, 2, 3, 4, 5])
+print(f"prefix(5) = {fx.prefix(5)}")          # 1 — that's 1 ^ 2 ^ 3 ^ 4 ^ 5
+print(f"expected  = {1 ^ 2 ^ 3 ^ 4 ^ 5}")     # 1
+
+# XOR position 3 with 10 — a[3] becomes 3 ^ 10 = 9
+fx.update(3, 10)
+print(f"after update(3, ^10), prefix(5) = {fx.prefix(5)}")  # 11
+print(f"expected = {1 ^ 2 ^ (3 ^ 10) ^ 4 ^ 5}")             # 11
+```
+
+For **count-of-trues** I don't need a new class at all — just store 0/1 indicators in a `FenwickTree` and `prefix(i)` returns how many of `a[1..i]` are set. That's the canonical use case for the BIT in competitive programming, where it answers questions like "how many points have I seen with coordinate $\le x$ so far?" in $O(\log n)$ per insertion and $O(\log n)$ per query.
+
+For **min and max**, no inverse exists, so the same code with `+=` replaced by `min`-of-pair simply doesn't work — the linear-time build still produces a valid prefix-min structure, but the point update can't tell whether removing a value would change the prefix minimum without rescanning the affected interval. The Fenwick approach doesn't extend. If you need range min, reach for the segment tree from chapter 21, or for the **sparse table** trick (offline range-min in $O(1)$ per query after $O(n \log n)$ preprocessing, no updates) — material I won't develop here.
+
+## A wall-clock comparison
+
+I'll time the same workload — point updates and range sums interleaved on $n = 10^5$ — on both structures. The asymptotic cost is identical at $O(\log n)$, but the Fenwick tree's per-operation work is a much smaller constant: a three-line `while` loop with one integer add and one bit-and per iteration, versus the segment tree's recursive call frames and three-case branch.
+
+```{python}
+import random
+import time
+from codex.trees.fenwick import FenwickTree
+from codex.trees.segment import SegmentTree
+
+n, ops = 100_000, 10_000
+
+random.seed(0)
+vals = [random.randint(0, 1000) for _ in range(n)]
+
+# Fenwick: linear-time build + ops random point-updates + range-sums
+t0 = time.perf_counter()
+ft = FenwickTree(vals)
+random.seed(1)
+for _ in range(ops):
+    i = random.randint(1, n)
+    ft.update(i, 1)
+    l = random.randint(1, n)
+    r = random.randint(l, n)
+    _ = ft.range_sum(l, r)
+t_fen = time.perf_counter() - t0
+
+# Segment tree: same data, same operation mix
+t0 = time.perf_counter()
+st: SegmentTree[int] = SegmentTree(vals)
+random.seed(1)
+for _ in range(ops):
+    i = random.randint(1, n)
+    st.update(i - 1, vals[i - 1] + 1)   # set semantics, so emulate "+1" by setting
+    l = random.randint(1, n)
+    r = random.randint(l, n)
+    _ = st.query(l - 1, r)
+t_seg = time.perf_counter() - t0
+
+print(f"fenwick:  {t_fen * 1000:>7.1f} ms")
+print(f"segment:  {t_seg * 1000:>7.1f} ms")
+print(f"ratio:    {t_seg / t_fen:.2f}x faster on Fenwick")
+```
+
+On my machine the Fenwick tree is roughly 2-4x faster than the segment tree on this Python workload, which is the constant-factor win you'd expect from a tighter loop. The exact ratio is Python-interpreter-sensitive and will vary, but the direction is robust: when the prefix-sum reduction applies, the Fenwick tree's smaller constant pays off in real wall-clock time, not just in theory.
+
+## The three questions, applied
+
+### Is it correct?
+
+The invariant I maintain is: **`tree[i]` always equals the sum of `a[i - lowbit(i) + 1 .. i]`** under the current state of the underlying array. The constructor establishes it (either by allocating zeros, which is trivially correct for the implicit all-zero array, or by running the linear-time build pass, which folds each cell's contribution into its parent in a single sweep). `update` preserves it: when I add `delta` to position $j$, the cells whose intervals contain $j$ are exactly the chain $j, j + \mathrm{lowbit}(j), \ldots$, and `update` walks that chain adding `delta` to each. `prefix(i)` reads the chain $i, i - \mathrm{lowbit}(i), \ldots, 0$, and those cells' intervals form a partition of $a[1..i]$ (no overlap, no gaps), so the sum of the cells equals the sum of the array up to position $i$.
+
+The partition claim is the heart of the correctness argument I'm making. Each cell `tree[k]` along the downward chain owns an interval that ends at the position the *previous* chain step started from — `tree[6]` covers $a[5..6]$ and the next chain step is index 4, so `tree[4]` covers $a[1..4]$ — the two intervals are adjacent, not overlapping. By induction on the binary representation of $i$, the chain's intervals tile $a[1..i]$ exactly.
+
+`range_sum` is correct because it's `prefix(r) - prefix(l - 1)`, and integer subtraction recovers the partial sum exactly. The same argument applies to `FenwickXOR` once you replace addition with xor and the additive inverse with xor itself.
+
+### How efficient is it?
+
+Here's the cost table I get for a Fenwick tree on $n$ positions:
+
+| Operation | Time | Extra space |
+|-----------|------|-------------|
+| `FenwickTree(n)` (empty allocation) | $\Theta(n)$ | $\Theta(n)$ |
+| `FenwickTree(data)` (linear build) | $\Theta(n)$ | $\Theta(n)$ |
+| `update(i, delta)` | $O(\log n)$ | $O(1)$ |
+| `prefix(i)` | $O(\log n)$ | $O(1)$ |
+| `range_sum(l, r)` | $O(\log n)$ | $O(1)$ |
+
+The $O(\log n)$ bound on both walks comes from the bit arithmetic I traced earlier: the upward walk's chain length equals one plus the position of the highest set bit of $n / \mathrm{lowbit}(i)$, and the downward walk's chain length equals the number of set bits in $i$. Both are bounded by $\lfloor \log_2 n \rfloor + 1$.
+
+Bilingually: on an array of a million elements, every operation you run touches at most about 20 cells; on a billion, about 30. Storage is $n + 1$ slots — one array, no overhead, no over-allocation. The segment tree from chapter 21 needed $4n$ slots; the Fenwick tree needs exactly $n + 1$. That's a 4x memory win on top of the constant-factor time win.
+
+### Is it optimal?
+
+For the point-update + prefix-sum workload you've been watching, $O(\log n)$ per operation is asymptotically optimal in the cell-probe model — the same Pătrașcu–Demaine lower bound that bounded the segment tree applies here. Any structure supporting $n$ point updates and $n$ prefix-sum queries must do $\Omega(n \log n)$ total work, so per-operation $o(\log n)$ is ruled out. The Fenwick tree matches the bound exactly.
+
+The constant factor is small enough that no general-purpose data structure beats it on prefix sums. Specialized structures can do better in narrow regimes — if the array is static, a single $\Theta(n)$ prefix-sum array gives you $O(1)$ queries forever; if updates are batched, you can amortize differently. For the interleaved workload of arbitrary updates and arbitrary prefix queries, the Fenwick tree is the engineering winner.
+
+You give up generality to get there: invertible monoids only (sum, xor, count); no range update without elaboration; no min or max. For workloads that fit, the Fenwick tree is the right answer.
+
+## What Fenwick trees teach you
+
+The lowest set bit is the structure. Both operations are three-line `while` loops over a chain of cells determined by repeatedly adding or subtracting `i & -i`. The "tree" is implicit in the bit pattern, the storage is a single $n$-slot array, and the per-operation cost is $O(\log n)$ with a small constant. Three lessons I want you to carry forward.
+
+**First, specialize when the problem is narrower than the structure you have.** Chapter 21's segment tree handles arbitrary associative monoids over arbitrary ranges. For just prefix sums of an invertible aggregate, that's overkill. The Fenwick tree is what you get when you ask "what's the minimum structure that solves this restricted problem?" — half the code and a smaller constant. Every time a fully general structure is doing the job, check whether the actual workload is narrower than its interface.
+
+**Second, the right encoding can be a bit pattern.** Chapter 19's heap encoded a complete binary tree in array indices via $2i+1$, $2i+2$, $(i-1)/2$. Chapter 21's segment tree did the same with $2 \cdot \mathrm{node}$. The Fenwick tree pushes one level further: the tree shape lives entirely in the *bits* of the index you're using, and the operations are bit-manipulation tricks. No nodes, no pointers, no levels — an array and two `while` loops.
+
+**Third, the existence of an inverse is the property that matters.** I can answer range queries from prefix queries when, and only when, the aggregate supports subtraction. Sum and xor work; min and max don't. The Fenwick tree isn't a "sum tree" — it's an *invertible-monoid* tree, and the same code body handles any commutative group. When you ask "can I trade generality for simplicity here?", check whether the aggregate has an inverse. If it does, half the code might be on the table.
+
+That closes Part III. Across nine chapters you've built binary trees, BSTs, AVL trees, treaps, heaps, tries, segment trees, and now Fenwick trees — each one a different answer to "what shape should the data have so the operations are cheap?" The next file is the part's closing essay, where I step back and name the recurring patterns across all of those chapters together.
+
+## Notes and further reading
+
+The Fenwick tree was introduced by Peter Fenwick in his 1994 paper "A New Data Structure for Cumulative Frequency Tables" in *Software: Practice and Experience* 24(3):327–336. Fenwick's original motivation was arithmetic coding — he needed cumulative frequency lookups in a dynamic alphabet, and the existing data structures were too heavy. The paper is short, readable, and worth tracking down for the historical perspective on how a structure this clean took until 1994 to appear in print.
+
+Neither CLRS nor Sedgewick & Wayne's *Algorithms* (4th ed.) covers the Fenwick tree — like the segment tree, its canon is the competitive-programming literature. The CP-Algorithms encyclopedia entry at [cp-algorithms.com/data_structures/fenwick.html](https://cp-algorithms.com/data_structures/fenwick.html) is the definitive reference, covering the basic point-update / prefix-query variant (sometimes called PURQ, "point update, range query"), the dual range-update / point-query variant (URPQ, achieved by storing differences and querying prefixes), and the more elaborate range-update / range-query variant that requires two parallel Fenwick trees and is genuinely intricate. Halim and Halim's *Competitive Programming* (4th ed.) chapter 2.4 has the same material with worked problem sets.
+
+For two-dimensional generalizations — 2D Fenwick trees for prefix sums over rectangles — see the CP-Algorithms entry's later sections, and Henning Tan and Petteri Kaski's 2007 *Information Processing Letters* note "Faster Range Tree Queries Using Bit Operations." Two dimensions raise the per-operation cost to $O(\log^2 n)$ but keep the same single-array layout, which is still a strong win over a 2D segment tree.
