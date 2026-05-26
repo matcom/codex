@@ -51,6 +51,7 @@ book:
       - 26_boyer_moore.qmd
       - 27_rabin_karp.qmd
       - 28_aho_corasick.qmd
+      - 29_suffix_array.qmd
     - part: Graphs
       chapters: []
     - part: Dynamic Programming and Greedy Algorithms
