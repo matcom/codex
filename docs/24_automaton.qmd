@@ -1,0 +1,226 @@
+# Compiling the pattern into a machine
+
+At the end of chapter 23 I promised you a different lens. The brute force matcher slid a window across the text and, at every shift, compared character by character — and at every mismatch it threw away everything it had just learned. If the first three characters of the pattern matched and the fourth disagreed, the next shift went right back to comparing character zero of the pattern against the next character of the text, as if those three matching characters had never happened. That is the wastefulness I want to fix, and the fix begins with a reframing that costs nothing but completely changes what the algorithm looks like.
+
+Here is the move. Stop thinking of the pattern as a *string* and start thinking of it as a *machine*. Specifically, a deterministic finite automaton — a DFA — with one state for every prefix of the pattern and a transition on every character. State 0 means "I haven't matched anything yet." State 1 means "the last character I read was the pattern's first character." State 2 means "the last two characters I read are the pattern's first two characters." All the way up to state $m$, which means "I just finished matching the whole pattern."
+
+The cynosure I want you to hold for this chapter is one sentence: **one state per length of matched prefix — the pattern *is* a DFA.** Every state's number is the length of the pattern prefix I've matched against the recent suffix of the text I've read. The transitions encode the only piece of preprocessing the brute force was missing — when a character disagrees, *how much of what I already matched is still salvageable?* The DFA answers that question in advance, once, and from then on the text scan becomes a single loop: read a character, look up the next state, repeat. By the end of this chapter you'll have built that DFA from any pattern in roughly twenty lines of Python, run it across the same canonical text from the brute-force chapter and recovered all four matches of `"ain"`, watched the more interesting `"ababa"` table that has a non-trivial overlap structure, and understood exactly what the DFA is paying for in preprocessing that the brute force was paying for over and over again in scanning. You'll also see the next chapter coming — KMP is the same DFA, stored more cleverly.
+
+## What if the pattern were a machine?
+
+Take the brute force matcher and rewrite the problem in its own language. The matcher walks the text and, at every position, tries to tell me how much of the pattern it has currently matched. After reading the first character of the text, the answer is either "one character of the pattern matches" or "zero." After two characters, the answer is "two," "one," or "zero." After three, it's "three," "two," "one," or "zero." That number — the length of the longest pattern prefix that is also a suffix of the text I've read so far — is the *only* piece of state I need to decide whether the next character extends the match or breaks it.
+
+If I call that number a *state*, then the matcher is a state machine. There are $m + 1$ states, numbered $0$ through $m$. State $m$ is special — it means I just finished reading the entire pattern, and so I should report a match. Every character I read is a *transition*: from state $q$ on character $c$, I move to some state $q'$. The next-state function $\delta(q, c)$ is exactly the answer to "if I had matched $q$ characters of the pattern, and the next character of the text is $c$, how many characters of the pattern do I now match?" If $c$ extends the current prefix, $q'$ is $q + 1$. If $c$ breaks the current prefix, $q'$ is *some smaller number* — possibly zero, possibly more — depending on what suffixes of the failed match happen to be prefixes of the pattern.
+
+That last sentence is where the cleverness lives. The brute force didn't compute $\delta$; it discovered $\delta$ on the fly, by going back to the text and rescanning. The DFA precomputes $\delta$ once, in advance, and from then on you read each text character exactly once. You never go back. That is the prize — $O(n)$ scanning time, no rescans, no backtracking — and the price is the preprocessing that builds the table.
+
+## States as prefix lengths
+
+Let me nail down what state $q$ means. **State $q$ means: the last $q$ characters of the text I've read so far are exactly $P[0..q-1]$**, and no longer prefix of $P$ is also a suffix of the text-so-far. Three things are packed into that sentence.
+
+First, state 0 is the starting state — I haven't read anything that matches a prefix of $P$. Second, state $m$ is the accept state — I just completed a full match, and the position of the match is "where I am in the text minus $m$." Third, the *longer-prefix* qualifier is what makes this work: if I've read three characters and both the prefix of length 3 and the prefix of length 1 happen to match the suffix of my text-so-far, the state is 3 (the longest one). I'm always tracking the *longest* matched prefix, because that's the one with the most potential to extend.
+
+You see why the brute force was wasteful. After matching three characters and then mismatching the fourth, the brute force restarted from state 0 at the next text position. But it might have been the case that the three characters it had just matched contained, as their suffix, a prefix of the pattern — meaning state should have dropped to, say, state 1, not all the way to 0. The DFA knows that. The brute force has to rediscover it from scratch.
+
+## The transition function
+
+The core of the construction is computing $\delta(q, c)$ for every state $q$ and every relevant character $c$. The recipe is: imagine I'm in state $q$ (meaning my recent text suffix matches $P[0..q-1]$) and I read character $c$. The text suffix now matches $P[0..q-1] + c$ — a string of length $q + 1$. The new state is the length of the longest pattern prefix that is *also a suffix* of this string. I try lengths from largest to smallest and return the first one that fits.
+
+Here is that idea as a small private helper.
+
+```python {export=src/codex/strings/automaton.py}
+def _delta(pattern: str, q: int, c: str) -> int:
+    candidate = pattern[:q] + c
+    m = len(pattern)
+    for length in range(min(q + 1, m), 0, -1):
+        if candidate.endswith(pattern[:length]):
+            return length
+    return 0
+```
+
+I'm constructing the hypothetical "what I've matched so far" string as `pattern[:q] + c` — that's the recent text suffix in the abstract, since by being in state $q$ I know my recent text suffix matched the first $q$ characters of the pattern, and then I read $c$. Then I try each candidate prefix length from $\min(q+1, m)$ downward and check whether the candidate ends with that prefix. The first one that fits is the answer. If nothing fits, the answer is 0 — no prefix of the pattern is a suffix of the failed match.
+
+The $\min(q+1, m)$ cap is there because the candidate is $q + 1$ characters long, but the longest prefix of the pattern is $m$ characters, and a prefix longer than $m$ doesn't exist. Once $q$ reaches $m$ — the accept state — the candidate is one character longer than the pattern itself, so the longest prefix that could fit is still capped at $m$. That detail matters for `find_all`, and I'll come back to it.
+
+Let me make the function tangible with a hand trace on `"ain"`. From state 0 on character `'a'`: the candidate is `"a"`, and the longest prefix of `"ain"` that ends `"a"` is `"a"` itself, length 1. So $\delta(0, \text{'a'}) = 1$. From state 1 on character `'i'`: the candidate is `"ai"`, the longest prefix of `"ain"` ending in `"ai"` is `"ai"` itself, length 2. From state 2 on character `'n'`: the candidate is `"ain"`, the longest prefix ending in `"ain"` is `"ain"` — that's length 3, the accept state. From state 2 on character `'a'`: the candidate is `"aia"`, which ends in `"a"` but not in `"ai"` or `"ain"`, so the answer is 1. That last line is the interesting one — a partial match of length 2 (`"ai"`), broken by an `'a'`, doesn't drop the state to 0, because the `'a'` itself is a prefix of `"ain"`. The DFA captured that. The brute force would have rescanned.
+
+Here is the full transition table for `"ain"`, computed by running `_delta` over every state-character pair and printing the result.
+
+```{python}
+from codex.strings.automaton import _delta
+
+pattern = "ain"
+alphabet = "ain"  # the only characters that can ever extend a prefix
+
+print(f"transition table for pattern {pattern!r}:")
+print(f"  state | " + " | ".join(f" {c} " for c in alphabet))
+print(f"  ------+" + "+".join("-----" for _ in alphabet))
+for q in range(len(pattern) + 1):
+    row = " | ".join(f" {_delta(pattern, q, c)} " for c in alphabet)
+    marker = " (accept)" if q == len(pattern) else ""
+    print(f"    {q}   | {row}{marker}")
+```
+
+Read state 3 — the accept state. On reading another `'a'` from accept, the DFA drops to state 1 (because `"aina"` ends in `"a"`, a prefix of length 1). On `'i'`, it drops to 0 — `"aini"` ends in nothing that's a prefix of `"ain"`. On `'n'`, also 0. That row is exactly what I'll use in `find_all` to keep finding matches after the first one: from accept, the next character either restarts a fresh match attempt or drops to 0.
+
+Now the more interesting case — pattern `"ababa"`. Its prefixes have non-trivial overlap structure: the prefix `"aba"` of length 3 is also a suffix of the full pattern `"ababa"`. That means when the DFA is sitting in the accept state and reads a character, it can drop to state 3, not 0 — three characters of the previous match are reusable.
+
+```{python}
+from codex.strings.automaton import _delta
+
+pattern = "ababa"
+alphabet = "ab"
+
+print(f"transition table for pattern {pattern!r}:")
+print(f"  state | " + " | ".join(f" {c} " for c in alphabet))
+print(f"  ------+" + "+".join("-----" for _ in alphabet))
+for q in range(len(pattern) + 1):
+    row = " | ".join(f" {_delta(pattern, q, c)} " for c in alphabet)
+    marker = " (accept)" if q == len(pattern) else ""
+    print(f"    {q}   | {row}{marker}")
+```
+
+Look at state 5 — the accept state. On reading `'b'`, the DFA goes to state 4: the suffix `"ababab"` of the failed match ends in `"abab"`, which is a length-4 prefix of `"ababa"`. On reading `'a'`, the DFA goes to state 1: `"ababaa"` ends in `"a"` but not in `"aba"` or `"ababa"`. And from state 4 on `'a'`, the DFA jumps to state 5 — another match. That overlap is what makes patterns like `"ababa"` worth their own example. If you ran this DFA on `"ababababa"`, you'd find matches at positions 0, 2, and 4 — three overlapping occurrences, recovered because state 5's exit transition to state 4 keeps four characters of context alive instead of throwing them away.
+
+## Building the table
+
+Now the public function that wraps `_delta` and produces the full transition table — a list of $m + 1$ dictionaries, one per state, mapping each alphabet character to its next state.
+
+```python {export=src/codex/strings/automaton.py}
+def build_dfa(
+    pattern: str, alphabet: str | None = None
+) -> tuple[list[dict[str, int]], int]:
+    m = len(pattern)
+    if alphabet is None:
+        alphabet = "".join(sorted(set(pattern)))
+    transitions: list[dict[str, int]] = []
+    for q in range(m + 1):
+        row: dict[str, int] = {}
+        for c in alphabet:
+            row[c] = _delta(pattern, q, c)
+        transitions.append(row)
+    return transitions, m
+```
+
+I default the alphabet to "the characters that actually appear in the pattern." That's a deliberate choice — any character not in the pattern can't extend any prefix, so its next-state from any state would be 0. Storing those transitions explicitly would just waste space. The simulator handles unknown characters by treating them as "implicit zero": if the next character isn't in the dictionary, the state drops to 0. That keeps the table small (relevant alphabet only) without losing any correctness.
+
+The accept state is just $m$, the length of the pattern. I return it explicitly so the simulator doesn't have to recompute `len(pattern)` separately.
+
+You'll notice this build is $O(m^3 \cdot |\Sigma|)$ — for each of the $m + 1$ states and each of the $|\Sigma|$ characters, `_delta` does an $O(m^2)$ scan through candidate lengths (the inner `endswith` is itself $O(m)$). I'm not optimizing that. The chapter's point is that the *idea* of the DFA is the contribution; the construction can be made $O(m \cdot |\Sigma|)$ using the same failure-pointer trick KMP uses, which is exactly what the next chapter unfolds. For now, building the table for a pattern of ten characters over a four-character alphabet does a few thousand character comparisons in preprocessing, which is invisible compared to the scan.
+
+## Running the machine on the canonical text
+
+The simulator is a single loop. Read each character of the text, look up the next state in the table, and if you ever land in the accept state, record a match.
+
+```python {export=src/codex/strings/automaton.py}
+def find(text: str, pattern: str) -> int | None:
+    if not pattern:
+        return 0
+    if len(pattern) > len(text):
+        return None
+    transitions, accept = build_dfa(pattern)
+    state = 0
+    for idx, c in enumerate(text):
+        state = transitions[state].get(c, 0)
+        if state == accept:
+            return idx - accept + 1
+    return None
+```
+
+The `transitions[state].get(c, 0)` is where I handle characters outside the inferred alphabet — they implicitly go to state 0, because no prefix of the pattern can contain a character the pattern doesn't have. When I hit the accept state, the match started at position `idx - accept + 1` — the current index minus the pattern length plus one, because `idx` is the *last* character of the matched window.
+
+Now `find_all`. The interesting decision is what to do *after* a match. The naive choice is to reset to state 0 and continue scanning, but that would miss overlapping matches. The right choice is to use the transitions from the accept state itself — state $m$ has its own row in the transition table, computed by `_delta` exactly like every other state. So after recording a match, I just keep going: read the next text character, look up the transition from state $m$, and continue. The DFA handles overlaps for free.
+
+```python {export=src/codex/strings/automaton.py}
+def find_all(text: str, pattern: str) -> list[int]:
+    if not pattern or len(pattern) > len(text):
+        return []
+    transitions, accept = build_dfa(pattern)
+    matches: list[int] = []
+    state = 0
+    for idx, c in enumerate(text):
+        state = transitions[state].get(c, 0)
+        if state == accept:
+            matches.append(idx - accept + 1)
+    return matches
+```
+
+That's the whole simulator — eight lines of body. State $m$'s row in the transition table does double duty: it both signals "I just matched" (via the equality check) *and* tells me where to go next. That's the abstraction working. State $m$ is a state like any other, with outgoing transitions like any other; the only thing special about it is that I'm asked to record a match when I land on it.
+
+Now let me run it on the canonical text from chapter 23 with pattern `"ain"`.
+
+```{python}
+from codex.strings.automaton import find, find_all
+
+TEXT = "the rain in spain stays mainly in the plain"
+
+idx = find(TEXT, "ain")
+print(f"first match of 'ain' at index {idx} — same answer as the brute force")
+
+all_ain = find_all(TEXT, "ain")
+print(f"all matches of 'ain': {all_ain}  (four occurrences, identical to ch 23)")
+
+miss = find(TEXT, "frog")
+print(f"searching for 'frog': {miss}  (no 'f' anywhere, so the DFA never leaves state 0)")
+```
+
+Four matches at positions 5, 14, 25, 40 — exactly what the brute force produced, and exactly what `re.findall(r"ain", TEXT)` would produce. The DFA recovers them all in a single left-to-right pass, never backtracking. Searching for `"frog"` returns `None` because the very first character `'f'` is outside the pattern's alphabet, so every text character drops the state straight back to 0 — the simulator runs in $O(n)$ doing essentially no work per step.
+
+Now the overlap case, with a contrived input that exercises state 5's non-trivial exit transitions in `"ababa"`.
+
+```{python}
+from codex.strings.automaton import find_all
+
+matches = find_all("ababababa", "ababa")
+print(f"find_all('ababababa', 'ababa') = {matches}  (three overlapping matches: 0, 2, 4)")
+```
+
+Three matches at positions 0, 2, 4. The string `"ababababa"` contains `"ababa"` starting at index 0, then again at index 2 (sharing the last three characters of the first match with the first three of the second), then again at index 4 (sharing again with the second). The DFA finds all three because, on entering state 5 the first time at position 4 of the text, it transitions on the next `'b'` to state 4 — keeping four characters of context alive — and then on the next `'a'` to state 5 again. Then another `'b'`, then another `'a'`, and the simulator lands on state 5 a third time. The brute force from chapter 23 would have done $O(nm)$ work for this input; the DFA does $O(n)$.
+
+## What the DFA costs to build
+
+You see the trade-off now. Scanning is one character read per text position, full stop — that's the prize. But the price is the table. For a pattern of length $m$ over an alphabet of size $|\Sigma|$, the table has $(m + 1) \cdot |\Sigma|$ entries. Each entry is an integer. The total space is $\Theta(m \cdot |\Sigma|)$. Building the table with my naive `_delta` takes $O(m^3 \cdot |\Sigma|)$ time, because for each state and each character I'm running an $O(m^2)$ scan through candidate prefix lengths.
+
+Bilingually: for a 10-character pattern over the 26-letter alphabet, the table has about 286 integer slots — a few kilobytes, totally negligible — and the naive construction does on the order of $26 \cdot 1000 = 26{,}000$ character comparisons, also negligible. For a 100-character pattern, the table is about 2,600 slots and construction does about 26 million comparisons. Still cheap, but starting to be visible. For a 1000-character pattern over a large alphabet, the cubic-in-$m$ construction would start to bite.
+
+KMP fixes this by storing one number per state — the *failure pointer* — instead of one number per state-character pair. The failure pointer tells you which state to fall back to when the next character doesn't extend the current prefix; the transition is then computed on the fly by chaining failure pointers until a character matches. That stores $O(m)$ data instead of $O(m \cdot |\Sigma|)$, and it builds in $O(m)$ time instead of $O(m^3 \cdot |\Sigma|)$. The scan is still $O(n)$, but with a small per-step overhead — each text character may trigger a few failure-pointer chases instead of a single table lookup. That's the next chapter's whole subject.
+
+## The three questions, applied
+
+### Is it correct?
+
+The invariant I maintain is: **after reading the first $k$ characters of the text, the simulator's state equals the length of the longest prefix of $P$ that is also a suffix of $T[0..k-1]$.** State 0 satisfies the invariant trivially at $k = 0$ (the empty string's longest pattern-prefix-suffix is the empty prefix). The induction step is the transition: from state $q$ (meaning my text suffix matches $P[0..q-1]$) on the next character $c$, the new text suffix is $P[0..q-1] + c$ in the abstract, and $_delta$ returns exactly the length of the longest prefix of $P$ that is a suffix of that string — which is the new state, by definition of the invariant. So the invariant is preserved.
+
+When the simulator hits state $m$, the invariant says my recent text suffix of length $m$ equals $P[0..m-1] = P$ — that is, the pattern just finished matching, ending at the current position. Reporting `idx - m + 1` as the match start is then correct by arithmetic. `find_all` is correct because it appends every such position; the only subtlety is that it continues from state $m$ rather than resetting to 0, and the invariant says state $m$'s outgoing transitions correctly track the longest pattern-prefix-suffix of the text including the newly-read character. So overlapping matches are found by the same induction.
+
+### How efficient is it?
+
+The scan itself runs in $\Theta(n)$ time and $O(1)$ extra space — one dictionary lookup per character, no allocation per step. Preprocessing builds the table in $O(m^3 \cdot |\Sigma|)$ time using $\Theta(m \cdot |\Sigma|)$ space. Total time is $O(n + m^3 \cdot |\Sigma|)$; total space is $O(m \cdot |\Sigma| + k)$ where $k$ is the number of matches reported.
+
+Bilingually: searching a million-character text for a 10-character pattern over a 4-character alphabet costs about a million character lookups for the scan and about four thousand comparisons for the preprocessing — the scan dominates, and the algorithm runs in essentially linear time. For a 100-character pattern, the table-building cost rises to about four million comparisons, which is comparable to the scan but still small enough that you wouldn't notice. The asymptotic story is: scanning is linear in $n$, independent of $m$; preprocessing is polynomial in $m$, independent of $n$. That's the entire shape.
+
+### Is it optimal?
+
+Scanning at $\Theta(n)$ is optimal in the strongest sense — you have to read every character of the text at least once to be sure the pattern doesn't appear, so $\Omega(n)$ is the lower bound, and the DFA matches it. That's the brute force's worst-case-tight upgrade I promised: the brute force runs at $\Theta(n)$ in the best case and $\Theta(nm)$ in the worst case; the DFA runs at $\Theta(n)$ in both.
+
+Preprocessing at $\Theta(m \cdot |\Sigma|)$ space is *not* optimal. KMP achieves the same $\Theta(n)$ scan with $\Theta(m)$ preprocessing — a factor of $|\Sigma|$ smaller. Aho-Corasick generalizes the failure-function idea to multiple patterns simultaneously, keeping the same scan-time guarantee. The DFA's full transition table is conceptually clean but operationally wasteful; the next two chapters are the engineering work that recovers the same scan-time guarantee at lower preprocessing cost.
+
+## What the automaton view teaches you
+
+The DFA isn't just an implementation of pattern matching — it's a *lens* on the entire problem. Once you see it, every other algorithm in this part is the same DFA dressed differently.
+
+KMP is the DFA with a sparse representation: one failure pointer per state instead of one transition per character. The state space is identical; the storage is smaller. Aho-Corasick is the DFA generalized from one pattern to a set of patterns — the states are now prefixes of any pattern in the set, the transitions are computed the same way, and a single text scan finds all matches of all patterns simultaneously. Boyer-Moore is the only major pattern matcher that *isn't* obviously a DFA — it reads the text right-to-left and uses different preprocessing — but even there, the "good suffix" rule is encoded by an analog of the same failure function.
+
+That's why I wanted you to see the DFA before KMP. The DFA tells you what's being computed; KMP tells you how to compute it more cheaply. Without the DFA view, KMP's failure function looks like a clever trick. With the DFA view, the failure function is the obvious compression of an obvious object. The algorithm doesn't get easier — but the *necessity* of the algorithm becomes legible. You stop asking "why does this work?" and start asking "how could it possibly not?"
+
+The other lesson worth carrying forward: **a representation change can convert a runtime cost into a one-time preprocessing cost.** The brute force paid its $O(m)$ at every shift. The DFA pays $O(m^3 \cdot |\Sigma|)$ once. For a single search in a long text, that's a massive win. For many searches with the same pattern across different texts — say, a virus scanner with a fixed signature scanning a stream of files — the win compounds: the table is built once and reused for every scan. The brute force can't reuse anything between calls.
+
+## Notes and further reading
+
+CLRS section 32.3, "String matching with finite automata," gives the formal treatment of the DFA construction, including a tighter $O(m \cdot |\Sigma|)$ build algorithm I deliberately avoided here — the $O(m^3 \cdot |\Sigma|)$ version is pedagogically clearer. Sedgewick and Wayne's *Algorithms* (4th edition) section 5.3 covers KMP directly without the explicit DFA detour, which is the more common textbook path; I prefer routing through the DFA first because it makes KMP's failure function feel inevitable rather than ingenious.
+
+For the formal theory of finite automata — accepting languages, the relationship between DFAs and regular expressions, the Myhill-Nerode theorem that proves the DFA I built for a pattern $P$ is the unique minimum DFA recognizing strings ending in $P$ — see Hopcroft, Motwani, and Ullman's *Introduction to Automata Theory, Languages, and Computation* (3rd edition), chapters 2–4. That book is heavier mathematical machinery than the Codex normally uses, but the chapter on DFA minimization is worth knowing about: it tells you that the DFA construction here is, in a formal sense, the *best possible* DFA for the pattern-matching problem on a single pattern.
+
+The $O(m^3 \cdot |\Sigma|)$ build time can be sharpened to $O(m \cdot |\Sigma|)$ using exactly the same failure-pointer trick KMP uses internally — but doing so is the whole insight of the next chapter, and I want you to meet it there.
+
+In the next chapter, I'll show you how to compress this DFA into a single array of $m$ integers — the failure function — and how the resulting algorithm, Knuth-Morris-Pratt, scans the text in $\Theta(n)$ with $\Theta(m)$ preprocessing instead of $\Theta(m \cdot |\Sigma|)$.
