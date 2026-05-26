@@ -1,0 +1,314 @@
+# A trie that fails forward, on many patterns at once
+
+Chapter 27 closed by pointing at the multi-pattern case as Rabin-Karp's real niche, and I told you the next chapter would show you how `grep -F` does it deterministically. I want to keep that promise now. The lens shifts one more time. Brute force, the DFA, KMP, Boyer-Moore, Rabin-Karp — five chapters of single-pattern matching, five different ways to ask "where does pattern $P$ appear in text $T$?" In this chapter I'm going to ask a different question: **where does *any* of patterns $P_1, P_2, \ldots, P_k$ appear in $T$, in one pass over the text, finding every match of every pattern simultaneously?** That problem is what virus scanners solve, what intrusion-detection rulesets solve, what `grep -F` solves when you hand it a file of fixed strings. Running KMP $k$ separate times answers the question correctly but pays $O(k(n + m))$ for the privilege. The Aho-Corasick algorithm answers it in essentially one scan of the text.
+
+The cynosure I want you to hold for the whole chapter is one sentence: **trie plus failure links equals KMP's failure function generalized to a tree.** Chapter 20 built the trie — one branch per character, the path from root to node spells the key. Chapter 25 built KMP's failure function — for each prefix of one pattern, how much of my recent progress is still salvageable on a mismatch. Aho-Corasick is what you get when you combine those two ideas: build a trie of all $k$ patterns, then add a failure link to every node pointing at the deepest other node whose string is a proper suffix of this node's string. The trie tells you which patterns extend forward; the failure links tell you what to fall back to when extension fails. One scan over the text, one fail-link chase per character on average, every match of every pattern reported.
+
+By the end of this chapter you'll have built that combined structure on the classical demo set `{he, she, his, hers}`, watched the BFS construction of the failure links produce non-trivial fall-backs you can verify by hand, scanned the text `"ushers"` and recovered all three matches that famously fire at nearly the same scan position, swept the canonical text from earlier Part IV chapters with three patterns at once for twelve matches in a single pass, and seen how the same matcher can be built once and reused across many texts the way a virus-scanner ruleset gets reused across every file on disk. The empower-promise is that once you have Aho-Corasick, multi-pattern matching stops being a separate algorithm — it's just the trie chapter and the KMP chapter clicked together.
+
+## What if you wanted to match a thousand patterns at once?
+
+I want to start with the cost shape, because that's what makes the algorithm worth its complexity. Suppose I hand you a thousand virus signatures — short byte strings, average length 30 — and ask you to scan a gigabyte of disk for any of them. The naive thing you might try is to run KMP a thousand times. KMP's scan is $\Theta(n)$ in the text, and the preprocessing per pattern is $\Theta(m)$, so the total cost is $\Theta(k \cdot n + \sum m_i)$ — for the numbers above, about $10^{12}$ character reads, a thousand passes over the disk. That cost is *linear in the number of patterns*, and for a real scanner with tens of thousands of rules, the multiplier kills you.
+
+What I want is a cost where the text is read *once*. Aho-Corasick gives me that. The build phase is $O(\sum m_i)$ — proportional to the total pattern size, not to the text — and the scan phase is $O(n + z)$ where $z$ is the total number of matches reported. For the virus example, that's about $10^9$ character reads for the scan plus the work of emitting any actual matches. A thousand-fold improvement, baked into the algorithm's structure, with no probability handwave like Rabin-Karp's expected case.
+
+The trick — and you'll recognize this from chapter 25 — is to build a state machine that knows about all patterns simultaneously. Each state represents a prefix shared by some subset of the patterns; transitions extend the matched-so-far by one character; failure links handle the "I just mismatched, what's the longest still-salvageable suffix that's also a prefix of *some* pattern?" question. The DFA from chapter 24 answered that question for a single pattern with a two-dimensional table. KMP from chapter 25 compressed the table into a one-dimensional failure function. Aho-Corasick generalizes the failure function from a single pattern's prefixes (a chain) to many patterns' prefixes (a tree). Same idea, larger domain.
+
+## A trie of patterns
+
+The skeleton is already in your hands. Chapter 20's trie stores keys character by character, one character per edge, and the path from the root to any node spells the prefix that node represents. That's what I need here — except I'm going to augment each node with two extra fields: a `fail` pointer (the failure link), and an `output` list (the patterns that finish at this node, including any reachable by walking fail-links — more on that in a couple of sections).
+
+Here's the node class. I'm putting the `deque` import at the top of this same block because both `_ACNode` and the AC builder live in the same file, and `_build_failure_links` will need it in a moment.
+
+```python {export=src/codex/strings/aho_corasick.py}
+from collections import deque
+
+
+class _ACNode:
+    """Internal trie node with Aho-Corasick augmentations."""
+
+    def __init__(self) -> None:
+        self.children: dict[str, "_ACNode"] = {}
+        self.fail: "_ACNode | None" = None
+        self.output: list[str] = []  # patterns ending at this node or via fail-chain
+        self.depth: int = 0
+```
+
+The fields beyond `children` are what make this a *failure-aware* trie. The `fail` pointer will be filled in by a BFS during construction; it stays `None` until then. The `output` list starts empty; the trie-build phase will append a pattern to the node where that pattern ends, and the failure-link phase will merge in additional patterns reachable via fail-links. The `depth` field is bookkeeping — I'll use it to keep some of the prose tractable and to make the structure easier to inspect, even though the algorithm doesn't strictly need it.
+
+Now the matcher class. The constructor takes the pattern list, drops any empty strings (they'd match at every position, which is a degenerate case I'll skip), and runs the two construction phases in order: build the trie, then walk the trie in BFS order to compute fail-links. That order matters and I'll come back to it.
+
+```python {export=src/codex/strings/aho_corasick.py}
+class AhoCorasick:
+    """Multi-pattern matcher. Build once with a list of patterns, then scan
+    arbitrarily many texts. Each scan is a single O(n + total_output) pass.
+    """
+
+    def __init__(self, patterns: list[str]) -> None:
+        self._root = _ACNode()
+        self._patterns = [p for p in patterns if p]  # drop empty patterns
+        self._build_trie()
+        self._build_failure_links()
+```
+
+Two builders, called in sequence. Once they finish, the matcher is ready to scan any text via `find_all`, and I never have to touch the trie again.
+
+The trie-build itself is exactly chapter 20's `insert` loop, repeated once per pattern, with `node.output.append(pat)` at the end of each insertion to record that this pattern terminates at this node. No `terminal` boolean is needed — a non-empty `output` list is the terminal marker, and a list lets multiple patterns end at the same node (a pathological-but-legal case: `{"abc", "abc"}` would put two copies of `"abc"` in the same list, and the scan would emit both).
+
+```python {export=src/codex/strings/aho_corasick.py}
+    def _build_trie(self) -> None:
+        for pat in self._patterns:
+            node = self._root
+            for c in pat:
+                if c not in node.children:
+                    child = _ACNode()
+                    child.depth = node.depth + 1
+                    node.children[c] = child
+                node = node.children[c]
+            node.output.append(pat)
+```
+
+For the demo set `{he, she, his, hers}` the resulting trie has nine nodes including the root. Two children of root, on `h` and `s`. Under `h`: an `e` child (giving `"he"` with output `["he"]`) which has a further `r` child, which has a further `s` child (giving `"hers"` with output `["hers"]`); and an `i` child, which has a further `s` child (giving `"his"` with output `["his"]`). Under `s`: an `h` child, which has an `e` child (giving `"she"` with output `["she"]`). Walk that in your head once — I'll lean on it for the next two sections.
+
+## Failure links: KMP's idea on a tree
+
+Now the interesting part. The failure function from chapter 25, restated: for a single pattern $P$, $\pi[i]$ is the length of the longest proper prefix of $P[0..i]$ that is also a suffix of $P[0..i]$. I want to generalize that from "one pattern's prefixes" to "many patterns' prefixes," and the right way to express the generalization is in trie terms.
+
+For any trie node $v$ representing string $s_v$ (i.e., the path from the root to $v$ spells $s_v$), define **$\text{fail}(v)$ as the deepest trie node $u \ne v$ such that $s_u$ is a proper suffix of $s_v$.** If no such node exists (other than the root, which represents the empty string), then $\text{fail}(v)$ is the root. The root's own fail-link is left as `None` and I treat it specially in the matcher.
+
+The single-pattern case from chapter 25 falls out of this definition. For a pattern of length $m$, the trie is a chain of $m + 1$ nodes (root, then one node per pattern character). The fail-link of the node at depth $i + 1$ is the node at depth $\pi[i]$. Same numbers, different storage — the failure function packed into pointers instead of an array. That's the connection I want you to hold on to.
+
+Let me trace fail-links by hand on `{he, she, his, hers}` so you can see the definition pay off. I'll write each node by its represented string for legibility.
+
+- Root: `fail = None` (special case).
+- Depth-1 nodes (`"h"` and `"s"`): their proper suffixes are just `""`, which is the root. So both fail to the root.
+- Node `"sh"` (depth 2, under `s`): its proper suffixes are `""` and `"h"`. The deepest one that's a trie node is `"h"` (depth 1). So `fail("sh") = "h"`.
+- Node `"he"` (depth 2, under `h`): proper suffixes are `""` and `"e"`. `"e"` is not a trie node — there's no edge from the root labeled `e`. So fail goes to root.
+- Node `"hi"` (depth 2): proper suffixes `""` and `"i"`. `"i"` is not in the trie. Fail to root.
+- Node `"she"` (depth 3): proper suffixes `""`, `"e"`, `"he"`. The deepest one that's in the trie is `"he"` (depth 2). So `fail("she") = "he"`.
+- Node `"her"` (depth 3): proper suffixes `""`, `"r"`, `"er"`. None of those exist as trie nodes. Fail to root.
+- Node `"his"` (depth 3): proper suffixes `""`, `"s"`, `"is"`. The deepest one in the trie is `"s"` (depth 1). So `fail("his") = "s"`.
+- Node `"hers"` (depth 4): proper suffixes `""`, `"s"`, `"rs"`, `"ers"`. The only one in the trie is `"s"` (depth 1). So `fail("hers") = "s"`.
+
+You can already feel the algorithm in those fail-links. The node `"she"` fails to `"he"` — meaning when the scan has read `"she"` and the next character disagrees with what `"she"` would extend to, the longest still-salvageable suffix is `"he"`, and the scan can continue from there. That's KMP's "fall back to the next-best candidate" move, generalized to a node that doesn't live on the same trie branch.
+
+Now the construction. I want to compute fail-links in **BFS order** — level by level, shallow before deep. The reason is straightforward: a node's fail target is always strictly shallower than the node itself (because $s_{\text{fail}(v)}$ is a proper suffix of $s_v$, hence shorter), so by the time I need to compute $\text{fail}(v)$, the fail-links of all shallower nodes are already known. BFS gives me that guarantee for free; a DFS would not.
+
+Here's the construction.
+
+```python {export=src/codex/strings/aho_corasick.py}
+    def _build_failure_links(self) -> None:
+        # BFS so a node's fail link is computed only after its parent's is.
+        queue: deque[_ACNode] = deque()
+        for child in self._root.children.values():
+            child.fail = self._root
+            queue.append(child)
+        while queue:
+            current = queue.popleft()
+            for c, child in current.children.items():
+                # Walk fail-pointers from current looking for one with
+                # a c-child, or hit the root.
+                f = current.fail
+                while f is not None and c not in f.children:
+                    f = f.fail
+                child.fail = self._root if f is None else f.children[c]
+                # Merge fail-target's output into ours so a single output
+                # check at scan time catches every pattern ending here or
+                # via the fail-chain.
+                child.output = child.output + (
+                    child.fail.output if child.fail is not None else []
+                )
+                queue.append(child)
+```
+
+The structure is BFS with one twist. For each node `current` I pop, I look at every edge `(c, child)` leaving `current`, and I compute `child.fail` from `current.fail` — not from `current` itself. Why? Because `child` represents the string $s_{\text{current}} + c$, and its longest proper-suffix-that's-in-the-trie is found by extending some proper suffix of $s_{\text{current}}$ by the character $c$. The proper suffixes of $s_{\text{current}}$, in decreasing length, are exactly the chain `current.fail`, `current.fail.fail`, and so on up to the root. I walk that chain, looking for the first node that has a `c`-child; that `c`-child is `child.fail`. If the chain runs all the way to `None` without finding one, `child.fail` is the root.
+
+The inner `while` loop is the failure-chain chase. It looks similar to the chain chase in KMP's `failure_function` (chapter 25), and it works for the same amortized-cost reason: the total chain work across the whole BFS is bounded by the total depth of the trie, which is $O(\sum m_i)$. I'll come back to that in the analysis.
+
+After computing `child.fail`, I do one more thing: I merge `child.fail.output` into `child.output`. That merge deserves its own section.
+
+## Output links: don't miss matches buried inside matches
+
+Here's a subtlety that bites if you don't handle it. Consider what happens when the scan, reading `"ushers"`, reaches the node for `"she"`. That node's own `output` is `["she"]` — so far, so good. But `"she"` *contains* `"he"` as a suffix: the trailing two characters of `"she"` spell `"he"`, which is also a stored pattern. If I emit only `"she"` at this scan position, I miss `"he"` — which is wrong, because `"he"` does occur in the text, ending at the same position where `"she"` ends.
+
+The fix follows from the fail-link structure. The fail-link of `"she"` is `"he"`, by the definition I gave you above. So the chain of fail-links from any node enumerates all the *suffixes of $s_v$* that are themselves trie nodes — and any such suffix that's a stored pattern is a match that fires at the same scan position. Concretely: at scan position $i$, if I'm at node $v$, I should emit every pattern in the `output` list of $v$, *plus* every pattern in the `output` list of $\text{fail}(v)$, *plus* every pattern in the `output` list of $\text{fail}(\text{fail}(v))$, and so on up the chain.
+
+I could chase the fail-chain at scan time for every text character, but that costs more than I want — it would turn the per-character work from amortized $O(1)$ into amortized $O(\text{depth})$. The cleaner move is to do the chain-chase work *once*, during the BFS construction, and pre-compute the merged output list per node. That's what the line `child.output = child.output + (child.fail.output if child.fail is not None else [])` does. By the time the BFS visits `child`, the BFS has already finished visiting `child.fail` (because fail-targets are shallower and BFS does shallow first), so `child.fail.output` is already the fully merged list of *its* node's patterns plus all patterns reachable from it via further fail-chains. Concatenating with `child`'s own already-recorded patterns gives the full merged set for `child` in one step.
+
+For the demo set, this means:
+
+- `"he"` after merging: `["he"]` (own patterns) + `[]` (root's output) = `["he"]`. No change.
+- `"she"` after merging: `["she"]` + `["he"]` (the fail-target's merged output) = `["she", "he"]`. **This is the magic move** — when the scan lands at `"she"`, the merged output lets me emit both matches in one pass over a length-2 list, no recursive fail-chase needed.
+- `"his"` after merging: `["his"]` + `[]` (s-node has no patterns) = `["his"]`.
+- `"hers"` after merging: `["hers"]` + `[]` (s-node) = `["hers"]`.
+
+That one extra concatenation per node during the BFS — moving the chain-chase work to build time — is what keeps the scan's per-character work at amortized $O(1)$. The trade is a bit more memory at build time (each node's `output` list may contain patterns "borrowed" from ancestors via fail-links), but the gain is a cleaner scan loop. Worth it.
+
+## The single-pass scan
+
+Now I have the structure: a trie of patterns, fail-links computed in BFS order, output lists pre-merged. The scan is short.
+
+```python {export=src/codex/strings/aho_corasick.py}
+    def find_all(self, text: str) -> list[tuple[int, str]]:
+        """Return (start_index, pattern) for every match of every pattern in
+        text. Matches of overlapping patterns are all reported.
+        """
+        matches: list[tuple[int, str]] = []
+        node = self._root
+        for i, c in enumerate(text):
+            # Follow fail-links looking for a node with a c-child, or hit root.
+            while node is not self._root and c not in node.children:
+                node = node.fail if node.fail is not None else self._root
+            if c in node.children:
+                node = node.children[c]
+            # Emit all patterns ending at this node (or reachable via fail-chain,
+            # already merged into output by _build_failure_links).
+            for pat in node.output:
+                matches.append((i - len(pat) + 1, pat))
+        return matches
+```
+
+I keep a single state variable `node`, starting at the root. For each text character `c`, I try to extend by walking to `node.children[c]`. If that child doesn't exist, I follow the fail-link of `node` and try again — exactly the same fall-back move KMP's matching loop makes when it does `j = pi[j - 1]`. I keep falling back until I find an ancestor (in the fail-link sense) with a `c`-child, or until I'm at the root and there's no `c`-child there either (in which case the character contributes nothing and the scan moves on). Then I emit every pattern in `node.output`, which by construction contains every pattern that ends at the new node *or* via any fail-link suffix.
+
+Let me trace the scan on `"ushers"` character by character. I'll write `node` by its represented string.
+
+- Start: `node = root`.
+- `i = 0`, `c = 'u'`: root has no `u`-child. Stay at root. Output: nothing.
+- `i = 1`, `c = 's'`: root has an `s`-child. Move to `"s"`. Output: nothing (`"s"` has no patterns).
+- `i = 2`, `c = 'h'`: `"s"` has an `h`-child. Move to `"sh"`. Output: nothing.
+- `i = 3`, `c = 'e'`: `"sh"` has an `e`-child. Move to `"she"`. Output: `["she", "he"]`. Emit two matches: `"she"` started at `3 - 3 + 1 = 1`, and `"he"` started at `3 - 2 + 1 = 2`. Both fire at this same scan step.
+- `i = 4`, `c = 'r'`: `"she"` has no `r`-child. Follow fail-link to `"he"`. `"he"` has an `r`-child. Move to `"her"`. Output: nothing.
+- `i = 5`, `c = 's'`: `"her"` has an `s`-child. Move to `"hers"`. Output: `["hers"]`. Emit `"hers"` started at `5 - 4 + 1 = 2`.
+
+Final match list: `[(1, "she"), (2, "he"), (2, "hers")]`. Three matches across five text characters past the leading `'u'`, found in a single left-to-right pass, with one fail-link chase total (at the `'r'` step). That's the algorithm doing exactly what I promised: every match of every pattern, in one pass.
+
+Time to actually run it.
+
+```{python}
+from codex.strings.aho_corasick import AhoCorasick
+
+ac = AhoCorasick(["he", "she", "his", "hers"])
+matches = ac.find_all("ushers")
+
+print("matches on 'ushers' with patterns {he, she, his, hers}:")
+for start, pat in matches:
+    print(f"  {pat!r:>8} at index {start}")
+```
+
+Three matches — `"she"` at 1, `"he"` at 2, `"hers"` at 2 — exactly the trace above. The two matches at index 2 are what makes this example famously pedagogical: a single scan position is responsible for two distinct pattern hits (`"he"` and `"hers"` both have their starts at the same text index, though they end at different positions). That's the multi-pattern character of the algorithm visible at the smallest possible scale.
+
+## Running on the canonical text
+
+Now the same text I've been carrying since chapter 23, but with three patterns at once instead of one.
+
+```{python}
+from codex.strings.aho_corasick import AhoCorasick
+
+TEXT = "the rain in spain stays mainly in the plain"
+ac = AhoCorasick(["ain", "in", "the"])
+matches = ac.find_all(TEXT)
+
+print(f"text: {TEXT!r}\n")
+print(f"total matches found in one pass: {len(matches)}\n")
+
+# Group by pattern so the structure is legible
+by_pat: dict[str, list[int]] = {}
+for start, pat in matches:
+    by_pat.setdefault(pat, []).append(start)
+
+for pat in ["the", "ain", "in"]:
+    starts = sorted(by_pat.get(pat, []))
+    print(f"  {pat!r:>5} found at: {starts}  ({len(starts)} occurrences)")
+```
+
+Twelve matches across the three patterns: `"the"` at 0 and 34, `"ain"` at 5, 14, 25, and 40, `"in"` at 6, 9, 15, 26, 31, and 41. Every one of them found in a single left-to-right walk over the 43 text characters. Notice the overlap structure — at index 5 the text reads `"...rain..."`, which contains both `"ain"` (starting at 5) and `"in"` (starting at 6). Aho-Corasick reports both, with no special handling for overlap, because each match is emitted at the scan step where it *ends*, and the two matches end at different positions (7 and 7 respectively — actually the same position, since `"rain"` ends at 8 and the two patterns both end at index 7). The point is: the merged `output` lists do the work, and overlaps are reported as a side effect of the structure, not as an explicit feature.
+
+Compare this to what KMP would have done: three separate scans of the text, one per pattern, $3 \cdot 43 = 129$ character reads minimum. Aho-Corasick did 43 character reads (plus a small constant amount of fail-link chasing). For three patterns the gain is modest; for three thousand the gain is dramatic, and the algorithm's shape stays the same.
+
+## Build once, scan many
+
+The build phase produces a matcher object. That object holds the trie, the fail-links, and the merged output lists — everything needed to scan. Nothing about the scan loop modifies any of that state (the only mutable variable is the local `node`, which gets reset to root at the start of each scan via the loop initializer). So one `AhoCorasick` instance can scan any number of texts, paying the build cost exactly once.
+
+This is the operational mode that matters in practice. A virus scanner builds its matcher from the signature database at startup, then scans every file on disk against the *same* matcher. A content filter compiles its rule set once and applies the matcher to every message that arrives. An intrusion-detection system builds the matcher from its alert ruleset at boot and scans every packet's payload through it. The build is the slow part, and you do it once; the scans are the fast part, and you do them millions of times.
+
+```{python}
+from codex.strings.aho_corasick import AhoCorasick
+
+# Build the matcher once for a small set of "signatures"
+ac = AhoCorasick(["ain", "in", "the"])
+
+# Now scan a batch of independent texts with the same matcher
+texts = [
+    "the rain in spain",
+    "mainly in the plain",
+    "the plain truth in the rain",
+    "nothing matches here at all",
+    "the the the",
+]
+
+print("build once, scan many:\n")
+for text in texts:
+    matches = ac.find_all(text)
+    summary = ", ".join(f"{pat}@{i}" for i, pat in matches) if matches else "no matches"
+    print(f"  {text!r:<35}  ->  {summary}")
+```
+
+Five texts, one matcher, five independent scans. The matcher's internal trie and fail-links are untouched between calls — only the local scan state (`node`, `matches`, `i`) is created fresh each time. This is the streaming use case Aho-Corasick was designed for, and the reason `grep -F` (with the `-F` for "fixed strings") uses it: you compile the pattern set once, then scan stdin (or a file, or a stream) against it without rebuilding.
+
+If you want to see the asymmetry in the cost shape directly: building the matcher does $\Theta(\sum |p_i|)$ work — for the three short patterns above, that's about 8 character-worth of trie nodes plus a comparable amount of fail-link work. Scanning a 35-character text does $\Theta(35 + z)$ work, where $z$ is the (small) number of matches emitted. Run the same matcher over a billion-character text and the scan is $\Theta(10^9 + z)$ — the build cost is amortized across every text you scan, and the per-text cost is linear in just that text's length.
+
+## The three questions, applied
+
+### Is it correct?
+
+Two invariants together establish correctness. The first is on the construction: **after `_build_failure_links` returns, every node $v$ in the trie has $\text{fail}(v)$ pointing at the deepest trie node $u \ne v$ such that $s_u$ is a proper suffix of $s_v$ (or at the root if no such node exists), and $v$.output contains every pattern that ends at $v$ or at any node reachable from $v$ by following fail-links.** That invariant holds by induction on the BFS level. At level 1 (root's children), each child's fail-link is set to the root explicitly, and the merge step is a no-op because the root has empty output. At level $> 1$, the construction reads its parent's already-correct fail-link chain to find the longest matching suffix, and merges the fail-target's already-correct merged output into its own. BFS order is what makes the induction valid: a node is visited only after all its fail-link targets (which are strictly shallower) have been visited.
+
+The second invariant is on the scan: **at the top of each iteration of the `for i` loop in `find_all`, the state `node` is the trie node $v$ such that $s_v$ is the longest suffix of $T[0..i-1]$ that is a prefix of *some* pattern in the trie.** That's the multi-pattern generalization of KMP's "longest pattern-prefix that's a suffix of the text scanned so far" invariant. The `while` loop's fall-back maintains the invariant across a character that can't extend the current state; the children-lookup-and-move maintains it across a character that can. When `node.output` is non-empty, every pattern in that list is a suffix of $s_v$ (by the first invariant), which means every pattern in that list is also a suffix of $T[0..i]$ — i.e., a match ending at position $i$. Emitting all of them is correct.
+
+A pattern that the algorithm *misses* would have to be a suffix of $T[0..i]$ that isn't in the merged output list at the state reached after processing position $i$. The first invariant rules that out: the merged output at $v$ includes every pattern that's a suffix of $s_v$, and $s_v$ by the second invariant *is* the longest such suffix, so every shorter pattern-suffix is a suffix of $s_v$ too and is in the fail-chain. Nothing is missed.
+
+### How efficient is it?
+
+The build phase decomposes into two parts. `_build_trie` walks each pattern once, doing $O(1)$ work per character (dictionary lookup, possible insertion). Total: $O(\sum |p_i|)$.
+
+`_build_failure_links` does a BFS over the trie, and for each node processes each outgoing edge. The work per edge is dominated by the inner `while` loop that chases fail-pointers. The amortized argument is identical to KMP's: the total length of all fail-chain chases across the whole BFS is bounded by the total depth of the trie, which is $O(\sum |p_i|)$. Each chase either drops the failure-pointer to a strictly shallower node (limited charges) or terminates by finding a `c`-child (also limited). So the BFS total work is $O(\sum |p_i|)$.
+
+The merge step `child.output = child.output + child.fail.output` is potentially expensive — in the worst case where many patterns share a long common suffix, each node's merged output could be $O(k)$ long, blowing the build cost up to $O(k \cdot \sum |p_i|)$. In practice this rarely happens; for English text with no contrived suffix sharing, output lists stay near constant size and the build is effectively linear in the total pattern length. A more memory-efficient variant stores an `output_link` pointer per node and walks it at scan time; I've used the merge-at-build approach here because it makes the scan code dramatically simpler at a modest memory cost.
+
+The scan phase reads each text character exactly once. At each character, it does $O(1)$ amortized fail-link work (same amortized argument as KMP — the state `node` can only fall back as many times across the whole scan as it has previously advanced, and it advances at most $n$ times) plus the work of emitting any matches. So the scan is $O(n + z)$ where $z$ is the total number of matches reported.
+
+Bilingually: scanning a megabyte of text against a thousand 30-character virus signatures costs about $10^6 + 30 \cdot 1000 = 1.03 \times 10^6$ character-equivalent operations for the build-plus-scan, plus however many matches actually fire. Compare with KMP run a thousand times: $10^3 \cdot 10^6 = 10^9$ character reads. A three-orders-of-magnitude improvement, baked into the asymptotic shape.
+
+Space is $O(\sum |p_i|)$ for the trie plus the fail-links, with each node a constant number of fields plus its children dictionary. The merge variant adds up to $O(k \cdot \text{avg-pattern-length})$ in the worst case for the merged output lists — usually much less.
+
+### Is it optimal?
+
+For multi-pattern exact matching with $k$ patterns of total length $M$ in a text of length $n$ reporting $z$ matches, the lower bound is $\Omega(n + M + z)$: every text character must be examined to be sure no pattern starts there, every pattern character must be examined to encode it into the matcher, and every reported match must be emitted. Aho-Corasick hits $O(n + M + z)$ when implemented carefully (a `goto`-and-fail formulation that avoids the per-node `output` merge can hit the bound exactly), and my implementation here hits $O(n + M + z)$ in the typical case and slightly worse in worst-case pathological pattern sets.
+
+For *single*-pattern matching ($k = 1$), Aho-Corasick reduces to KMP — the trie collapses to a chain, the fail-links collapse to the failure function, and the scan loop becomes KMP's matching loop. So Aho-Corasick is at least as good as KMP, and strictly better when $k > 1$ because KMP doesn't share structure across patterns. Rabin-Karp's expected $O(n + km)$ for multi-pattern matching is the closest competitor; Aho-Corasick beats it deterministically and has no notion of a worst case driven by adversarial input.
+
+The Commentz-Walter algorithm extends Aho-Corasick with Boyer-Moore-style skipping — it scans windows right-to-left and can skip multiple characters per window when no pattern's suffix is found. That's a different cost shape (sublinear in good cases, worse in bad ones), and for short pattern sets it can beat Aho-Corasick by a constant factor, but it doesn't change the asymptotic bound.
+
+## What Aho-Corasick teaches you
+
+Two lessons I want you to take from this chapter, and one observation about where the chapter sits in Part IV.
+
+**First, two ideas from earlier chapters can compose without distortion.** The trie from chapter 20 wasn't designed with string matching in mind — it was designed to support prefix queries on a dictionary. KMP's failure function from chapter 25 wasn't designed for trees — it was designed for a single pattern's prefix chain. Aho-Corasick takes both and adds *one* new field per trie node (the fail-link), with the same definition KMP's failure function had, just applied to many patterns' worth of prefixes at once. Nothing about either source idea has to bend. The trie's path-encodes-key invariant from chapter 20 still holds; the fail-link's "deepest proper-suffix node" definition is the natural generalization of KMP's $\pi[i]$. When two algorithms compose this cleanly, you should suspect there's an underlying unity, and in this case there is — both algorithms are about *suffix-prefix overlap*, and a trie is the right shape for storing many such overlaps at once.
+
+**Second, building structure once to enable cheap repeated queries is one of the book's most reliable wins.** You've seen this pattern in the hash table from chapter 12 (build once, look up many), in the segment tree from chapter 21 (build once, range-query many), in KMP's failure function from chapter 25 (build once, scan many), and now in Aho-Corasick's full matcher (build once, scan many texts). The shape is always the same: a preprocessing phase whose cost is proportional to the static data, then an answer phase whose cost is proportional to just the current query. When you can amortize a fixed build cost across many queries, the per-query cost can drop to its information-theoretic minimum, and the structure pays for itself many times over.
+
+The chapter sits at the end of Part IV's pattern-matching arc. Chapter 23 gave you brute force as the baseline. Chapter 24 built the DFA — preprocessed match information into a $\Theta(m \cdot |\Sigma|)$ table for a single pattern. Chapter 25 compressed the DFA into KMP's $\Theta(m)$ failure function. Chapter 26 introduced Boyer-Moore's sublinear best case via right-to-left scanning. Chapter 27 gave you Rabin-Karp's randomized $O(n + m)$ expected case. This chapter, Aho-Corasick, generalizes KMP from one pattern to many — and the resulting algorithm is what `grep -F` ships, what virus scanners run, what intrusion-detection systems use to scan packet payloads against rule databases. The arc has been one of progressive sophistication, and the destination is a structure that does multi-pattern matching in essentially the best shape the problem admits.
+
+## Notes and further reading
+
+The algorithm was introduced in Alfred Aho and Margaret Corasick's 1975 paper "Efficient string matching: An aid to bibliographic search," published in *Communications of the ACM* 18(6):333–340. The original motivation was bibliographic search — indexing a corpus of references by keywords pulled from a controlled vocabulary — and the paper presents the algorithm as a `goto`-function and `failure`-function pair, slightly different in surface form from the trie-and-fail-link formulation I used here but equivalent in substance. Aho and Corasick's paper also describes the *output function* explicitly, which is what my pre-merged `output` list does at scan time. Worth reading the original if you want to see how the same data structure can be presented in two textbook-friendly forms.
+
+CLRS doesn't cover Aho-Corasick. Sedgewick and Wayne's *Algorithms* (4th ed.) mentions it in passing in §5.3 but defers the details. The modern reference is Maxime Crochemore, Christophe Hancart, and Thierry Lecroq's *Algorithms on Strings* (Cambridge University Press, 2007), which treats the algorithm in chapter 3 alongside KMP, Boyer-Moore, and the suffix-tree extensions, and explicitly draws out the structural connection I've been pointing at — that Aho-Corasick is KMP-on-a-trie.
+
+The Commentz-Walter algorithm — Beate Commentz-Walter's 1979 paper "A string matching algorithm fast on the average," *Proceedings of ICALP '79*, LNCS 71, pp. 118–132 — extends Aho-Corasick with Boyer-Moore-style right-to-left window skipping. It's the multi-pattern analog of Boyer-Moore the way Aho-Corasick is the multi-pattern analog of KMP. For short pattern sets and large alphabets, Commentz-Walter often beats Aho-Corasick by reading fewer text characters in the average case. For large pattern sets it falls back to roughly Aho-Corasick performance because the skip distances shrink.
+
+Applications I've alluded to throughout the chapter: `fgrep` and `grep -F` (the F is for "fixed strings") have used Aho-Corasick or variants since the late 1970s. Network intrusion detection systems like Snort and Suricata run thousands of signature rules through an Aho-Corasick matcher on every packet payload. The Yara malware-detection language compiles its rule database into an Aho-Corasick automaton before scanning files. Bibliographic and full-text indexing systems use it to find keyword occurrences in large document corpora. Bioinformatics tools use it for fixed-pattern DNA motif scanning (though for approximate or pattern-with-wildcard matching, more sophisticated structures take over). Plagiarism-detection software uses it for $k$-gram exact-match overlap scoring, often as a fast first-pass filter before a more expensive similarity computation.
+
+For the connection to automata theory more broadly: Aho-Corasick can be viewed as the *minimum DFA* recognizing the set of strings containing any pattern as a substring. Building it explicitly as a DFA (rather than as a trie with fail-links) takes $\Theta(\sum |p_i| \cdot |\Sigma|)$ space — back to the chapter 24 trade-off — but allows true $O(1)$-per-character scanning with no fail-link chases. Most production implementations choose the trie-with-fail-links form because the asymptotic amortized cost is the same and the memory savings are substantial.
+
+In the next chapter I'll change the question one more time. Every algorithm in Part IV so far has been about scanning a text *given* the patterns. The next chapter — suffix arrays — flips the setup: preprocess the *text* once into a sorted array of all its suffixes, then answer pattern queries in $O(m \log n)$ each, regardless of the pattern. That's the algorithm that powers full-text search, biological sequence alignment, and Burrows-Wheeler compression — and it's the door into the suffix-structures family that closes out Part IV.
