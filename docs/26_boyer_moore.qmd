@@ -1,0 +1,388 @@
+# Skipping ahead by reading the mismatch
+
+I closed chapter 25 by promising a change of lens. KMP and the chapter-24 DFA both scan left to right, both read every text character at least once, and both spend preprocessing on the question "after a mismatch, how much of my recent progress is salvageable?" Their answer is $\Theta(n)$ — every text character is read exactly once, and that bound is information-theoretically tight if you insist on scanning the text in order. Boyer-Moore breaks that assumption. By scanning each window of the text *right to left* and preprocessing the pattern with a different question in mind, the algorithm earns the right to skip entire stretches of the text without reading them at all. The cynosure for this chapter is one sentence: **the wrong letter is a hint — it tells you how far you can jump.** When a window mismatches at some position, the character that disagreed names a shift distance directly, and that distance is often far larger than one.
+
+By the end of this chapter you'll have built two preprocessing tables — the bad-character table and the good-suffix table — combined them into a matcher that runs in $O(n/m)$ in the favorable case and $O(nm)$ in the worst, watched it recover the same four matches of `"ain"` you've been verifying since chapter 23, and seen it do dramatically fewer character comparisons than brute force on the same input. You'll also see, honestly, where the sublinear win evaporates: there are pathological patterns where neither heuristic rescues the algorithm, and the worst case is genuinely $O(nm)$ until Galil's 1979 modification patches it. I'll point at Galil but won't implement him — the patch is intricate and the pedagogical payoff is small.
+
+The chapter's promise is that you'll leave with a working, instrumented Boyer-Moore matcher and a clear intuition for why scanning order matters: right-to-left exposes a class of skips that left-to-right structurally cannot see.
+
+## Reading the window right-to-left
+
+Imagine you're matching the pattern `"abracadabra"` against a window of text that starts with `"xxxxxxxxxxx"`. Brute force compares `pattern[0]` to `text[0]`, sees a mismatch, shifts by one, compares `pattern[0]` to `text[1]`, sees another mismatch, shifts by one, and so on — eleven text characters consumed across eleven failed shifts before the algorithm has even cleared the first window. KMP improves on that slightly by using the pattern's internal structure, but on this input KMP also stalls: there's no overlap to exploit because no prefix of the pattern matches any suffix of `"xxxxxxx"` — everything is `'x'`, the pattern has no `'x'`, and KMP ends up scanning every text character once.
+
+Now flip the comparison order. Look at `text[10]` first — the character at the *end* of the window. It's `'x'`. The pattern has no `'x'` anywhere. So not only does this window fail to match, but **no window that contains `text[10]` can match either**. I can shift the window so that the right edge moves past position 10 entirely — eleven positions of shift in one step — and try again. Eleven characters of text accounted for in a single comparison. That's the qualitative difference Boyer-Moore makes, and it's the entire reason you'd accept the algorithmic complexity that comes next.
+
+The two heuristics in the rest of this chapter formalize that observation. The **bad-character rule** says: when a window mismatches at position $j$ of the pattern against character $c$ of the text, shift the pattern so that the rightmost occurrence of $c$ inside the pattern lines up with that text position — and if $c$ doesn't appear in the pattern at all, shift past it entirely. The **good-suffix rule** says: when a window has matched some suffix of the pattern before mismatching, shift so that the matched suffix lines up with its next occurrence elsewhere in the pattern. Both rules are independently motivated, both are correct, and Boyer-Moore takes the maximum of the two shifts — the larger jump is always safe because both rules are conservative.
+
+KMP couldn't do any of this. Left-to-right scanning has no analog of "the rightmost occurrence of the mismatched character" — by the time you've seen the mismatch, you've already read every character before it, and there's nothing further to skip. The right-to-left scan is the key insight; everything else is bookkeeping.
+
+## The bad-character heuristic
+
+I'll start with the simpler rule. The bad-character table records, for each character that appears in the pattern, the rightmost index where it appears. Characters that don't appear at all are absent from the table, and the matcher will treat them as if they had index $-1$ — which is the sentinel that says "shift past entirely."
+
+```python {export=src/codex/strings/boyer_moore.py}
+def bad_character_table(pattern: str) -> dict[str, int]:
+    """For each character that appears in pattern, the rightmost index where
+    it appears. Used by the bad-character heuristic.
+    """
+    table: dict[str, int] = {}
+    for i, c in enumerate(pattern):
+        table[c] = i
+    return table
+```
+
+One left-to-right pass; later writes for the same character overwrite earlier ones, so each character ends up mapped to its rightmost position. Bilingually: for a pattern of length $m$ over an alphabet of size $\sigma$, this is $\Theta(m)$ work and produces a table of at most $\sigma$ entries. For `"abracadabra"`, the table will have five keys.
+
+Watch.
+
+```{python}
+from codex.strings.boyer_moore import bad_character_table
+
+bc = bad_character_table("abracadabra")
+print(f"bad_character_table('abracadabra') = {bc}")
+print()
+print("rightmost positions, by character:")
+for c, idx in sorted(bc.items()):
+    print(f"  '{c}' -> {idx}")
+```
+
+You can read off the table directly. `'a'` last appears at position 10 (the final character), `'b'` at position 8, `'r'` at position 9, `'c'` at position 4, `'d'` at position 6. The characters `'e'`, `'f'`, and so on aren't keys — they don't appear in the pattern, and on a mismatch against any of them the algorithm will treat their "rightmost index" as $-1$.
+
+The shift formula is short. If you mismatched at pattern position $j$ against text character $c$, the bad-character shift is
+
+$$\text{bc\_shift} = \max(1, j - \text{bc.get}(c, -1)).$$
+
+Two cases. If $c$ appears in the pattern at some position $\le j$, the rule lines that occurrence up with the text position you just mismatched. If $c$ appears in the pattern only at positions $> j$, the formula would produce a negative or zero shift — that's why the $\max(1, \cdot)$ clamps it to a forward step. And if $c$ doesn't appear at all, the sentinel $-1$ gives $j - (-1) = j + 1$, which shifts the pattern entirely past the mismatched text position.
+
+Let me trace one shift by hand. Pattern `"abracadabra"`, text starts with `"...abracadabri..."`, and you've just matched all but the last character — you scanned `pattern[10]` against `text[i + 10]`, then `pattern[9]` against `text[i + 9]`, all the way back to `pattern[1] = 'b'` against `text[i + 1] = 'b'`. Now `pattern[0] = 'a'` against `text[i + 0]` — actually, that case is a full match because I built the example backward. Let me try a real mismatch. Suppose the text window is `"abracadaXra"` — same as the pattern except a `'X'` at position 8. You scan right-to-left: positions 10, 9, then mismatch at position 8 (pattern `'b'` vs text `'X'`). The bad-character rule looks up `'X'` in the table; it's absent, so the rightmost-index is $-1$. The shift is $\max(1, 8 - (-1)) = 9$. The pattern jumps nine positions forward, past the `'X'` entirely.
+
+That single nine-position jump is what makes Boyer-Moore feel different from KMP. KMP would have stayed within the window and consulted its failure function; Boyer-Moore looked at one bad character and skipped most of the window in response.
+
+## The good-suffix heuristic
+
+The bad-character rule alone isn't enough. Some mismatches happen on characters that *do* appear elsewhere in the pattern, and the bad-character shift can degenerate to $1$ — no skip at all. The good-suffix rule covers those cases.
+
+The setup is this: at the moment of mismatch, you've successfully matched the suffix `pattern[j+1:]` against the corresponding window of text. The mismatch is between `pattern[j]` and the text character beside it. The "good suffix" is that matched suffix — the run of characters that *did* agree. The good-suffix rule asks: where else in the pattern does this suffix appear, in a position where the character preceding it is *different* from `pattern[j]`? If it appears elsewhere, shift so that occurrence lines up. If it doesn't appear elsewhere, fall back to the longest pattern *prefix* that's also a suffix of the good suffix. If neither applies, the entire pattern can be shifted past.
+
+Two cases, written precisely:
+
+- **Case 1.** Look for the rightmost index $i < j$ such that `pattern[i+1 : i+1+k]` equals the good suffix (where $k$ is the length of the good suffix) *and* `pattern[i]` is different from `pattern[j]`. The "different" requirement is what makes the rule conservative — if the preceding character were the same, you'd just repeat the same mismatch.
+- **Case 2.** If no such $i$ exists, find the longest prefix of the pattern that is also a suffix of the good suffix; the shift aligns that prefix with the tail of the matched window. If even that prefix is empty, the shift is the full pattern length.
+
+Worked example on `"abracadabra"`. Suppose the mismatch is at $j = 7$. The good suffix is `pattern[8:11] = "bra"`, length 3. Does `"bra"` appear elsewhere in the pattern? Yes — at positions 1 through 3. The character preceding that occurrence is `pattern[0] = 'a'`. The character at the mismatch is `pattern[7] = 'a'`. They're the same. So Case 1 *doesn't* apply at $i = 0$ (the rule requires the preceding characters to differ). Does `"bra"` appear at any other position with a different preceding character? It doesn't appear anywhere else at all. So Case 1 fails entirely. Now Case 2: the longest prefix of `"abracadabra"` that's also a suffix of `"bra"`. The suffixes of `"bra"` are `""`, `"a"`, `"ra"`, `"bra"`. The prefixes of `"abracadabra"` are `"a"`, `"ab"`, and so on. Their intersection is `{"", "a"}`. The longest is `"a"`, length 1. So the shift is $m - 1 = 11 - 1 = 10$. The pattern jumps ten characters forward, leaving only one character of overlap.
+
+That's a large skip for one mismatch. Here's the function that computes the shift for any mismatch position $j$.
+
+```python {export=src/codex/strings/boyer_moore.py}
+def good_suffix_shift(pattern: str, j: int) -> int:
+    """Compute the good-suffix shift when the mismatch is at position j of the
+    pattern (so pattern[j+1:m] matched against the text — the 'good suffix').
+
+    Case 1: the rightmost reoccurrence of the good suffix elsewhere in the
+    pattern, where the character preceding the reoccurrence differs from
+    pattern[j] (so the same mismatch isn't repeated).
+
+    Case 2: if no such reoccurrence, the longest prefix of pattern that is
+    also a suffix of the good suffix.
+
+    If neither applies, shift past the entire pattern (return m).
+    """
+    m = len(pattern)
+    good_suffix = pattern[j + 1:]
+    k = len(good_suffix)
+
+    # Case 1
+    for shift_pos in range(j - 1, -1, -1):
+        end = shift_pos + 1 + k
+        if end > m:
+            continue
+        if pattern[shift_pos + 1:end] == good_suffix and (
+            shift_pos < 0 or pattern[shift_pos] != pattern[j]
+        ):
+            return j - shift_pos
+
+    # Case 2
+    for prefix_len in range(k, 0, -1):
+        if good_suffix.endswith(pattern[:prefix_len]):
+            return m - prefix_len
+
+    return m
+```
+
+The Case 1 loop walks `shift_pos` from $j - 1$ down to 0, looking for an earlier position whose following $k$ characters equal the good suffix and whose preceding character differs from `pattern[j]`. The Case 2 loop walks shrinking prefix lengths, looking for the longest pattern prefix that matches as a suffix of the good suffix. If both fail, the shift is the entire pattern length $m$ — meaning the window can move past every character it just saw.
+
+I want to be honest about this implementation: it is **not** asymptotically optimal. For one call with one $j$, the work is $O(m^2)$ — the outer loop is $O(m)$, and the string-slice comparison inside is $O(m)$ per iteration. There exist linear-time algorithms (the Galil-Giancarlo "Z-array" approach, or the original Boyer-Moore preprocessing using suffix-prefix functions) that produce the whole table in $\Theta(m)$, but the code is intricate and adds a lot of vocabulary you don't need at this point in the book. I'm trading asymptotic optimality on preprocessing for pedagogical clarity. The matching loop's behavior is the same either way; only the build time differs.
+
+To make the function easier to use, I'll precompute the shift for every possible mismatch position once, up front.
+
+```python {export=src/codex/strings/boyer_moore.py}
+def good_suffix_table(pattern: str) -> list[int]:
+    """Precompute good_suffix_shift for every mismatch position 0..m-1.
+    Returns a list of length m where table[j] is the shift on mismatch at j.
+    """
+    m = len(pattern)
+    return [good_suffix_shift(pattern, j) for j in range(m)]
+```
+
+That's $m$ calls each costing $O(m^2)$, so the whole table costs $O(m^3)$. For a pattern of length 11, that's about 1,300 operations — invisibly fast. For a pattern of length 1,000, it's a billion operations — clearly bad. I'll repeat the disclaimer in the Notes section: a production Boyer-Moore preprocessor would use the linear-time technique. The matcher I'm about to build is fast on every input; only the preprocessing scales poorly with $m$.
+
+Let me show you the good-suffix table for `"abracadabra"`.
+
+```{python}
+from codex.strings.boyer_moore import good_suffix_table
+
+gs = good_suffix_table("abracadabra")
+print(f"good_suffix_table('abracadabra') = {gs}")
+print()
+print("by mismatch position j:")
+pattern = "abracadabra"
+for j, shift in enumerate(gs):
+    good_suffix = pattern[j + 1:]
+    print(f"  j = {j:>2}   mismatch on '{pattern[j]}'   good suffix = {good_suffix!r:<13}   shift = {shift}")
+```
+
+Read the table from the right. At $j = 10$, the good suffix is empty (you mismatched on the last character without matching anything), so the table reports a fallback shift of 1 — the smallest legitimate move. At $j = 7$, you matched `"bra"` and the shift is 10, as I derived by hand above. The intermediate values reflect the pattern's internal structure: the more the matched suffix resembles internal substrings of the pattern, the smaller the shift; the more uniquely the matched suffix sits at the end of the pattern, the larger the shift.
+
+## Combining the two: the matcher
+
+With both tables built, the matching loop is short. For each candidate alignment $i$, scan the window right-to-left until either the pattern is exhausted (full match) or a mismatch is found. On a mismatch at pattern position $j$ against text character $c$, compute both shifts and take the larger one.
+
+```python {export=src/codex/strings/boyer_moore.py}
+def find(text: str, pattern: str) -> int | None:
+    n, m = len(text), len(pattern)
+    if m == 0:
+        return 0
+    if m > n:
+        return None
+    bc = bad_character_table(pattern)
+    gs = good_suffix_table(pattern)
+    i = 0
+    while i <= n - m:
+        j = m - 1
+        while j >= 0 and pattern[j] == text[i + j]:
+            j -= 1
+        if j < 0:
+            return i
+        bc_shift = max(1, j - bc.get(text[i + j], -1))
+        gs_shift = gs[j]
+        i += max(bc_shift, gs_shift)
+    return None
+```
+
+The outer `while` walks the candidate alignment forward; the inner `while` does the right-to-left comparison inside the current window. The shift on each iteration is the maximum of `bc_shift` and `gs_shift` — taking the larger jump is always safe because both rules are individually conservative (each guarantees that no match is missed in the skipped range), and the maximum of two conservative bounds is itself conservative.
+
+Let me trace one full execution on a small example. Text `"abracadabraXabracadabra"`, pattern `"abracadabra"`. Length is 11 for the pattern, 23 for the text. The first valid alignment is $i = 0$.
+
+At $i = 0$: scan right-to-left. `pattern[10] = 'a'` versus `text[10] = 'a'`. Match. Continue down to `pattern[0] = 'a'` versus `text[0] = 'a'`. All match. $j$ falls to $-1$. The function returns 0 — a match at the start.
+
+But that early return is uninteresting; let me force a continuation by looking for the *second* match by hand. After reporting $i = 0$, imagine restarting the scan at $i = 1$ instead. Now `text[1..11]` is `"bracadabraX"`. Scan right-to-left: `pattern[10] = 'a'` versus `text[11] = 'X'`. Mismatch at $j = 10$. Bad-character: `'X'` is not in the pattern, so the shift is $\max(1, 10 - (-1)) = 11$. Good-suffix: $gs[10] = 1$ (degenerate case). Take the max — shift by 11. Now $i$ jumps to $1 + 11 = 12$.
+
+At $i = 12$: the text window is `text[12..23] = "abracadabra"`. Right-to-left scan matches every character. Full match reported at $i = 12$. One bad-character shift skipped eleven positions of text in one step. That's the kind of compression you came here for.
+
+The matcher above only returns the first match. For all matches, I want a parallel `find_all`.
+
+```python {export=src/codex/strings/boyer_moore.py}
+def find_all(text: str, pattern: str) -> list[int]:
+    """All matches. On a full match, shift by 1 to find every overlapping
+    match. Proper overlap handling in BM requires an additional good-suffix
+    preprocessing for the case-when-the-whole-pattern-matched, which I'm
+    skipping for clarity; shift-by-1 is correct (just not necessarily fast).
+    """
+    n, m = len(text), len(pattern)
+    if m == 0 or m > n:
+        return []
+    bc = bad_character_table(pattern)
+    gs = good_suffix_table(pattern)
+    matches: list[int] = []
+    i = 0
+    while i <= n - m:
+        j = m - 1
+        while j >= 0 and pattern[j] == text[i + j]:
+            j -= 1
+        if j < 0:
+            matches.append(i)
+            i += 1  # overlap-safe shift
+        else:
+            bc_shift = max(1, j - bc.get(text[i + j], -1))
+            gs_shift = gs[j]
+            i += max(bc_shift, gs_shift)
+    return matches
+```
+
+The post-match shift here is conservatively set to 1, which guarantees every overlapping match is discovered. A more aggressive shift exists (the so-called *strong good-suffix* rule extends the table to cover the post-match case) but adds enough preprocessing complexity that I'd rather not. For chapters where overlaps are rare, shift-by-1 is essentially free; for pathological overlap-heavy inputs, this is one of the worst-case spots Boyer-Moore has.
+
+## Running on the canonical text
+
+Time to verify on the input I've been carrying since chapter 23. Pattern `"ain"`, text `"the rain in spain stays mainly in the plain"`.
+
+```{python}
+from codex.strings.boyer_moore import find, find_all
+
+TEXT = "the rain in spain stays mainly in the plain"
+
+idx = find(TEXT, "ain")
+print(f"first match of 'ain' at index {idx} — same answer as ch 23, 24, 25")
+
+all_ain = find_all(TEXT, "ain")
+print(f"all matches of 'ain': {all_ain}  (four occurrences, identical to previous chapters)")
+
+miss = find(TEXT, "frog")
+print(f"searching for 'frog': {miss}  (no match — BM skips quickly because 'f' is absent)")
+```
+
+Four matches at 5, 14, 25, 40 — the answer you've been verifying for three chapters now. The mechanism is completely different (right-to-left scan with bad-character and good-suffix preprocessing) but the externally observable behavior is identical, by design.
+
+Now I want to look at the *cost* of finding those matches, because that's where Boyer-Moore distinguishes itself from KMP and brute force. I'll instrument the matcher to count character comparisons and window shifts on each call.
+
+```python {export=src/codex/strings/boyer_moore.py}
+def find_counting(text: str, pattern: str) -> tuple[int | None, int, int]:
+    """Instrumented version: returns (first match index or None,
+    number of character comparisons, number of window shifts).
+    """
+    n, m = len(text), len(pattern)
+    if m == 0:
+        return 0, 0, 0
+    if m > n:
+        return None, 0, 0
+    bc = bad_character_table(pattern)
+    gs = good_suffix_table(pattern)
+    comparisons = 0
+    shifts = 0
+    i = 0
+    while i <= n - m:
+        shifts += 1
+        j = m - 1
+        while j >= 0:
+            comparisons += 1
+            if pattern[j] != text[i + j]:
+                break
+            j -= 1
+        if j < 0:
+            return i, comparisons, shifts
+        bc_shift = max(1, j - bc.get(text[i + j], -1))
+        gs_shift = gs[j]
+        i += max(bc_shift, gs_shift)
+    return None, comparisons, shifts
+```
+
+The instrumented matcher counts every character read and every window position attempted. Brute force's `find_counting` from chapter 23 reports the same comparison count for the same input, so they're directly comparable.
+
+```{python}
+from codex.strings.boyer_moore import find_counting
+from codex.strings.brute import find_counting as brute_find_counting
+
+idx_bm, cmps_bm, shifts_bm = find_counting(TEXT, "ain")
+idx_bf, cmps_bf = brute_find_counting(TEXT, "ain")
+
+print(f"text length: {len(TEXT)} characters, pattern 'ain' (length 3)")
+print(f"Boyer-Moore: first match at {idx_bm}, {cmps_bm} comparisons, {shifts_bm} window shifts")
+print(f"brute force: first match at {idx_bf}, {cmps_bf} comparisons")
+print(f"ratio: BM does {cmps_bm / cmps_bf:.2f}x as many comparisons as brute force here")
+```
+
+On this short input, Boyer-Moore does fewer comparisons than brute force already, but the win is modest because the pattern is only three characters long and the text isn't structured to favor large skips. The pattern's value shows up when the pattern is longer or the text has long stretches with no overlap.
+
+## Sublinear in practice
+
+The headline claim about Boyer-Moore is that its best case is sublinear — under favorable conditions, it reads only a fraction of the text characters. Here's a demonstration designed to show that clearly.
+
+```{python}
+from codex.strings.boyer_moore import find_counting
+from codex.strings.brute import find_counting as brute_find_counting
+
+text = "x" * 100 + "abracadabra"
+pattern = "abracadabra"
+
+idx_bm, cmps_bm, shifts_bm = find_counting(text, pattern)
+idx_bf, cmps_bf = brute_find_counting(text, pattern)
+
+print(f"text length: {len(text)} ({100} x's followed by 'abracadabra')")
+print(f"pattern length: {len(pattern)}")
+print()
+print(f"Boyer-Moore: first match at {idx_bm}")
+print(f"  comparisons: {cmps_bm}")
+print(f"  window shifts attempted: {shifts_bm}")
+print()
+print(f"brute force: first match at {idx_bf}")
+print(f"  comparisons: {cmps_bf}")
+print()
+print(f"BM read {cmps_bm} / {len(text)} = {100 * cmps_bm / len(text):.1f}% of the text characters before declaring a match")
+```
+
+You can see the shape directly. Boyer-Moore did roughly one comparison per window shift across the `"xxxx..."` prefix — `'x'` isn't in the pattern, so each window mismatches at `pattern[10] = 'a'` against `text[i + 10] = 'x'`, the bad-character rule shifts the pattern eleven positions forward (past the `'x'` entirely), and the next window starts beyond where the previous one ended. The pattern almost never "looks back" at characters it already saw. Brute force, by contrast, examined every prefix `"x", "xa", "xab", ..."` and gave up after one or two comparisons per window — but it had to attempt every window position, which is roughly one attempt per text character.
+
+The asymptotic claim is $O(n/m)$ in the favorable case, where $n$ is the text length and $m$ is the pattern length. Bilingually: for a 100-character text with an 11-character pattern under favorable conditions, you'd expect roughly $100/11 \approx 9$ comparisons of bad-character work plus a constant for the eventual match — about 20 comparisons, give or take. The actual count above sits in that range. Compare to brute force's $\sim 100$ comparisons on the same input. The ratio gets more dramatic as the pattern gets longer: a 100-character pattern would skip 100 positions per bad character, and Boyer-Moore would read $\sim n/100$ characters of a long text instead of $n$.
+
+## When sublinear breaks
+
+Honesty time. Boyer-Moore's worst case is *not* sublinear, and on some inputs it's not even linear. Consider this pathological combination: text `"aaa...a"` (all `'a'`'s), pattern `"aab"`.
+
+```{python}
+from codex.strings.boyer_moore import find_counting
+from codex.strings.brute import find_counting as brute_find_counting
+
+text = "a" * 30
+pattern = "aab"
+
+idx_bm, cmps_bm, shifts_bm = find_counting(text, pattern)
+idx_bf, cmps_bf = brute_find_counting(text, pattern)
+
+print(f"text = 'a' * 30, pattern = {pattern!r}")
+print(f"Boyer-Moore: match = {idx_bm}, comparisons = {cmps_bm}, shifts = {shifts_bm}")
+print(f"brute force: match = {idx_bf}, comparisons = {cmps_bf}")
+print()
+print(f"BM comparisons per text character: {cmps_bm / len(text):.2f}")
+print(f"brute force comparisons per text character: {cmps_bf / len(text):.2f}")
+```
+
+No sublinear win. Boyer-Moore enters each window, scans right-to-left, mismatches immediately at pattern position 2 (`'b'` vs `'a'`), consults the bad-character table — `'a'` is in the pattern at position 1, so the shift is $\max(1, 2 - 1) = 1$, just one position. The good-suffix table also gives shift 1 because the matched suffix is empty. So Boyer-Moore advances by one position per window and does one comparison per window — about $n$ operations total. It still beats brute force on this input (brute force does three comparisons per window, since its inner loop scans `pattern[0..2]` left-to-right and only mismatches at $j = 2$), but only by a small constant factor. The sublinear-in-$m$ scaling I demonstrated above evaporates entirely.
+
+Constructing an input that truly forces $\Theta(nm)$ work out of Boyer-Moore with both heuristics is fussier than it sounds — the good-suffix rule rescues most of the obvious-looking pathological patterns, and Cole's 1994 paper proved a tight $3n + O(m)$ upper bound on comparisons for the version I implemented here, *not* the $\Theta(nm)$ bound the algorithm is often credited with. The $\Theta(nm)$ worst case appears in variants without the good-suffix rule, or in `find_all` workloads where many partial matches force repeated full-pattern scans. The point that survives all the bookkeeping: Boyer-Moore's *expected* behaviour is sublinear on natural text, its *worst* case for `find` is linear (with a constant Cole pinned at 3), and pathological adversarial inputs can degrade `find_all` further without Galil's modification.
+
+For patterns where this pathology is severe, Boyer-Moore can be made truly linear in the worst case by adding a small modification, which is what Galil's 1979 paper introduced. The trick is to track, after a successful partial match, *how much of the next window's right edge is already known to match the pattern* — and skip those characters on the next inner-loop scan rather than re-comparing them. The result is a worst-case bound of $O(n + m)$ comparisons, matching KMP's worst case while preserving Boyer-Moore's sublinear best case.
+
+I'm not implementing Galil's modification. The patch is intricate (it requires maintaining a "memory" of which suffix of the previous window matched the pattern), the standard textbook treatments handle it briefly if at all, and the pedagogical value-per-line-of-code is low. The version I have here is the Boyer-Moore that ships in most undergraduate algorithms courses and in many production string-matching libraries — well-engineered to be fast on real text, with the known caveat that adversarial inputs can degrade it to $O(nm)$.
+
+## The three questions, applied
+
+### Is it correct?
+
+Two invariants. The first is that **both shift rules are individually conservative**: each one names a distance that's guaranteed not to skip over any match. The bad-character rule's correctness: if I mismatched at pattern position $j$ against text character $c$, then any alignment with a smaller shift than `j - bc.get(c, -1)` would place some pattern position before $j$ over the same text position, where the pattern character is, by definition of the rightmost-index table, either equal to $c$ (impossible because the table records the *rightmost* such position) or different from $c$ (so the alignment fails at that position immediately). Either way, no match is skipped. The good-suffix rule's correctness is symmetric: by construction, every alignment with a smaller shift would either place the same character against the mismatched text position (no progress) or place the good suffix against a pattern region that doesn't equal it (no match).
+
+The second invariant is that **the maximum of two conservative shifts is itself conservative**: if neither shift would skip a match individually, their maximum can't either. The outer loop therefore visits every candidate alignment that could match, and the inner loop's right-to-left comparison detects every match exactly when the entire window has been verified character-for-character. `find` returns the first such $i$; `find_all` collects all of them, with the post-match shift-by-1 guaranteeing no overlapping match is missed.
+
+### How efficient is it?
+
+The preprocessing is $\Theta(m)$ for the bad-character table and $O(m^3)$ for the good-suffix table as I implemented it (linear-time algorithms exist; I'm using the clearer quadratic version). The matching loop's behavior splits by case.
+
+**Best case** is sublinear: $O(n/m)$ when the bad-character heuristic consistently produces full-pattern shifts. Bilingually: searching a million-character text for a hundred-character pattern under favorable conditions does about ten thousand character comparisons, not a million.
+
+**Average case** on random text over a large alphabet is also sublinear in practice — empirically about $O(n/m)$ for English text with moderately long patterns. This is why Boyer-Moore is the matcher of choice in many production string-search libraries (including, historically, `grep`).
+
+**Worst case** for `find` is $\Theta(n + m)$ comparisons (Cole's 1994 tight bound of $3n + O(m)$ for the version I built, including the good-suffix rule). The classic textbook claim of $\Theta(nm)$ worst case applies to the *bad-character-only* variant (Horspool's simplification, which drops good-suffix entirely) and to `find_all` workloads without Galil's modification. For the find-first-match variant I implemented, the good-suffix rule does enough work to keep the bound linear even on adversarial input. Galil's modification matters most when you want a worst-case-linear `find_all`, which the unmodified Boyer-Moore doesn't guarantee.
+
+Space is $O(m + \sigma)$ for the two preprocessing tables ($\sigma$ keys in the bad-character dict, $m$ entries in the good-suffix list), and $O(1)$ working space during the scan.
+
+### Is it optimal?
+
+Boyer-Moore with the good-suffix rule (the version I wrote) achieves $\Theta(n + m)$ worst-case comparisons for `find`, matching KMP's asymptotic bound — Cole's 1994 paper proved this rigorously, with a tight constant of $3n + O(m)$ (versus KMP's $2n + O(m)$). For `find_all`, the unmodified version can degrade further on adversarial input and needs Galil's 1979 patch to recover linear behaviour.
+
+The deeper claim — and the one that's stayed true since 1977 — is that Boyer-Moore is *practically* optimal on the kinds of text humans actually search: long texts, moderately long patterns, large alphabets, no adversarial structure. In that regime, the sublinear best case dominates and the worst case rarely fires. The matcher you'd actually deploy is some variant of Boyer-Moore (or Horspool's simplification, or Sunday's Quick Search, all in this family); the matcher you'd analyze for worst-case bounds is KMP. The two algorithms live in different parts of the cost-shape plane, and choosing between them is an engineering decision about which input distribution you expect.
+
+## What Boyer-Moore teaches you
+
+Two lessons I want you to take from this chapter.
+
+**First, scanning order matters.** Reading the window right-to-left exposes a class of skips that left-to-right scanning structurally cannot see — specifically, the skip you get when the *last* character of the window doesn't appear in the pattern at all. KMP couldn't exploit that because by the time it'd seen the mismatch, it had already read every character before it. The right-to-left scan is what makes the bad-character rule possible, and the bad-character rule is what makes the sublinear best case possible. Whenever you're designing an algorithm that consumes a window of input, ask yourself which character to look at first: the answer often determines whether the cost shape is linear, sublinear, or somewhere worse.
+
+**Second, two heuristics can be combined by taking the maximum.** Bad-character and good-suffix are independently motivated; one is about the mismatching character, the other is about the matched suffix. They're correct for different reasons and they fire on different inputs. The matcher just takes the max of both shifts on every mismatch, and the resulting algorithm is at least as fast as either heuristic alone on every input. That "use them both, take the larger jump" pattern recurs in algorithm design — when you have two independently conservative bounds, their maximum is itself conservative and usually strictly tighter than either one. You'll see the same pattern in alpha-beta pruning (chapter 32 of the book), in branch-and-bound search, and in interval scheduling with multiple constraints.
+
+## Notes and further reading
+
+The original paper is Boyer and Moore's 1977 "A Fast String Searching Algorithm" in *Communications of the ACM* 20(10):762–772. The paper introduces both heuristics, proves the algorithm's correctness, and presents empirical timing data showing the sublinear behavior on English text. The worst-case analysis is left as an open question in the original — it took Galil's 1979 paper "On Improving the Worst-Case Running Time of the Boyer-Moore String Matching Algorithm" in *Communications of the ACM* 22(9):505–508 to patch the worst case to $O(n + m)$, and Cole's 1994 paper "Tight Bounds on the Complexity of the Boyer-Moore String Matching Algorithm" in *SIAM Journal on Computing* 23(5):1075–1091 to nail down the exact constant.
+
+Horspool's 1980 paper "Practical Fast Searching in Strings" in *Software: Practice and Experience* 10(6):501–506 introduced a simplification using only the bad-character heuristic, with a slightly different shift formula based on the *last* character of the window rather than the mismatched one. Horspool's variant is often faster in practice than full Boyer-Moore because the preprocessing is simpler and the inner loop has fewer branches; the trade-off is that the worst case is worse (no good-suffix backup) and the average case is roughly the same. Sunday's 1990 paper "A Very Fast Substring Search Algorithm" in *Communications of the ACM* 33(8):132–142 — sometimes called *Quick Search* — is another bad-character-only variant that looks at the character *just past* the current window, giving an even tighter shift on most inputs.
+
+CLRS doesn't cover Boyer-Moore directly; the closest treatment is Exercise 32.3-5 with a hint pointing at Horspool. Sedgewick and Wayne's *Algorithms* (4th ed.) section 5.3 covers both the bad-character and good-suffix rules in detail, with the same right-to-left presentation I used here. For the full mathematical treatment including Galil's patch and Cole's analysis, Crochemore, Hancart, and Lecroq's *Algorithms on Strings* (Cambridge 2007) is the modern reference — the same book I pointed you at in chapter 25 for the deeper automaton material.
+
+In the next chapter I'll change the lens again. Instead of preprocessing the pattern to enable smart shifts, I'll preprocess the text into a *hash* and ask "does this rolling hash equal the pattern's hash?" — the Rabin-Karp algorithm, which trades exact comparisons for probabilistic ones and earns the right to match multiple patterns in a single scan.
