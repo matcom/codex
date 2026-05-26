@@ -47,6 +47,7 @@ book:
       chapters:
       - 23_brute.qmd
       - 24_automaton.qmd
+      - 25_kmp.qmd
     - part: Graphs
       chapters: []
     - part: Dynamic Programming and Greedy Algorithms
