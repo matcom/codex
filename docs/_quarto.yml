@@ -32,7 +32,7 @@ book:
       - 13_bloom.qmd
       - 14_union_find.qmd
       - lessons_2.qmd
-    - part: Trees
+    - part: part3.qmd
       chapters:
       - 15_binary_trees.qmd
       - 16_bst.qmd
@@ -42,6 +42,7 @@ book:
       - 20_trie.qmd
       - 21_segment.qmd
       - 22_fenwick.qmd
+      - lessons_3.qmd
     - part: String Matching
       chapters: []
     - part: Graphs
