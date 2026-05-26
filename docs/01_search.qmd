@@ -2,11 +2,11 @@
 
 You have a list of names — say, the guest list for a wedding — and you need to know whether someone in particular is on it. There's no order to the list; someone typed names in as people RSVPed. What do you do?
 
-You read the list, top to bottom, until you either find the name or run out of list. That's it. That's the algorithm. By the end of this chapter, you'll have implemented this in five lines of Python, and — more interestingly — you'll have proven that **nothing can do better** when the input has no structure. Linear search isn't just the obvious algorithm; it's the *only* algorithm, up to symmetry. That's a surprisingly satisfying thing to learn in chapter one.
+You read the list, top to bottom, until you either find the name or run out of list. That's it. That's the algorithm. It's five lines of Python, and **nothing can do better** when the input has no structure. Linear search is the *only* algorithm for unstructured search, up to symmetry. That's a satisfying thing to learn in chapter one.
 
-The image to hold in your head for this chapter is **the adversary**: someone who can rearrange the list while you're not looking, specifically to make you look at every element before you can answer. The adversary is going to come back several times in this book. Linear search is where you meet them.
+**The adversary** — someone who can rearrange the list while you're not looking, specifically to make you look at every element before you can answer — is going to come back several times in this book. Linear search is where you meet them.
 
-## The problem and the data
+## A sequence and nothing more
 
 The setting is the simplest one possible. You have a **sequence** of items — a finite ordered collection where each item has an index and you can ask for the $i$-th element. You don't know anything else about it. The items might be sorted, might not. There might be duplicates, might not. You're just walking the indices.
 
@@ -23,7 +23,7 @@ def find[T](x: T, items: Sequence[T]) -> bool:
     return False
 ```
 
-The whole algorithm in five lines. You walk the sequence; if you ever match, you stop and answer yes; if you fall off the end, you answer no. Notice the early return — that's what makes the *average* case better than the worst case, though only by a constant factor.
+The whole algorithm in five lines. You walk the sequence; if you ever match, you stop and answer yes; if you fall off the end, you answer no. The early return is what makes the *average* case better than the worst case, though only by a constant factor.
 
 Running it on a few inputs:
 
@@ -79,13 +79,13 @@ print(count(9, [1, 2, 3]))        # 0 — none
 print(count("a", "banana"))       # 3 — strings are sequences of characters
 ```
 
-Notice that `count` has no early-out — it has to look at every element, every time. That'll matter when I get to the cost analysis.
+`count` has no early-out — it has to look at every element, every time.
 
 ## Finding the extremes
 
 A different question, same paradigm. Instead of asking *"is $x$ in the sequence?"*, you ask *"what's the smallest element?"* or *"what's the largest?"* The algorithm is the same shape: walk everything, keep the best so far.
 
-But before I write it, I need to settle one thing. *"Smallest"* and *"largest"* assume some way to compare items. For numbers and strings, Python's built-in `<` works. For arbitrary types, you might want to define your own ordering — for example, comparing tuples by their second element, or sorting URLs by domain. So I'll factor the comparison out into a parameter.
+*"Smallest"* and *"largest"* assume some way to compare items. For numbers and strings, Python's built-in `<` works. For arbitrary types, you might want to define your own ordering — for example, comparing tuples by their second element, or sorting URLs by domain. So I'll factor the comparison out into a parameter.
 
 The book's convention for this lives in `codex/types.py` — a small module of cross-cutting protocols. An `Ordering[T]` is a callable that takes two `T`s and returns a negative number if the first is smaller, zero if they're equal, positive if the first is larger. That's the same convention C uses for `qsort` and Java uses for `Comparator.compare`.
 
@@ -165,7 +165,7 @@ Space is $O(1)$. The loop variable and the running "best so far" each occupy con
 
 This is the interesting one. Linear search is $O(n)$ — but is it the *best possible* $O(n)$? Could some cleverer algorithm answer in, say, $O(\sqrt{n})$ or $O(\log n)$ on an unstructured sequence?
 
-The answer is no, and the proof is the **adversary argument**. Imagine you're playing a game against me. You bring an algorithm that claims to decide whether $x$ is in a sequence of length $n$ by inspecting fewer than $n$ elements — say, $n - 1$ of them. I'm the adversary, and I get to choose what's in the sequence *as you go* — I only have to commit to a value when you actually look at a position.
+The answer is no, and the proof is the **adversary argument**. Imagine you're playing a game against me. You bring an algorithm that claims to decide whether $x$ is in a sequence of length $n$ by inspecting fewer than $n$ elements — say, $n - 1$ of them. I'm the adversary, and I get to choose what's in the sequence *as you go* — I only have to commit to a value when you look at a position.
 
 You inspect $n - 1$ positions. There's exactly one position you didn't look at. Whatever answer you give me — *"yes, $x$ is present"* or *"no, $x$ is not present"* — I can falsify it by retroactively setting the unexamined position to the value that makes you wrong. If you answered yes without ever seeing $x$, I'll fill the unexamined slot with something else. If you answered no, I'll fill the unexamined slot with $x$ itself.
 
@@ -173,11 +173,11 @@ So any correct algorithm must inspect every element in the worst case. That give
 
 That's a strong statement. It means: until the input has more structure than *"a finite ordered collection where I can ask for the $i$-th element,"* you cannot do better than reading the whole thing. Knowing nothing has a price, and the price is linear.
 
-## What linear search teaches you
+## The price of knowing nothing
 
 Linear search is correct because the loop has nowhere to hide a missed match. It runs in $O(n)$ time and $O(1)$ space. And it's optimal — the adversary argument says no algorithm can answer the "is $x$ in this sequence?" question with fewer than $n$ inspections in the worst case, when the input has no structure.
 
-That last point is the one to take away. Linear search isn't *a* solution to unstructured search — it's *the* solution, the one any other approach has to beat by knowing something the algorithm here doesn't. The rest of the book is, in a sense, the story of what happens when you know that "something" — when the input is sorted, or hashed, or arranged in a tree, or laid out on a graph.
+Linear search is *the* solution to unstructured search — the one any other approach has to beat by knowing something the algorithm here doesn't. The rest of the book is the story of what happens when you know that "something" — when the input is sorted, or hashed, or arranged in a tree, or laid out on a graph.
 
 In the next chapter, you'll meet the simplest piece of structure you can demand: **order**. If the sequence is sorted, you can do dramatically better than $O(n)$ — and the algorithm that exploits this is, in my opinion, the most beautiful one in the book.
 

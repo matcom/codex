@@ -2,11 +2,11 @@
 
 An unsorted list is just a list. A sorted list is a different beast — you can binary-search it in $O(\log n)$ (you saw that last chapter); you can find duplicates by walking once through it in $O(n)$; you can compute medians, percentiles, and any range query in time that depends only on the *answer*, not on the data. Sorting is the act of granting a list those superpowers, and the cost is paid once.
 
-By the end of this chapter you'll have implemented three classical sorts — *selection*, *insertion*, *bubble* — and proven that all three are quadratic for what's almost the same deep reason. The image you'll come away with is an **inversion**: a pair of positions $(i, j)$ with $i < j$ but $\text{items}[i] > \text{items}[j]$. Inversions are the local evidence that a list isn't sorted. The whole chapter is about how to remove them.
+Three classical sorts — *selection*, *insertion*, *bubble* — are all quadratic for what's almost the same deep reason. **An inversion is a pair of positions $(i, j)$ with $i < j$ but $\text{items}[i] > \text{items}[j]$** — the local evidence that a list isn't sorted. The whole chapter is about how to remove them.
 
-That image is going to carry the next chapter too — but with a twist. The sorts in this chapter fix inversions *one at a time*; the sorts in the next fix *many at once*. The factor between $O(n^2)$ and $O(n \log n)$ is exactly the gap between those two strategies.
+The same image carries the next chapter, with a twist. The sorts here fix inversions *one at a time*; the sorts in the next fix *many at once*. The factor between $O(n^2)$ and $O(n \log n)$ is exactly the gap between those two strategies.
 
-## The geometry of inversions
+## Inversions: the distance from sortedness
 
 An inversion is a pair of indices that's out of order. Formally: given a sequence `items` and an ordering, an inversion is a pair $(i, j)$ with $i < j$ and $\text{items}[i] > \text{items}[j]$.
 
@@ -43,8 +43,6 @@ print(count_inversions([5, 4, 3, 2, 1]))            # 10 — reverse sorted: n(n
 print(count_inversions([3, 1, 4, 1, 5, 9, 2, 6]))   # 8 — somewhere in between
 ```
 
-Hold on to that 8. I'm going to come back to it.
-
 ## Selection sort: find the extremum, repeat
 
 The most direct way to sort: stand at position 0 and ask *"what should go here?"* The answer is the minimum of the whole array. Find it, swap it into position 0, then repeat for position 1 (the minimum of what's left), position 2, and so on.
@@ -76,7 +74,7 @@ selection_sort(items)
 print(items)   # [1, 1, 2, 3, 4, 5, 6, 9] — sorted in place
 ```
 
-One thing worth noting: selection sort swaps `items[i]` with `items[min_idx]`, which can be a *long* swap — `min_idx` might be all the way at the end of the array. That matters for the inversion analysis. A long swap can change the inversion count by a lot more than one, in either direction. So selection sort doesn't tell a clean inversion story. Its $O(n^2)$ comes from a different argument: $n$ passes, each doing $O(n)$ work to find an extremum. The inversion story belongs to the next two algorithms.
+Selection sort swaps `items[i]` with `items[min_idx]`, which can be a *long* swap — `min_idx` might be all the way at the end of the array. That matters for the inversion analysis. A long swap can change the inversion count by a lot more than one, in either direction. So selection sort doesn't tell a clean inversion story. Its $O(n^2)$ comes from a different argument: $n$ passes, each doing $O(n)$ work to find an extremum. The inversion story belongs to the next two algorithms.
 
 ## Insertion sort: each element finds its place
 
@@ -108,7 +106,7 @@ insertion_sort(sorted_items)
 print(sorted_items)  # [1, 2, 3, 4, 5] — unchanged
 ```
 
-Here's the move that matters. **Every swap in insertion sort is an adjacent swap.** And an adjacent swap fixes *exactly one* inversion — the pair you just unswapped. (Two non-adjacent elements that were inverted? Still inverted after, since you didn't touch their pair.)
+**Every swap in insertion sort is an adjacent swap.** And an adjacent swap fixes *exactly one* inversion — the pair you just unswapped. (Two non-adjacent elements that were inverted? Still inverted after, since you didn't touch their pair.)
 
 So the total number of swaps that insertion sort performs is exactly the number of inversions in the original array.
 
@@ -133,7 +131,7 @@ print(f"swaps performed:     {swaps}")                # 8
 print(f"match:                {inversions_before == swaps}")  # True
 ```
 
-That's not a coincidence and it's not specific to this input. Insertion sort's running time is essentially the inversion count of its input. On already-sorted input (zero inversions), the inner `while` never enters and insertion sort runs in $O(n)$ — it's the best of the three on that case. On reverse-sorted input ($n(n-1)/2$ inversions), it does the maximum work. Insertion sort's cost is the input's distance from sortedness, measured in inversions, made literal.
+That's not a coincidence and it's not specific to this input. Insertion sort's swap count is exactly the inversion count of its input; the running time tracks it within a constant factor. On already-sorted input (zero inversions), the inner `while` never enters and insertion sort runs in $O(n)$ — it's the best of the three on that case. On reverse-sorted input ($n(n-1)/2$ inversions), it does the maximum work. Insertion sort's cost is the input's distance from sortedness, measured in inversions, made literal.
 
 ## Bubble sort: the cleanest inversion story
 
@@ -181,7 +179,7 @@ print(f"bubble sort swaps:   {swaps}")                     # 8
 
 Same number. That's the beautiful invariant: **insertion sort and bubble sort do exactly the same number of swaps on any input**, because both are restricted to adjacent swaps, and each adjacent swap fixes exactly one inversion. The difference between them is only *where in the array each swap happens* — insertion sort does its work locally as it scans; bubble sort does its work globally each pass. The total amount of work, measured in swaps, is identical.
 
-That's a deeper fact than it looks. The choice between insertion and bubble sort isn't really about efficiency. It's about *traversal order*. They're solving the same problem, paying the same price, in the same currency.
+That's a deeper fact than it looks. The choice between insertion and bubble sort isn't about efficiency. It's about *traversal order*. They're solving the same problem, paying the same price, in the same currency.
 
 ## The three questions, applied
 
@@ -204,7 +202,7 @@ The detail is interesting though, and it splits the algorithms into two camps.
 - **Selection sort** does *exactly* $n(n-1)/2$ comparisons on every input. The structure of the input — sorted, reverse-sorted, random — doesn't affect the comparison count. It always does $n$ passes, each doing $O(n)$ work to find the minimum. Best case = worst case = average case.
 - **Insertion sort and bubble sort** do a number of swaps equal to the inversion count of the input. On sorted input that's zero swaps, giving $O(n)$ time (you still need the outer loop to verify, and the comparisons happen). On reverse-sorted input it's $n(n-1)/2$ swaps, giving $O(n^2)$. On random input it's about $n^2/4$ swaps, still $O(n^2)$.
 
-The bilingual restatement: selection sort is *constant work, regardless of luck*. Insertion and bubble are *as much work as the input deserves* — which, for a random input, is the same amount on average, but they win big on inputs that are nearly sorted.
+Said another way: selection sort is *constant work, regardless of luck*. Insertion and bubble are *as much work as the input deserves* — which, for a random input, is the same amount on average, but they win big on inputs that are nearly sorted.
 
 ### Is it optimal?
 
@@ -216,15 +214,15 @@ The argument is one sentence: an adjacent swap changes the inversion count by ex
 
 **Claim 2.** Selection sort isn't restricted to adjacent swaps — it makes long swaps — so the inversions argument doesn't apply to it. Its $O(n^2)$ comes from a different structural fact: to identify the minimum of a sub-array of size $m$, you need $m - 1$ comparisons (no comparison-based algorithm can do better; same adversary argument from chapter 1). Selection sort does this $n$ times for sub-arrays of size $n, n-1, n-2, \ldots, 1$. Total: $\Theta(n^2)$ comparisons, unavoidably.
 
-Both claims land in the same place — $\Omega(n^2)$ — but for different reasons. Insertion and bubble sort are stuck because they only fix one inversion per operation. Selection sort is stuck because it can't shortcut the extremum-finding work. **The next chapter is going to break both restrictions at once.**
+Both claims land in the same place — $\Omega(n^2)$ — but for different reasons. Insertion and bubble sort are stuck because they only fix one inversion per operation. Selection sort is stuck because it can't shortcut the extremum-finding work. The next chapter breaks both restrictions at once.
 
-## What basic sorting teaches you
+## Distance from sortedness
 
 Selection, insertion, and bubble sort are all correct — three slightly different loop invariants for what's morally the same shape. All three run in $O(n^2)$ time and $O(1)$ space. And all three are optimal *within their respective restrictions*: insertion and bubble are stuck at $\Omega(n^2)$ because they only swap adjacent elements, selection is stuck because it can't beat the extremum-finding lower bound — but those restrictions are exactly what an algorithm can give up to do better.
 
-The lesson worth carrying forward is the inversion count itself, as a way of measuring distance from sortedness. An unsorted array isn't just *"not sorted"* — it's *some specific number of pair-swaps away from sorted*, and that number bounds how much work any local algorithm has to do. The reason quadratic sorts are quadratic is that they fix one inversion at a time, and there can be a quadratic number of inversions.
+The inversion count measures distance from sortedness. An unsorted array is *some specific number of pair-swaps away from sorted*, and that number bounds how much work any local algorithm has to do. The reason quadratic sorts are quadratic is that they fix one inversion at a time, and there can be a quadratic number of inversions.
 
-The way out, as you'll see in the next chapter, is to **fix many inversions per operation**. Merge sort does it by combining two sorted halves and resolving all the cross-inversions in a single linear pass. Quicksort does it by partitioning around a pivot, which places one element in its final position and resolves all the inversions involving that pivot in one swap. Both algorithms break the one-inversion-per-swap ceiling, and both pay for it with a $\log n$ factor instead of an $n$ factor.
+The way out is to **fix many inversions per operation**. Merge sort does it by combining two sorted halves and resolving all the cross-inversions in a single linear pass. Quicksort does it by partitioning around a pivot, which places one element in its final position and resolves all the inversions involving that pivot in one swap. Both algorithms break the one-inversion-per-swap ceiling, and both pay for it with a $\log n$ factor instead of an $n$ factor.
 
 ## Notes and further reading
 

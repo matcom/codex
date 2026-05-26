@@ -1,12 +1,12 @@
 # Fixing inversions, many at a time
 
-Two algorithms, both $O(n \log n)$, both solving the same problem from opposite ends. Merge sort sorts each half recursively *first*, then weaves the two sorted halves together. Quick sort partitions the array around a pivot *first*, then sorts each side recursively. By the end of this chapter you'll see that these two strategies aren't independent inventions — they're **duals**, two ways of attacking the same structural problem in opposite orders.
+Two algorithms, both $O(n \log n)$, both solving the same problem from opposite ends. Merge sort sorts each half recursively *first*, then weaves the two sorted halves together. Quick sort partitions the array around a pivot *first*, then sorts each side recursively. These two strategies aren't independent inventions. They're **duals** — two ways of attacking the same structural problem in opposite orders.
 
-The lens that makes the duality visible is the distinction between **local** and **global** inversions, and that's where this chapter starts. Once you have the lens, the two algorithms stop looking like rival inventions and start looking like the two natural strategies — fix the locals first, or fix the globals first — for any divide-and-conquer sort. You'll implement both, watch a small side quest count inversions in $O(n \log n)$ as a bonus that falls out of merge sort, and see the decision-tree argument that proves the comparison-based sorting lower bound is $\Omega(n \log n)$, making both algorithms tightly optimal within that model.
+The lens that makes the duality visible is the distinction between **local** and **global** inversions. Once you have the lens, the two algorithms stop looking like rival inventions and start looking like the two natural strategies — fix the locals first, or fix the globals first — for any divide-and-conquer sort.
 
-The image to hold in your head: each merge step and each partition step fixes *a number of inversions proportional to how much work the step did*. That linearity is exactly the swap from "one inversion per operation" (which gave you $O(n^2)$ in the previous chapter) to "as many inversions as the operation can see" (which gives you $O(n \log n)$ in this one). The factor of $\log n$ instead of $n$ between the two regimes is what divide-and-conquer buys you.
+**Each merge step and each partition step fixes a number of inversions proportional to how much work the step did.** That linearity is the swap from one inversion per operation to as many inversions as the operation can see. The first cost you $O(n^2)$ in the previous chapter; the second buys you $O(n \log n)$ here. The factor of $\log n$ instead of $n$ between the two regimes is what divide-and-conquer buys you.
 
-## Local and global inversions
+## Two kinds of inversions, two orders of attack
 
 Take any array and split it in half at some midpoint $m$. Every inversion in the array — every pair $(i, j)$ with $i < j$ and $\text{items}[i] > \text{items}[j]$ — falls into exactly one of three buckets:
 
@@ -16,7 +16,7 @@ Take any array and split it in half at some midpoint $m$. Every inversion in the
 
 Add the three counts up and you get the total inversion count of the array. To sort the array, you have to drive all three buckets to zero.
 
-Here's the structural fact that organizes the rest of the chapter. **Any divide-and-conquer sort that splits the array into two halves has to fix both kinds of inversion — local and global — and the algorithmic choice is which to fix first.**
+Here's the fact: **any divide-and-conquer sort that splits the array into two halves has to fix both kinds of inversion — local and global — and the algorithmic choice is which to fix first.**
 
 - **Locals first.** Recursively sort each half, which fixes every local inversion (both halves end up sorted, with zero internal inversions). What's left is only cross-inversions. Then handle those in a linear sweep that combines the two sorted halves. This is **merge sort**.
 - **Globals first.** Rearrange the array so every element of the left half is smaller than every element of the right half. That fixes every cross-inversion in one shot (there are now zero pairs straddling the split that are out of order). What's left is only local inversions within each side, which the recursive calls handle. This is **quick sort**.
@@ -94,11 +94,11 @@ Now the inversion story. Look at the `else` branch in `merge` — the branch tha
 
 That's not one cross-inversion fixed. That's $\text{len(left)} - i$ cross-inversions fixed, in a single operation. The merge step processes every cross-inversion the moment it picks from the right side, and there are at most $O(n)$ such picks for an array of size $n$. The whole merge is linear, and it resolves *every cross-inversion* in one pass.
 
-That's the locals-first strategy at work. The recursive calls eliminated all the local inversions before the merge ran. The merge takes a sorted-left + sorted-right input — an array whose only remaining inversions are cross — and kills them in $O(n)$. Linear work, all the remaining inversions fixed. **That's the source of the $\log n$ improvement over basic sorting.**
+That's the locals-first strategy at work. The recursive calls eliminated all the local inversions before the merge ran. The merge takes a sorted-left + sorted-right input — an array whose only remaining inversions are cross — and kills them in $O(n)$. Linear work, all the remaining inversions fixed. That's the source of the $\log n$ improvement over basic sorting.
 
 ## Counting inversions, for free, in $O(n \log n)$
 
-A small side quest, because the previous chapter promised it. The brute-force `count_inversions` from chapter 3 walked every pair in $O(n^2)$ — fine as a teaching aid, useless at scale. Merge sort gives you a much better algorithm almost free.
+The brute-force `count_inversions` from chapter 3 walked every pair in $O(n^2)$ — fine as a teaching aid, useless at scale. Merge sort gives you a much better algorithm almost free.
 
 The insight is the one from the previous section. Every time `merge` picks from the right side, it has fixed $\text{len(left)} - i$ cross-inversions. If you instrument the merge to *count* those fixes instead of just executing them, you've counted every global inversion in the array. Recurse on the halves to count their internal inversions (locals) the same way, and you've counted the total: local-left + local-right + global.
 
@@ -267,23 +267,23 @@ In both cases, the base case (a sequence of length zero or one) has no inversion
 
 **Quick sort** is $O(n \log n)$ time *on average* and $O(\log n)$ extra space *on average* (just the recursion stack). The recursion depth depends on the pivot quality: a balanced pivot (close to the median) gives $\log_2 n$ depth, an unbalanced pivot gives more. On a uniformly random input with last-element pivot, the average depth is $O(\log n)$ and the average total work is $O(n \log n)$. On the pathological inputs flagged above, the depth becomes $O(n)$ and the total work becomes $O(n^2)$. **Random pivot selection makes the bad case a probabilistic curiosity rather than a structural risk.**
 
-Both algorithms come out the same on the average case. They diverge on stability (merge sort preserves the relative order of equal keys; quick sort does not, at least in this implementation) and on memory (merge sort needs $O(n)$ scratch space; quick sort gets by with $O(\log n)$ stack frames).
+On the average case the two tie. They diverge on stability (merge sort preserves the relative order of equal keys; quick sort does not, at least in this implementation) and on memory (merge sort needs $O(n)$ scratch space; quick sort gets by with $O(\log n)$ stack frames).
 
 ### Is it optimal?
 
 This is the chapter's punch, and it's a big one. **The comparison-based sorting lower bound is $\Omega(n \log n)$.** No algorithm that learns about its input only by comparing pairs of elements can sort an arbitrary input in fewer than $\Omega(n \log n)$ comparisons in the worst case. Merge sort meets this bound exactly; quick sort meets it on average. Within the comparison model, you cannot do asymptotically better than what this chapter just showed you.
 
-The argument is the **decision-tree lower bound** for sorting, the same shape that gave the $\Omega(\log n)$ bound for searching in the previous chapter, scaled up. Any comparison-based sort can be drawn as a binary decision tree: each internal node is a comparison ("is `items[i] < items[j]`?"), each leaf is one specific output permutation. To handle every possible input correctly, the tree needs at least $n!$ leaves — one per possible input ordering. A binary tree with $L$ leaves has depth at least $\log_2 L$, so the depth is at least $\log_2(n!)$. By Stirling's approximation, $\log_2(n!) = \Theta(n \log n)$. The worst-case path through any such tree is $\Omega(n \log n)$ comparisons.
+The argument is the **decision-tree lower bound** for sorting, the same shape that gave the $\Omega(\log n)$ bound for searching in the previous chapter, scaled up. Any comparison-based sort can be drawn as a binary decision tree: each internal node is a comparison ("is `items[i] < items[j]`?"), each leaf is one specific output permutation. To handle every possible input correctly, the tree needs at least $n!$ leaves — one per possible input ordering. A binary tree with $L$ leaves has depth at least $\log_2 L$, so the depth is at least $\log_2(n!)$. By Stirling's approximation — the fact that $n!$ grows like $(n/e)^n$, so $\log_2(n!) \approx n\log_2 n$ — that depth is $\Theta(n \log n)$. The worst-case path through any such tree is $\Omega(n \log n)$ comparisons.
 
 That's a strong statement. It says: comparison-based sorting can never be linear, no matter how clever the algorithm. The factor of $\log n$ over linear is **the price you pay for not knowing anything about the input except how its elements compare**. The next two chapters explore both sides of that price: selection (chapter 5) shows you can get partial sorted information faster than full sorting, and linear-time sorting (chapter 6) shows you can break the lower bound entirely if you give up the comparison-only restriction.
 
-## What efficient sorting teaches you
+## Two orders, one cost
 
 Merge sort and quick sort are correct via clean recursive arguments — sorted halves combine into a sorted whole; partition places the pivot in its final position. Both run in $O(n \log n)$, merge sort always and quick sort on average. And both are optimal: the decision-tree lower bound says no comparison-based sort can do better than $\Omega(n \log n)$ in the worst case, and these algorithms meet that bound.
 
-The lesson worth carrying forward is the local-vs-global duality. **Any divide-and-conquer sort that splits its input into two halves has to fix two kinds of inversions — local ones inside each half, global ones straddling the split — and the algorithmic choice is which order to fix them in.** Merge sort fixes locals first via recursion, then kills the globals in one linear merge. Quick sort kills the globals first via partition, then fixes the locals via recursion. Either order works; either order pays the same $\log n$ factor for the recursion depth; either order benefits from the same many-at-once trick at each level. The two algorithms aren't rivals — they're reflections of each other across the local/global divide.
+The local-vs-global duality is the move that generalizes. Any divide-and-conquer sort that splits its input into two halves has to fix two kinds of inversions — local ones inside each half, global ones straddling the split — and the algorithmic choice is which order to fix them in. Merge sort fixes locals first via recursion, then kills the globals in one linear merge. Quick sort kills the globals first via partition, then fixes the locals via recursion. Either order works. Both pay the same $\log n$ factor for recursion depth, and both benefit from the same many-at-once trick at each level. The two algorithms are reflections of each other across the local/global divide.
 
-The inversion-economy view from chapter 3 generalizes too. Basic sorts fix one inversion per swap, so they're stuck at $O(n^2)$ because there can be that many inversions. Efficient sorts fix inversions in *blocks proportional to the work being done at each level* — a merge step does $O(n)$ work and resolves $O(n)$ cross-inversions; a partition step does $O(n)$ work and resolves all the pivot's cross-inversions in one swap. The trick that turns $n^2$ into $n \log n$ is exactly the trick of being credited for *all* the inversions you can see at this level, instead of just the one pair you happened to swap.
+The same inversion-counting argument from chapter 3 generalizes. Basic sorts fix one inversion per swap, so they're stuck at $O(n^2)$ because there can be that many inversions. Efficient sorts fix inversions in *blocks proportional to the work being done at each level* — a merge step does $O(n)$ work and resolves $O(n)$ cross-inversions; a partition step does $O(n)$ work and resolves all the pivot's cross-inversions in one swap. The trick that turns $n^2$ into $n \log n$ is exactly the trick of being credited for *all* the inversions you can see at this level, instead of just the one pair you happened to swap.
 
 In the next chapter, the question shifts: what if you don't need the whole array sorted, but only the $k$-th smallest element? Quick sort already places one element per partition step in its final position. Selection turns out to require only one recursive call per level — not two — and the cost collapses from $O(n \log n)$ to $O(n)$.
 

@@ -2,9 +2,9 @@
 
 You have a phone book — the kind people used to keep next to the phone, sorted alphabetically — and you need to find one name. You don't read it cover to cover. You open it somewhere in the middle, see whether the name you want comes before or after the page in front of you, then throw away half the book and open the remaining half in the middle. Repeat until you're holding the right page.
 
-This is binary search, and by the end of this chapter you'll have implemented it three ways: as a straight "is $x$ in the sequence?" answer, as a *bisection* that returns an insertion point, and — most usefully — as a way to search the answer space of any problem with monotonic structure. That third move is the one that keeps paying off through the rest of the book.
+This is binary search. It has three forms: a straight "is $x$ in the sequence?" answer, a *bisection* that returns an insertion point, and — most usefully — a way to search the answer space of any problem with monotonic structure. That third form is the one that keeps paying off through the rest of the book.
 
-The image to hold in your head is **every comparison cuts the search space in half**. For a sorted list of one million items, that's about twenty comparisons to find anything; for a billion items, about thirty. Doubling the input adds *one comparison*, not doubles the time. Linear search would scan all billion items. Binary search reads thirty of them and tells you the answer with certainty. That's the leap structure buys you.
+**Every comparison cuts the search space in half.** For a sorted list of one million items, that's about twenty comparisons to find anything; for a billion items, about thirty. Doubling the input adds *one comparison*, not doubles the time. Linear search would scan all billion items. Binary search reads thirty of them and tells you the answer with certainty.
 
 ## The half-and-half algorithm
 
@@ -44,7 +44,7 @@ print(binary_search(15, items))    # 7 — last element
 print(binary_search(5, []))        # None — empty input
 ```
 
-Two details worth dwelling on. First, `mid = (lo + hi) // 2` uses integer division, which always rounds toward `lo` — that's important for termination, because it guarantees `mid < hi` whenever `lo < hi`, so the `lo = mid + 1` branch makes real progress. Second, the input *must* be sorted in the order that `order` defines. If you pass an unsorted list, binary search gives you garbage with confidence. There's no easy way for the algorithm to detect this — sorting is a precondition, not something the function checks. If you want a safety net, sort first and document the contract loudly.
+`mid = (lo + hi) // 2` uses integer division, which always rounds toward `lo` — that's important for termination, because it guarantees `mid < hi` whenever `lo < hi`, so the `lo = mid + 1` branch makes real progress. The other detail is that the input *must* be sorted in the order that `order` defines. If you pass an unsorted list, binary search gives you garbage with confidence. There's no easy way for the algorithm to detect this — sorting is a precondition, not something the function checks. If you want a safety net, sort first and document the contract loudly.
 
 ## Finding insertion points: `bisect_left` and `bisect_right`
 
@@ -100,11 +100,9 @@ print(bisect_left(0, items))       # 0 — smaller than everything, goes at the 
 print(bisect_right(8, items))      # 6 — larger than everything, goes at the end
 ```
 
-The pair `(bisect_left, bisect_right)` doesn't just answer *where to insert*. It also gives you, almost for free, the **count** of an element in a sorted sequence — just subtract: `bisect_right(x, items) - bisect_left(x, items)`. That's $O(\log n)$ instead of the $O(n)$ count you wrote in the last chapter. Structure pays off twice.
+The pair `(bisect_left, bisect_right)` doesn't just answer *where to insert*. It also gives you, almost for free, the **count** of an element in a sorted sequence — just subtract: `bisect_right(x, items) - bisect_left(x, items)`. That's $O(\log n)$ instead of the $O(n)$ count you wrote in the last chapter. Structure delivers twice.
 
 ## Searching the answer, not the data
-
-Now the move that pays off through the rest of the book.
 
 So far I've used binary search to find something in a sequence. But the actual algorithm doesn't care whether you have a sequence at all. The only thing it needs is a *monotonic comparison* — a question whose answer flips from one value to another exactly once over the range you're searching. The "sequence" part was just one way to give that monotonic structure to a problem.
 
@@ -179,15 +177,15 @@ The argument is the **decision-tree lower bound**. Any algorithm that makes only
 
 Binary search achieves $\lceil \log_2(n + 1) \rceil$ comparisons in the worst case. It's tightly optimal — within the comparison model on a sorted sequence, there is no better algorithm waiting to be discovered.
 
-## What binary search teaches you
+## Information per comparison
 
 Binary search is correct because the invariant *"if $x$ is in the sequence, it's still in the current interval"* survives every iteration. It runs in $O(\log n)$ time and $O(1)$ space. And it's optimal: the decision-tree lower bound says no comparison-based algorithm on a sorted array can do better than $\lceil \log_2(n+1) \rceil$ comparisons in the worst case, and binary search meets that bound exactly.
 
-The lesson worth carrying forward is the one that goes beyond binary search itself: **every useful comparison must rule out a constant fraction of the remaining possibilities**. Linear search rules out one element per comparison — a fraction that shrinks to zero as $n$ grows. Binary search rules out half — a constant fraction, independent of $n$. The first gives you $O(n)$; the second gives you $O(\log n)$. The gap between them is exactly the gap between *information per comparison* and *information per element*.
+The principle that goes beyond binary search itself: **every useful comparison must rule out a constant fraction of the remaining possibilities**. Linear search rules out one element per comparison, a fraction that shrinks to zero as $n$ grows. Binary search rules out half — a constant fraction, independent of $n$. The first gives you $O(n)$; the second gives you $O(\log n)$. The gap between them is exactly the gap between *information per comparison* and *information per element*.
 
 That principle is going to come back. Every $O(\log n)$ algorithm in the rest of the book — the balanced trees in Part III, the heap operations, the segment-tree queries — earns its logarithm by ruling out a constant fraction of remaining work per step. Binary search is the simplest case; recognising the same shape elsewhere is most of the skill.
 
-In the next chapter, the problem flips. So far you've been *exploiting* order to search faster. The next question is how to *create* that order in the first place — and the answer is going to take three chapters of escalating cleverness before it lands at the comparison lower bound for sorting.
+The next chapter flips the question: how do you create the order that binary search exploited?
 
 ## Notes and further reading
 
