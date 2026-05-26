@@ -1,0 +1,343 @@
+# Matching by fingerprint
+
+Chapter 26 closed by promising a change of lens. Boyer-Moore preprocessed the pattern so that a mismatch on a single character would expose a large skip; KMP and the chapter-24 automaton preprocessed the pattern so that no character of the text would ever be read twice. All three are scanning algorithms — they walk the text and decide, character by character, how far to shift. I want to do something different in this chapter. I want to **stop comparing strings entirely**, and instead compare *numbers* that stand in for strings — fingerprints that I can compute cheaply and update even more cheaply as the window slides forward. The cynosure I want you to hold for the whole chapter is one sentence: **hash the pattern once, roll the window's hash forward in $O(1)$ per step**, then verify only on hash equality. That is the Rabin-Karp algorithm, and it earns a cost shape that the previous three couldn't.
+
+By the end of this chapter you'll have built a polynomial-hash function, watched it slide across the canonical text in constant time per shift, seen Rabin-Karp recover the four matches of `"ain"` you've now verified across five chapters, and watched it correctly *handle* a deliberately-induced hash collision — because the algorithm is **Las Vegas**, meaning the answer is always right even when the hashes lie. You'll know why $p \approx 10^9 + 7$ is the modulus people actually pick, and you'll have an instrumented matcher that counts the collisions and verifications so you can see the probabilistic shape directly. I'll also tell you why Rabin-Karp's real niche isn't single-pattern matching at all — it's the multi-pattern case, where one hash table replaces $k$ separate scans.
+
+The chapter's empower-promise is that randomization isn't just a trick for treaps and skip lists; it's a string-matching tool too. Once you've seen rolling hashes, the family of fingerprint algorithms — content-defined chunking, document-similarity hashing, network deduplication — stops looking exotic. They're all this same move, applied to different windows.
+
+## The hash table trick, applied to a sliding window
+
+I want to start by reaching back to chapter 12. That chapter sold you on one move: turning a key into an integer in $\{0, 1, \ldots, m-1\}$ via a deterministic, uniform-ish, fast function, and using the integer as a memory address. The payoff was *constant-time membership* — you handed the table a key, it computed the address, it went straight to the slot. The whole structure depended on the hash function being cheap to compute and on collisions being rare enough that the chain at each slot stayed short.
+
+Now I want you to flip the question. Chapter 12 used a hash for *equality testing inside a single table*. What if I used a hash for *equality testing between two strings* — the pattern and a window of the text? If I can compute $h(\text{pattern})$ once and $h(\text{window})$ for each candidate window, then I can compare hashes as a cheap first filter. Equal hashes are not a *proof* of equal strings (collisions exist, the same way they did in chapter 12), but unequal hashes are a *proof* of unequal strings — and that asymmetry is what makes the trick worth doing. I skip the full character-by-character comparison except when the hashes match, and on most windows the hashes won't match.
+
+The catch — and it's a real one — is that recomputing $h(\text{window})$ from scratch for every shift costs $O(m)$ per window, which gives $O(nm)$ for the whole scan, the same as brute force. The hashing has bought me nothing if every window forces me to read every character anyway. So I need a hash function with one extra property: it has to be **rollable**. The hash of `text[i+1..i+m]` should be computable from the hash of `text[i..i+m-1]` in $O(1)$ — without re-reading all $m$ characters of the new window. If I can do that, I pay $O(m)$ once to hash the initial window, then $O(1)$ per shift, and the total scan is $O(n + m)$ in the *expected* case. That's the cost shape Rabin-Karp is built for.
+
+So the design problem is: find a hash function for strings that supports a constant-time roll. The polynomial hash is the answer, and the next section is where I build it.
+
+## A polynomial hash for strings
+
+The trick is to read the string as a number — specifically, as a multi-digit number written in a chosen *base*, with the characters as digits. Pick a base $b$ and a prime modulus $p$. Define the hash of a string $s$ of length $m$ as
+
+$$
+h(s) = \left(\sum_{i=0}^{m-1} \mathrm{ord}(s[i]) \cdot b^{m-1-i} \right) \bmod p.
+$$
+
+You can read that formula by treating each character as a digit and the string as the integer that would result if you wrote those digits in base $b$. Bilingually: for `"cat"` with $b = 257$, the value before the modulus is $\mathrm{ord}(\text{`c`}) \cdot 257^2 + \mathrm{ord}(\text{`a`}) \cdot 257^1 + \mathrm{ord}(\text{`t`}) \cdot 257^0$. The modulus is what keeps the integer bounded — without it, the values would grow exponentially in the string length and arithmetic would stop being $O(1)$ per operation.
+
+Why polynomial? Because evaluating that sum incrementally is *Horner's rule*, and Horner's rule lets you compute the whole thing in $m$ multiplications and $m$ additions, with the running value never larger than $b \cdot p$. The code is one loop.
+
+```python {export=src/codex/strings/rabin_karp.py}
+def polynomial_hash(s: str, base: int, modulus: int) -> int:
+    """Horner-form polynomial hash of s in base `base` modulo `modulus`.
+
+    Reads s as a multi-digit number with each character treated as a digit
+    in base `base`, then reduces modulo `modulus` to keep the integer
+    bounded. Runs in O(len(s)) time and O(1) space.
+    """
+    h = 0
+    for c in s:
+        h = (h * base + ord(c)) % modulus
+    return h
+```
+
+Three lines of body. On each iteration I shift the accumulated value one digit to the left (multiply by `base`), add the new character's ord, and reduce mod `modulus`. That reduction at every step is what keeps `h` bounded by `modulus` throughout the loop, so the arithmetic stays $O(1)$ per character — Python's arbitrary-precision int doesn't charge you for big numbers you never let grow.
+
+Why base $257$ and modulus $10^9 + 7$? The base wants to be larger than the largest character code so that different characters genuinely move the value (with $b = 1$ the hash would collapse to a sum of ord values and `"abc"` and `"bac"` would collide). One past 256 — the largest byte value — is the common choice; some textbooks use $31$ or $53$, which also work for ASCII text but are less spread on byte-valued inputs. The modulus wants to be a *prime* near $2^{30}$: large enough that random collisions are rare (the probability is roughly $1/p$ per comparison, so $p \approx 10^9$ gives one expected false positive per billion comparisons), small enough that all intermediate products fit comfortably in a 64-bit machine word so the arithmetic stays cheap even outside Python. The specific value $10^9 + 7$ is a competitive-programming staple — a prime, easy to remember, well within machine-word range. There's nothing magical about the exact constant.
+
+Watch.
+
+```{python}
+from codex.strings.rabin_karp import polynomial_hash
+
+for s in ["cat", "dog", "ain", "rain", "spain", "the rain"]:
+    h = polynomial_hash(s, base=257, modulus=10**9 + 7)
+    print(f"  polynomial_hash({s!r:>10}, 257, 10^9+7) = {h}")
+```
+
+Each string maps to a 30-ish-bit integer in $[0, 10^9 + 7)$. The values look unstructured (which is what I want — uniformity is one of the three properties from chapter 12), and they're deterministic — running the same input twice gives the same number every time.
+
+## Rolling the hash forward in $O(1)$
+
+Here is where the polynomial form earns its keep. Suppose I've already computed the hash of `text[i..i+m-1]`, and now I want the hash of `text[i+1..i+m]` — the same window shifted one position to the right. The new window drops the character at position $i$ and gains the character at position $i + m$. The polynomial structure makes this update mechanical.
+
+Think of the old window's hash as a polynomial evaluated at $b$:
+
+```
+window i:     text[i..i+m-1]    hash = ord(text[i])  * b^(m-1) + ord(text[i+1]) * b^(m-2) + ... + ord(text[i+m-1])
+window i+1:   text[i+1..i+m]    hash = ord(text[i+1]) * b^(m-1) + ord(text[i+2]) * b^(m-2) + ... + ord(text[i+m])
+```
+
+Read those two lines and ask: how do I get from the first to the second? Three steps. **Subtract** the leading term, which is $\mathrm{ord}(\text{text}[i]) \cdot b^{m-1}$ — that's the contribution of the character I'm dropping. **Multiply** everything by $b$ — that shifts every remaining term one position to the left in the polynomial. **Add** $\mathrm{ord}(\text{text}[i+m])$ — that's the new character in the lowest-order (rightmost) position. Reduce mod $p$. Done.
+
+In one formula:
+
+$$
+h_{i+1} = \big( (h_i - \mathrm{ord}(\text{text}[i]) \cdot b^{m-1}) \cdot b + \mathrm{ord}(\text{text}[i+m]) \big) \bmod p.
+$$
+
+Three multiplications, two additions/subtractions, one modulus — six arithmetic operations regardless of how long the window is. That is the $O(1)$ I promised, and the polynomial form is why I get it.
+
+One detail. The quantity $b^{m-1} \bmod p$ shows up on every roll, so I want to precompute it once. Python's three-argument `pow` does *modular exponentiation* by repeated squaring, in $O(\log m)$ multiplications, each on integers bounded by $p$. That's much faster than `(base ** (m - 1)) % modulus`, which would build the un-modded integer $b^{m-1}$ as a Python big-int (potentially thousands of digits long) before reducing. For a pattern of length 1000, three-argument `pow` does about 10 modular multiplications instead of 1000 unbounded ones. I'll use it without comment in the matcher below.
+
+One more subtle detail worth naming. The intermediate value $h_i - \mathrm{ord}(\text{text}[i]) \cdot b^{m-1}$ can go negative — the subtraction can produce a value less than zero before the modulus reduces it. In C this would be a problem (the language defines the sign of the modulus on negatives as implementation-dependent). In Python, `%` is defined so that `(-3) % 11 == 8` — the result always has the same sign as the divisor, and the divisor is positive, so the result is always in $[0, p)$ regardless of the sign of the dividend. The rolling formula is correct in Python as written. If you're porting this to a language with different modulus semantics, you'll need to add $p$ before the reduction.
+
+Before I write the matcher I want you to *see* the rolling hash in action. The chunk below computes the hash of every length-3 window across a short text in two ways — from scratch each time, and rolled from the previous — and prints both so you can confirm they agree.
+
+```{python}
+from codex.strings.rabin_karp import polynomial_hash
+
+text = "the rain in"
+m = 3
+base = 257
+mod = 10**9 + 7
+high_power = pow(base, m - 1, mod)
+
+print(f"text = {text!r}, window length = {m}\n")
+print(f"{'i':>2}  {'window':<5}  {'hash from scratch':>20}  {'hash rolled':>15}")
+print("-" * 50)
+
+# Initial window: hash from scratch
+h_rolled = polynomial_hash(text[:m], base, mod)
+print(f"{0:>2}  {text[:m]!r:<5}  {polynomial_hash(text[:m], base, mod):>20}  {h_rolled:>15}")
+
+# Each subsequent window: roll forward
+for i in range(1, len(text) - m + 1):
+    h_rolled = ((h_rolled - ord(text[i - 1]) * high_power) * base
+                + ord(text[i + m - 1])) % mod
+    h_scratch = polynomial_hash(text[i:i + m], base, mod)
+    marker = "  OK" if h_rolled == h_scratch else "  MISMATCH!"
+    print(f"{i:>2}  {text[i:i + m]!r:<5}  {h_scratch:>20}  {h_rolled:>15}{marker}")
+```
+
+Two columns, identical at every row. The right-hand column does six arithmetic operations per window regardless of window length; the left-hand column does $m$ operations per window. For $m = 3$ that's a $2\times$ savings; for a 100-character pattern, the rolling approach reads only one character per shift while the scratch approach reads all 100. That ratio is where Rabin-Karp's $O(n + m)$ expected time comes from.
+
+## The matching loop with Las Vegas verification
+
+Now I have the two pieces I need: a polynomial hash, and a constant-time roll. The matcher precomputes $h(\text{pattern})$ and $h(\text{text}[0..m-1])$ once, then walks each candidate window. At each step it compares hashes; on equality, it verifies the actual strings character-by-character to rule out a collision. On a true match, it returns. Otherwise it rolls the hash forward and continues.
+
+```python {export=src/codex/strings/rabin_karp.py}
+def find(
+    text: str, pattern: str, base: int = 257, modulus: int = 1_000_000_007
+) -> int | None:
+    """First match index via Rabin-Karp rolling-hash with Las Vegas verification."""
+    n, m = len(text), len(pattern)
+    if m == 0:
+        return 0
+    if m > n:
+        return None
+    pattern_hash = polynomial_hash(pattern, base, modulus)
+    window_hash = polynomial_hash(text[:m], base, modulus)
+    high_power = pow(base, m - 1, modulus)
+    if window_hash == pattern_hash and text[:m] == pattern:
+        return 0
+    for i in range(1, n - m + 1):
+        window_hash = (
+            (window_hash - ord(text[i - 1]) * high_power) * base
+            + ord(text[i + m - 1])
+        ) % modulus
+        if window_hash == pattern_hash and text[i : i + m] == pattern:
+            return i
+    return None
+```
+
+The body is short. Two hash computations up front, one `pow` for the high-order coefficient, then a loop that rolls and tests. The check `window_hash == pattern_hash and text[i : i + m] == pattern` is the *Las Vegas verification* — and I want you to spend a sentence on what it does. The first conjunct is the cheap filter: an integer comparison, $O(1)$, true for most windows only by accident. The second conjunct is the certificate: a full string equality, $O(m)$, run only when the filter passes. Python's `and` short-circuits, so the string comparison fires *only* when hashes already agree. On most windows you pay one integer compare and move on.
+
+This is what makes the algorithm Las Vegas in the technical sense — randomized algorithms that are **always correct** but **sometimes slow**. Rabin-Karp never misses a match (a true match always produces equal hashes), and never reports a false one (the string check catches every collision). The randomness — the hash function and its modulus — affects only how *often* the slow path fires. With a good modulus, almost never; with a bad one, often. Either way, the answer you read off at the end is right.
+
+`find_all` is the same loop, but appends to a list instead of returning, with no early termination.
+
+```python {export=src/codex/strings/rabin_karp.py}
+def find_all(
+    text: str, pattern: str, base: int = 257, modulus: int = 1_000_000_007
+) -> list[int]:
+    """All overlapping match indices via Rabin-Karp."""
+    n, m = len(text), len(pattern)
+    if m == 0 or m > n:
+        return []
+    pattern_hash = polynomial_hash(pattern, base, modulus)
+    window_hash = polynomial_hash(text[:m], base, modulus)
+    high_power = pow(base, m - 1, modulus)
+    matches: list[int] = []
+    if window_hash == pattern_hash and text[:m] == pattern:
+        matches.append(0)
+    for i in range(1, n - m + 1):
+        window_hash = (
+            (window_hash - ord(text[i - 1]) * high_power) * base
+            + ord(text[i + m - 1])
+        ) % modulus
+        if window_hash == pattern_hash and text[i : i + m] == pattern:
+            matches.append(i)
+    return matches
+```
+
+And the instrumented variant that I'll use to *see* the algorithm's probabilistic behavior. It returns the first match (or `None`), the number of hash collisions detected (windows where the hash matched but the string didn't — false positives caught by verification), and the total number of full-string verifications performed (every time the inner string compare ran, regardless of outcome).
+
+```python {export=src/codex/strings/rabin_karp.py}
+def find_counting(
+    text: str, pattern: str, base: int = 257, modulus: int = 1_000_000_007
+) -> tuple[int | None, int, int]:
+    """Instrumented Rabin-Karp.
+
+    Returns (first match index or None, hash collisions detected,
+    full-string verifications performed). A 'collision' is a hash match
+    that fails string comparison — a false positive caught by the
+    Las Vegas verification. A 'verification' is any full string equality
+    check that ran, including the eventual confirmation of a real match.
+    """
+    n, m = len(text), len(pattern)
+    if m == 0:
+        return 0, 0, 0
+    if m > n:
+        return None, 0, 0
+    pattern_hash = polynomial_hash(pattern, base, modulus)
+    window_hash = polynomial_hash(text[:m], base, modulus)
+    high_power = pow(base, m - 1, modulus)
+    collisions = 0
+    verifications = 0
+    if window_hash == pattern_hash:
+        verifications += 1
+        if text[:m] == pattern:
+            return 0, collisions, verifications
+        collisions += 1
+    for i in range(1, n - m + 1):
+        window_hash = (
+            (window_hash - ord(text[i - 1]) * high_power) * base
+            + ord(text[i + m - 1])
+        ) % modulus
+        if window_hash == pattern_hash:
+            verifications += 1
+            if text[i : i + m] == pattern:
+                return i, collisions, verifications
+            collisions += 1
+    return None, collisions, verifications
+```
+
+The counters tell you which path the algorithm took on every window. If `collisions` is zero, the hash function did all the work and every verification was a true match. If `collisions` is large, the modulus was too small — the algorithm was correct, but slow, because the slow path kept firing.
+
+## Running on the canonical text
+
+Same input I've been carrying since chapter 23, same expected output.
+
+```{python}
+from codex.strings.rabin_karp import find, find_all, find_counting
+
+TEXT = "the rain in spain stays mainly in the plain"
+
+idx = find(TEXT, "ain")
+print(f"first match of 'ain': index {idx} — same answer as ch 23-26")
+
+all_ain = find_all(TEXT, "ain")
+print(f"all matches of 'ain': {all_ain}  (four occurrences)")
+
+idx2, collisions, verifications = find_counting(TEXT, "ain")
+print(f"\ninstrumented run:")
+print(f"  first match: {idx2}")
+print(f"  hash collisions detected: {collisions}")
+print(f"  full-string verifications: {verifications}")
+```
+
+Four matches at 5, 14, 25, 40 — the same indices that chapter 26's Boyer-Moore returned, the same indices KMP returned in chapter 25, the same indices brute force returned in chapter 23. The instrumentation tells you the interesting part: **zero hash collisions across the whole scan**. With $p = 10^9 + 7$ and only $\sim 40$ windows to consider, the expected number of false positives is $40 / 10^9 \approx 4 \times 10^{-8}$ — essentially impossible to observe by chance. Every verification you see fired on a true match, not a collision. The hash function did all the filtering; the string comparison only ran when it was about to confirm a real match.
+
+## When hashes collide
+
+I want you to *see* a collision, because the algorithm's whole character depends on what happens when one fires. To make collisions actually happen I have to make them likely, which means picking a tiny modulus on purpose. With $p = 11$, the hash output is in $\{0, 1, \ldots, 10\}$ — eleven distinct values total. Any text longer than a handful of windows is guaranteed to produce some hash matches between unequal strings, by pigeonhole alone.
+
+```{python}
+from codex.strings.rabin_karp import polynomial_hash, find_counting
+
+# A tiny modulus forces collisions visible to the naked eye.
+TINY_TEXT = "zzabczzbaa"
+PATTERN = "baa"
+
+# Show the per-window hashes by hand so you can see the collision happen.
+print(f"pattern={PATTERN!r}  hash(pattern, 10, 11) = {polynomial_hash(PATTERN, 10, 11)}")
+print(f"text={TINY_TEXT!r}\n")
+print(f"{'i':>2}  {'window':<5}  {'hash':>4}  outcome")
+print("-" * 40)
+m = len(PATTERN)
+p_hash = polynomial_hash(PATTERN, 10, 11)
+for i in range(len(TINY_TEXT) - m + 1):
+    win = TINY_TEXT[i:i + m]
+    h = polynomial_hash(win, 10, 11)
+    if h == p_hash and win == PATTERN:
+        outcome = "MATCH (verified)"
+    elif h == p_hash:
+        outcome = "COLLISION (hash agrees, strings differ — Las Vegas catches it)"
+    else:
+        outcome = "filtered out by hash"
+    print(f"{i:>2}  {win!r:<5}  {h:>4}  {outcome}")
+
+idx, collisions, verifications = find_counting(TINY_TEXT, PATTERN, base=10, modulus=11)
+print(f"\nfind_counting result: match at {idx}, "
+      f"{collisions} collisions caught, {verifications} verifications total")
+```
+
+Two false positives fire — `'abc'` and `'zzb'` both hash to the same value as `'baa'` under this tiny modulus, even though none of the three are remotely equal as strings. Each time Rabin-Karp encounters one, it falls through to the string comparison, discovers the strings disagree, increments the collision counter, and keeps rolling. The final answer is still correct: the only match is at index 7, and the algorithm reports exactly that. The verifications counter is 3 (two collisions plus one real match); without the collisions it would have been 1.
+
+Now re-run with the realistic modulus and watch the collisions disappear.
+
+```{python}
+from codex.strings.rabin_karp import find_counting
+
+idx, collisions, verifications = find_counting(TINY_TEXT, PATTERN)  # default 10^9 + 7
+print(f"with modulus = 10^9 + 7:")
+print(f"  match at {idx}, {collisions} collisions, {verifications} verifications")
+```
+
+Zero collisions. Same input, same correct answer, but the verifications counter dropped to 1 — only the true match triggered a string comparison. The algorithm is correct under both moduli; the *cost shape* is what changes. That's the pedagogical point I most want you to leave with: **the modulus controls only the probability of doing slow work, never the correctness of the answer.**
+
+## Picking the modulus
+
+I want to make the probability claim concrete. Treat the polynomial hash as approximately uniform over $\{0, 1, \ldots, p-1\}$ — that's the *uniform hashing assumption* from chapter 12, applied here to substrings instead of dictionary keys. Then the probability that two random distinct strings happen to hash to the same value is about $1/p$. Across $n - m + 1 \approx n$ windows, the expected number of false-positive collisions is roughly $n / p$.
+
+Plug in numbers. With $p = 10^9 + 7$ and a text of length $n = 10^6$, the expected collision count is $10^6 / 10^9 \approx 10^{-3}$. With $p = 11$ and a text of length $10$, the expected collision count is $10 / 11 \approx 1$ — and you just watched two of them fire. The two regimes are wildly different in cost but identically correct.
+
+This is what makes Rabin-Karp's *expected* running time $O(n + m)$ despite a worst case of $O(nm)$. The worst case happens when every window collides — for instance, if an adversary picks the pattern and the text knowing your modulus. With a fixed public modulus, an adversary can construct an input where every window of the text hashes to the same value as the pattern, forcing the verification on every shift. That regenerates the $O(nm)$ cost of brute force. The defenses are well-known: pick the modulus at random at program startup, or use a pair of independent hashes (double hashing — two different $(b, p)$ pairs, require both to match before verifying), or use a cryptographic hash that's hard to invert. For most text-search applications none of this paranoia is necessary — natural text doesn't construct adversarial inputs by accident.
+
+The third detail worth knowing is that **prime moduli matter** for uniformity. If $p$ shares a common factor with $b$, the hash function's image is restricted to multiples of that factor, which collapses the effective output space. Choosing $p$ prime, with $b < p$, sidesteps the issue entirely.
+
+This whole chapter is the string-matching analog of a move you already saw in chapter 18 on treaps. The treap chapter's claim was that randomization buys you balance — the adversary can pick any input, but you pick the priorities, and the priorities (not the input) determine the tree's shape. Rabin-Karp's claim is the same shape: the adversary can pick any text and any pattern, but you pick the hash function's $(b, p)$, and the hash function (not the input) determines how often you fall to the slow path. The adversary's worst case is constructible only against a *fixed* hash function; against a hash function chosen at runtime, the worst case becomes statistically unreachable.
+
+## The three questions, applied
+
+### Is it correct?
+
+Two facts establish correctness. **First**, equal strings always produce equal hashes — the polynomial-hash formula is deterministic and depends only on the string's contents, so $s_1 = s_2$ implies $h(s_1) = h(s_2)$. That means a true match's window-hash will always equal the pattern-hash, and the algorithm will never *miss* a match. **Second**, the verification step compares strings character-by-character only when the hashes match, so any hash collision (where unequal strings happen to share a hash) is caught and rejected. That means the algorithm will never *report a false* match. Together: every match is found, every reported match is real. The rolling-hash recurrence is correctness-preserving by construction — algebraically, $h_{i+1}$ as computed from $h_i$ equals $h(\text{text}[i+1..i+m])$ as computed from scratch, modulo $p$ — and I showed you that empirically in the rolling-hash trace above.
+
+### How efficient is it?
+
+The preprocessing is $O(m)$ — one polynomial hash of the pattern and one of the initial window, plus an $O(\log m)$ modular exponentiation for the high-order coefficient. The main loop runs $n - m + 1$ iterations, and each iteration does $O(1)$ arithmetic to roll the hash plus, with probability $\approx 1/p$, an $O(m)$ string comparison.
+
+The **expected** total work is $O(n + m)$ for any reasonable modulus, because the expected number of full-string verifications is $1 + n/p$, contributing $O(m + nm/p) = O(m + n \cdot m/p)$, and for $p \gg n$ that second term is negligible. Bilingually: searching a megabyte text for a hundred-character pattern with $p = 10^9 + 7$ does about $10^6$ rolls (cheap) and $\sim 10^{-3}$ expected verifications (essentially zero). The cost shape is $O(n)$ in practice, dominated by the rolling.
+
+The **worst case** is $O(nm)$, achieved when every window collides — possible only on adversarial input against a fixed modulus. Randomizing the modulus at runtime makes the adversarial case statistically unreachable, the same way treaps make worst-case BST shapes statistically unreachable.
+
+Space is $O(1)$ working memory — just the running hash, the high-power constant, and a couple of counters. There's no pattern table to build, no automaton to construct, no suffix array. That low memory footprint is part of why Rabin-Karp scales well to enormous texts and patterns.
+
+### Is it optimal?
+
+For *single*-pattern search, Rabin-Karp's expected $O(n + m)$ matches KMP's worst-case $O(n + m)$ asymptotically. So neither is strictly better — KMP gives you a deterministic guarantee, Rabin-Karp gives you a smaller constant on natural input (no table to consult, just integer arithmetic) and the freedom to randomize away the worst case. The two algorithms live on different sides of a familiar trade-off: determinism vs randomization, worst-case vs expected-case, table-driven vs arithmetic-driven. For single-pattern matching neither is *optimal* in a strong sense — they meet the same asymptotic bound from different directions.
+
+Where Rabin-Karp pulls strictly ahead is the **multi-pattern** case. If you want to search for $k$ patterns simultaneously, KMP costs $O(k(n + m))$ — one scan per pattern, each with its own failure-function table. Rabin-Karp costs $O(n + km)$: hash all $k$ patterns into a hash table once, do a single $O(n)$ rolling-hash scan over the text, and probe the hash table at each window. Every pattern that hashes to that window's hash gets verified. The win is asymptotic — Rabin-Karp turns the multiplier $k$ in the dominant term into an additive — and it's the algorithm's real-world niche over the single-pattern alternatives.
+
+## What Rabin-Karp teaches you
+
+Two lessons I want you to take from this chapter.
+
+**First, randomization buys you a different cost shape.** Determinism in algorithm design always carries a worst case the adversary can construct. Randomization in algorithm design replaces the worst case with an expected case that holds *regardless* of the input, at the price of needing the random source to be hidden from the adversary. You've now seen this move twice: in chapter 18 it gave you balanced trees without a balance factor; in this chapter it gives you string matching without preprocessing tables. The pattern is the same — the algorithm makes a random choice that the adversary cannot anticipate, and the analysis shifts from "what's the worst input?" to "what's the average over my random choices, for any input?" That second question often has a much better answer.
+
+**Second, fingerprints turn equality into a cheap pre-test.** The polynomial hash isn't an exact comparison — it's a *summary* that's much cheaper to compute than the thing it summarizes, with the property that the summary is identical iff the things are (probably) identical. Once you have a cheap-summary-with-rare-collisions, you can put it in front of any expensive equality check as a filter, and pay the expensive check only when the cheap one passes. The same pattern shows up in *content-defined chunking* for backup systems (one hash per content block, deduplicate identical blocks), in *similarity hashing* for near-duplicate document detection (locality-sensitive hashes, an extension of this idea), and in *plagiarism detection* (compare hashes of every $k$-word window between two documents). Rabin-Karp is the introductory case where you see the fingerprint trick at its cleanest.
+
+## Notes and further reading
+
+Rabin and Karp's original paper is "Efficient randomized pattern-matching algorithms," published in *IBM Journal of Research and Development* 31(2):249–260 in 1987. The paper presents the algorithm as a randomized solution to multi-pattern matching, not single-pattern — that framing is right, and it's the application where Rabin-Karp clearly beats the alternatives. The single-pattern variant I built in this chapter is the textbook simplification; the original is closer in spirit to what `grep -f patterns.txt` does today, scanning once and checking against many fingerprints.
+
+The polynomial-hash idea predates Rabin-Karp by a long way — *Rabin fingerprints* are essentially the same construction, used in network-deduplication systems (think rsync's rolling checksum, or content-defined chunking in backup software like *Borg* and *Restic*). The same arithmetic also underlies the *Karp-Rabin* approach to *substring matching with errors* and to *all-pairs longest common substring* algorithms. If the polynomial-hash trick interests you, follow the trail through content-defined chunking — it's the same algorithm with a different stopping criterion.
+
+For plagiarism detection, the closest practical descendant is the *Manber-Myers winnowing* algorithm, which applies Rabin-Karp-style hashing to overlapping $k$-grams of two documents and counts matching fingerprints; commercial plagiarism checkers use variants of this with much larger $k$ and additional locality-sensitive hashing on top.
+
+CLRS covers Rabin-Karp in §32.2 with a presentation similar to mine, including the randomized-modulus discussion. Sedgewick and Wayne's *Algorithms* (4th ed.) §5.3 covers it as well, with a slight twist on the hash function. The Crochemore-Hancart-Lecroq reference I keep pointing at — *Algorithms on Strings*, Cambridge 2007 — has the deepest treatment, including the multi-pattern extension and the connection to *q*-gram indexing.
+
+In the next chapter I'll change the lens one more time. Rabin-Karp's multi-pattern win comes from hashing patterns into a table; Aho-Corasick gets the same multi-pattern win deterministically, by building a single automaton that recognizes *all* patterns simultaneously, with $O(n + \sum m_i + z)$ worst-case time where $z$ is the number of matches found — the algorithm that powers `fgrep`.

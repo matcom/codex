@@ -49,6 +49,7 @@ book:
       - 24_automaton.qmd
       - 25_kmp.qmd
       - 26_boyer_moore.qmd
+      - 27_rabin_karp.qmd
     - part: Graphs
       chapters: []
     - part: Dynamic Programming and Greedy Algorithms
