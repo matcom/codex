@@ -1,10 +1,10 @@
 # Every key has an address, the function is the map
 
-A hash table is what you get when you let the key compute its own address. That single move — turning an arbitrary value into an integer in the range $\{0, 1, \ldots, m-1\}$ and using that integer as a memory location — is the most consequential trick in this part of the book. Every data structure you've seen so far either stored items at integer indices you chose (arrays) or at pointer-linked addresses chosen by the allocator (linked lists). The hash table chooses the address from the *content* of the item itself. You hand it `"alice"`, it computes some integer, it goes straight to that slot.
+A hash table is what you get when you let the key compute its own address. You hand the function the string `"alice"` — eight bytes of letters — and it hands back the integer 47, which is a slot number in an array of 64. That single move (turning an arbitrary value into an integer in the range $\{0, 1, \ldots, m-1\}$ and using that integer as a memory location) is the chapter's biggest asymptotic lever. Every data structure you've seen so far either stored items at integer indices you chose (arrays) or at pointer-linked addresses chosen by the allocator (linked lists). The hash table chooses the address from the *content* of the item itself.
 
-That move makes constant-time membership testing possible — *expected* constant time, with a caveat about load factors and adversarial inputs that the chapter spends its energy on. Without it, asking "is `"alice"` in this collection?" costs $O(n)$ on an unstructured array (chapter 1) or $O(\log n)$ on a sorted one (chapter 2). With it, you compute the address and look directly. The asymptotic gap is the largest single jump in the book.
+That move makes constant-time membership testing possible: *expected* constant time, with a caveat about load factors and adversarial inputs that the chapter spends its energy on. Without it, asking "is `"alice"` in this collection?" costs $O(n)$ on an unstructured array (chapter 1) or $O(\log n)$ on a sorted one (chapter 2). With it, you compute the address and look directly. The asymptotic gap is the largest single jump in the book.
 
-By the end of this chapter you'll have built two hash tables: one with **chaining** (colliding keys live in a linked chain at the slot) and one with **open addressing** (colliding keys probe forward to a free slot, using one of three strategies — linear, quadratic, or double hashing). You'll have an explicit *load factor* and the rehashing logic that doubles capacity when it crosses a threshold. The chapter's cynosure is **the hash function as the map from key-space to address-space**: key-space is enormous, address-space is small, the function projects one onto the other, and collisions are what happens because the projection cannot be injective. The chapter is two ways to handle that non-injectivity.
+Two designs handle the inevitable collisions: **chaining** (colliding keys live in a linked chain at the slot) and **open addressing** (colliding keys probe forward to a free slot, via linear, quadratic, or double hashing). Both rehash when the *load factor* — items divided by slots — crosses a threshold. Billions of possible strings, a few thousand slots: collisions are arithmetic, not bad luck, and what you do about them is the design decision the rest of the chapter explores.
 
 ## What a dictionary needs to do, and how arrays can't quite
 
@@ -12,19 +12,19 @@ The contract is three operations: insert `(key, value)`, look up by `key`, delet
 
 The hash table breaks the bottleneck by *not sorting and not searching*. It computes the address of each item from the item itself, with a deterministic function. If two items compute to the same address — a *collision* — you have to do something, and that something is the design decision the rest of the chapter explores.
 
-## The hash function: keys as addresses
+## Keys as addresses
 
 A hash function $h$ takes a key from some (potentially infinite) key-space and returns an integer in $\{0, 1, \ldots, m-1\}$, where $m$ is the table's capacity. Three properties matter: **determinism** (same key, same output, always), **uniformity** (keys spread evenly so no slot gets disproportionate collisions), and **speed** ($h$ runs on every operation).
 
-Python's built-in `hash` function satisfies all three for the standard types — `str`, `int`, `tuple`, `frozenset`. Reducing its output to $\{0, \ldots, m-1\}$ is one modular operation: `hash(k) % m`. The bilingual restatement: **the formal "uniform hashing assumption" says keys land roughly uniformly in slots; the tactile version is "if you have $n$ items in a table of $m$ slots, each slot holds about $n/m$ items on average."** That ratio $n/m$ is the *load factor*, and it's the single number that controls how well the table performs.
+Python's built-in `hash` function satisfies all three for the standard types — `str`, `int`, `tuple`, `frozenset`. Reducing its output to $\{0, \ldots, m-1\}$ is one modular operation: `hash(k) % m`. The formal "uniform hashing assumption" says keys land approximately uniformly in slots. In plain terms: if you have $n$ items in a table of $m$ slots, each slot holds $n/m$ items on average. That ratio $n/m$ is the *load factor*, the single number that controls how well the table performs.
 
-Collisions are not pathological — they are *guaranteed*. Key-space (all strings, all integers) is much bigger than address-space (a few thousand slots), so by pigeonhole two keys *must* eventually land in the same slot. The two strategies for handling that give the two hash-table flavors below.
+Collisions are not pathological; they are guaranteed. Key-space (all strings, all integers) is much bigger than address-space (a few thousand slots), so by pigeonhole two keys *must* eventually land in the same slot. The two strategies for handling that give the two hash-table flavors below.
 
-## Chaining: a linked list per slot
+## A linked list per slot
 
-The simplest strategy: each slot holds a chain of `(key, value)` entries, all of which hashed to that slot. Insertion appends (or, to keep code short, prepends) to the chain; lookup walks the chain; deletion unhooks. Collisions don't go anywhere — they just pile up in chains.
+The simplest strategy: each slot holds a chain of `(key, value)` entries, all of which hashed to that slot. Insertion appends (or, to keep code short, prepends) to the chain; lookup walks the chain; deletion unhooks. Collisions don't go anywhere; they pile up in chains.
 
-Let me start with the entry type. Each entry holds a key, a value, and a pointer to the next entry in its chain.
+The entry type holds a key, a value, and a pointer to the next entry in its chain.
 
 ```python {export=src/codex/structures/hash.py}
 from dataclasses import dataclass
@@ -56,7 +56,7 @@ class ChainedHashMap[K, V]:
         return hash(key) % self._capacity
 ```
 
-`__setitem__` does insertion *or update* — the canonical "upsert." It walks the chain for the key's slot looking for an existing entry; if found, it updates in place; if not, it prepends a new entry and increments the size. After the insertion, if the load factor has crossed the threshold, the table doubles.
+`__setitem__` does insertion or update: the canonical "upsert." It walks the chain for the key's slot looking for an existing entry; if found, it updates in place; if not, it prepends a new entry and increments the size. After the insertion, if the load factor has crossed the threshold, the table doubles.
 
 ```python {export=src/codex/structures/hash.py}
     def __setitem__(self, key: K, value: V) -> None:
@@ -93,7 +93,7 @@ class ChainedHashMap[K, V]:
         return False
 ```
 
-`__delitem__` is the only operation that needs the chain's *predecessor* — to unhook the target by rewriting the predecessor's `next` pointer — which is the same pattern from chapter 9's `delete_after`.
+`__delitem__` is the only operation that needs the chain's *predecessor*, to unhook the target by rewriting the predecessor's `next` pointer. Same pattern as chapter 9's `delete_after`.
 
 ```python {export=src/codex/structures/hash.py}
     def __delitem__(self, key: K) -> None:
@@ -139,7 +139,7 @@ And `_resize` is the bookkeeping that grows the table. Allocate a new slot array
                 cur = cur.next
 ```
 
-Eight methods, about fifty lines of code. Let me run it and look at the chain distribution after a realistic-ish workload.
+Eight methods, about fifty lines of code. A realistic-ish workload exercises the chain distribution.
 
 ```{python}
 from codex.structures.hash import ChainedHashMap
@@ -167,7 +167,7 @@ print(f"chain lengths: {chain_lens}")
 print(f"max chain: {max(chain_lens)}, empty slots: {chain_lens.count(0)}")
 ```
 
-The chains stay short. Most slots hold one or zero entries; a couple hold two; nothing hits three. That's the load factor doing its job — the table doubled twice on the way to absorbing 20 items, and the final load factor is well below 1.
+The chains stay short. Most slots hold one or zero entries; a couple hold two; nothing hits three. That's the load factor doing its job: the table doubled twice on the way to absorbing 20 items, and the final load factor is well below 1.
 
 A quick spot-check on the lookup contract:
 
@@ -184,7 +184,7 @@ print(len(table))              # 19
 
 Insert, lookup, delete — the three-operation contract held up. The chains absorbed all the collisions silently.
 
-## Open addressing: probing for the next free slot
+## Probing for the next free slot
 
 Chaining is straightforward but pays a real cost: every entry sits in its own heap-allocated node, with the pointer overhead and cache-locality penalty that linked structures always carry. The alternative is to keep the entries directly inside the slot array — no separate chain nodes — and handle collisions by *probing* to a different slot whenever the natural one is occupied.
 
@@ -203,9 +203,11 @@ def double_hash_probe(h1: int, h2: int, i: int, capacity: int) -> int:
     return (h1 + i * h2) % capacity
 ```
 
-Linear probing walks one slot at a time. Quadratic spreads out — slot $i^2$ ahead. Double hashing strides by an amount that depends on the *key itself*, so two different keys with the same primary hash will probe different secondary sequences. Linear is the simplest to understand and suffers most from *primary clustering* (long runs of occupied slots, made worse by each new collision). Quadratic spreads better but only reaches half the table without care. Double hashing is the textbook winner — different keys travel different paths through the slot array, so clusters can't compound.
+Linear probing walks one slot at a time. Quadratic spreads out: slot $i^2$ ahead. Double hashing strides by an amount that depends on the *key itself*, so two different keys with the same primary hash will probe different secondary sequences. Linear is the simplest to understand and suffers most from *primary clustering* (long runs of occupied slots, made worse by each new collision). Quadratic spreads better but only reaches half the table without care. Double hashing is the textbook winner: different keys travel different paths through the slot array, so clusters can't compound.
 
-Deletion in an open-addressed table is the subtle bit. You can't just blank a slot, because a future lookup probing past it would think the chain has ended. The standard fix is a **tombstone** — a special sentinel marking the slot as "was occupied, now empty." Lookups probe past tombstones; insertions can reuse them.
+Deletion in an open-addressed table is the subtle bit. You can't just blank a slot, because a future lookup probing past it would think the chain has ended. The standard fix is a **tombstone**: a special sentinel marking the slot as "was occupied, now empty." Lookups probe past tombstones; insertions can reuse them.
+
+`_TOMBSTONE` is the sentinel; `Probe` is the type alias for the probing-strategy functions defined just above.
 
 ```python {export=src/codex/structures/hash.py}
 from typing import Callable
@@ -340,11 +342,11 @@ visualize(double_hash_probe, "double hash")
 
 The longer runs in the linear row are *primary clusters* — once two keys collide, any future key hashing into the run extends it. Quadratic breaks the runs because the steps are non-adjacent. Double hashing breaks them more thoroughly because two keys colliding at $h_1$ almost certainly have different $h_2$, so they probe different secondary sequences. The pattern matches Knuth's analysis: linear's expected probe length under load $\alpha$ is $\frac{1}{2}\left(1 + \frac{1}{(1-\alpha)^2}\right)$, which blows up much faster than double hashing's $\frac{1}{1 - \alpha}$.
 
-## Load factor and the cost of rehashing
+## Load factor is the single dial
 
 The load factor $\alpha = n/m$ is the single parameter that controls performance. With chaining, expected chain length is $\alpha$ and expected operation cost is $1 + \alpha$. With open addressing, expected probe length blows up as $\alpha \to 1$, faster than chaining's linear blow-up. That's why the chained `LOAD_FACTOR_MAX` is 0.75 and the open-addressed one is 0.5.
 
-When load factor crosses the threshold, the table doubles. Every entry gets re-hashed against the new capacity (the modulus changed, so old slot assignments are stale) and re-inserted — $\Theta(n)$ work concentrated in one operation, exactly the shape that drove chapter 8's `append` analysis.
+When load factor crosses the threshold, the table doubles. Every entry gets re-hashed against the new capacity (the modulus changed, so old slot assignments are stale) and re-inserted: $\Theta(n)$ work concentrated in one operation, exactly the shape that drove chapter 8's `append` analysis.
 
 The same amortization argument carries over. Resize events happen at sizes $\Theta(1), \Theta(2), \Theta(4), \ldots, \Theta(n/2)$; total work across all resizes is $\Theta(n)$; amortized cost per insertion is $O(1)$. Individual insertions are expected $O(1)$, a vanishingly small fraction of them trigger resizes, and the amortized total stays expected $O(1)$.
 
@@ -394,7 +396,7 @@ print(f"chain lengths: {chain_lens}")
 print(f"slot 0 has {chain_lens[0]} entries — the table degraded to a linked list")
 ```
 
-All 100 entries landed in slot 0. Lookups now cost $\Theta(n)$ — the table degraded silently into the linked list it was supposed to outperform. This is the failure mode that *universal hashing* and *cryptographic hash functions* protect against in production systems. The pointer is at the end of the chapter; the takeaway is that the expected $O(1)$ contract is genuine but conditional on the input being non-adversarial.
+All 100 entries landed in slot 0. Lookups now cost $\Theta(n)$: the table degraded silently into the linked list it was supposed to outperform. Production systems defend against this with universal hashing or cryptographic hash functions. The expected $O(1)$ contract is genuine but conditional on the input being non-adversarial.
 
 ## The three questions, applied
 
@@ -422,17 +424,15 @@ The worst case for both is $\Theta(n)$ per operation, when adversarial inputs fo
 
 ### Is it optimal?
 
-For point lookup, *yes in expectation*. Any algorithm that supports membership testing has to read at least the key it's looking for, so $\Omega(1)$ amortized is the trivial lower bound on operations that touch a single key, and hash tables hit it. No comparison-based structure can do better than $\Theta(\log n)$ for sorted lookup; the hash table beats that by escaping the comparison model entirely, exactly the same move that linear-time sorting made in chapter 6.
+For point lookup, *yes in expectation*. Any algorithm that supports membership testing has to read at least the key it's looking for, so $\Omega(1)$ amortized is the trivial lower bound on operations that touch a single key, and hash tables hit it. No comparison-based structure can do better than $\Theta(\log n)$ for sorted lookup. The hash table beats that by escaping the comparison model entirely. Linear-time sorting in chapter 6 made the same move.
 
-What hash tables *cannot* do is range queries: "give me all keys between `"alice"` and `"frank"`." The hash function scrambles key order on purpose; adjacency in the slot array has no relationship to adjacency in the key space. For that workload you need a *balanced search tree*, which is where Part III picks up — trees give you $\Theta(\log n)$ per operation, which is worse than the hash table's $\Theta(1)$, but they preserve key order and support range queries that hash tables fundamentally can't.
+What hash tables *cannot* do is range queries: "give me all keys between `"alice"` and `"frank"`." The hash function scrambles key order on purpose; adjacency in the slot array has no relationship to adjacency in the key space. For that workload you need a *balanced search tree*, which is where Part III picks up. Trees give you $\Theta(\log n)$ per operation, worse than the hash table's $\Theta(1)$, but they preserve key order and support range queries that hash tables fundamentally can't.
 
-## What hash tables teach you
+## Escaping the comparison model
 
-Hash tables convert the dictionary contract into expected $\Theta(1)$ per operation by computing addresses from key content. Chaining handles collisions with per-slot linked chains; open addressing handles them by probing. Both keep load factor below a threshold via doubling-and-rehashing, amortizing the rebuild cost to $O(1)$ per insertion. The expected-constant promise is genuine but conditional on uniform hashing, and breaks under adversarial inputs.
+Every Part I sorting and search algorithm operated by comparing items. Hash tables don't. They compute on key content, treat the result as an address, skip the comparison-tree lower bound. The same move underlies counting and radix sort from chapter 6, and returns in Part IV (hashing-based pattern matching) and Part IX (Bloom filters revisited, Count-Min sketch, HyperLogLog).
 
-The lesson worth carrying forward is the move that made the chapter possible — **escaping the comparison model**. Every Part I sorting and search algorithm operated by comparing items. Hash tables don't. They compute on key content, treat the result as an address, and skip the comparison-tree lower bound entirely. The same move underlies counting and radix sort from chapter 6, and returns in Part IV (hashing-based pattern matching) and Part IX (Bloom filters revisited, Count-Min sketch, HyperLogLog).
-
-The next chapter pushes the key-into-address idea further. What if you'd accept a little uncertainty about membership in exchange for vastly less memory? A Bloom filter answers "is this in my set?" with two outputs — *definitely not* or *probably yes* — and stores a million-element set in a few kilobytes of bits. Same trick, different direction: instead of computing one address and storing the key, you compute several addresses and store only the *fact* that someone hashed there.
+Hash tables convert the dictionary contract into expected $\Theta(1)$ per operation. Chaining handles collisions with per-slot linked chains; open addressing handles them by probing. Both keep load factor below a threshold via doubling-and-rehashing, amortizing the rebuild cost to $O(1)$ per insertion. The expected-constant promise is genuine but conditional on uniform hashing, and breaks under adversarial inputs.
 
 ## Notes and further reading
 

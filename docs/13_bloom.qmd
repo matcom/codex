@@ -2,43 +2,41 @@
 
 A Bloom filter is a data structure that answers "is this element in my set?" with two possible outputs: *definitely not*, with perfect confidence, or *probably yes*, with a tunable false-positive rate. For a million-element set you can build one in about a megabyte and a half of memory, with a false-positive rate below 1%. The same set stored in a hash table from the last chapter would cost you tens of megabytes, because each entry has to hold the key itself. The Bloom filter doesn't hold the keys at all. It just holds enough information to *recognize* them when they come back.
 
-That trade — accepting probabilistic answers in exchange for vastly less memory — is what makes Bloom filters useful in the kinds of places where memory is genuinely the bottleneck. Web crawlers use them to remember which URLs they've already fetched without storing a hash table of every URL. Databases use them to skip disk reads on queries that "definitely-not" hits the database. Distributed systems use them to summarize what's on each node so other nodes can avoid expensive remote lookups for keys that aren't there.
+That trade — accepting probabilistic answers in exchange for vastly less memory — is what makes Bloom filters useful in the kinds of places where memory is genuinely the bottleneck. Web crawlers use them to remember which URLs they've already fetched without storing a hash table of every URL. Databases use them to skip disk reads when a query's key is definitely not in the table. Distributed systems use them to summarize what's on each node so other nodes can avoid expensive remote lookups for keys that aren't there.
 
-By the end of this chapter you'll have built a Bloom filter from a bit array and $k$ hash functions, derived the false-positive formula $\varepsilon = (1 - e^{-kn/m})^k$ from first principles, computed the optimal $k$ and $m$ given a target false-positive rate, and empirically verified that the formula predicts reality. The cynosure to hold is **the price of compression is doubt**. Bloom filters compress a set by losing the ability to enumerate its members — and that loss is *what buys* the space efficiency. You cannot ask a Bloom filter "what's in you?" You can only ask "is this in you?" — and the answer has a known error rate on the side that's allowed to be wrong.
+**The price of compression is doubt.** A Bloom filter compresses a set by losing the ability to enumerate its members; that loss is what buys the space efficiency. You can't ask "what's in you?" You can only ask "is this in you?" — and the answer has a known error rate on the side that's allowed to be wrong. A bit array of $m$ bits plus $k$ hash functions yields the false-positive formula $\varepsilon = (1 - e^{-kn/m})^k$, from which optimal $k$ and $m$ fall out in closed form.
 
-## The setting: huge set, tight memory
+## A million keys, a megabyte of bits
 
 A hash table from chapter 12 storing $n$ string keys costs roughly $\Theta(n \cdot \overline{|k|})$ memory, where $\overline{|k|}$ is the average key length in bytes. For URLs that's commonly 50–200 bytes per entry, plus the per-entry pointer overhead of the hash-table backing. A million URLs is tens of megabytes. A billion URLs — the kind of set a web crawler accumulates — is tens of gigabytes, which doesn't fit in RAM on a normal machine.
 
-A Bloom filter for the same set, at the same 1% false-positive rate, costs $\approx 1.44 \cdot n \cdot \log_2(1/\varepsilon)$ bits — independent of the key length. For a million URLs at 1% FP rate, that's $1.44 \times 10^6 \times \log_2(100) \approx 9.6$ million bits, or about 1.2 megabytes. For a billion URLs, about 1.2 gigabytes. Two orders of magnitude smaller than the hash-table equivalent, and what you give up is the ability to enumerate the keys you put in and the certainty of *positive* answers — negatives are still definite.
+A Bloom filter for the same set, at the same 1% false-positive rate, costs $\approx 1.44 \cdot n \cdot \log_2(1/\varepsilon)$ bits, independent of the key length. For a million URLs at 1% FP rate, that's $1.44 \times 10^6 \times \log_2(100) \approx 9.6$ million bits, or about 1.2 megabytes. For a billion URLs, about 1.2 gigabytes. Two orders of magnitude smaller than the hash-table equivalent. What you give up: the ability to enumerate the keys you put in, and the certainty of *positive* answers. Negatives stay definite.
 
-The qualifier matters. **No false negatives** is the guarantee that lets the structure be useful as a pre-filter — *"the cache definitely doesn't have this, don't bother checking it"* — or as a one-sided certificate — *"this URL might already be in the crawler queue, schedule a real check before adding it again."* You wrap a Bloom filter around an expensive lookup, and you spend constant time and a few bits of memory to avoid the expensive call most of the time. The 1% of false positives just mean you do the real lookup anyway in those rare cases. Net win.
+**No false negatives** is the guarantee that lets the structure be useful as a pre-filter (*"the cache definitely doesn't have this, don't bother checking it"*) or as a one-sided certificate (*"this URL might already be in the crawler queue, schedule a real check before adding it again"*). You wrap a Bloom filter around an expensive lookup and spend constant time plus a few bits of memory to avoid the expensive call most of the time. The 1% of false positives mean you do the real lookup anyway in those rare cases.
 
-## The construction: one bit array, $k$ hashes
+## One bit array, $k$ hashes
 
 The structure has two parts: a bit array of $m$ bits (all initially zero), and $k$ independent hash functions $h_1, h_2, \ldots, h_k$, each mapping a key to a position in $\{0, 1, \ldots, m-1\}$. To add an item $x$, compute all $k$ hash positions and set those bits to 1. To check whether $x$ is present, compute the same $k$ positions and check whether *all* of them are 1.
 
-If any of the $k$ bits is 0, the answer is *definitely-not* — because if $x$ had been added, all $k$ of its bits would have been set, and zero of them would still be zero. If all $k$ are 1, the answer is *probably-yes* — those bits might all be 1 because $x$ was added, or because other items collectively set the same bits. The second case is a false positive, and its probability is what the next section computes.
+If any of the $k$ bits is 0, the answer is *definitely-not*: if $x$ had been added, all $k$ of its bits would have been set, and zero of them would still be zero. If all $k$ are 1, the answer is *probably-yes*: those bits might all be 1 because $x$ was added, or because other items collectively set the same bits. The second case is a false positive, and its probability is what the next section computes.
 
-The "$k$ independent hash functions" requirement is awkward in practice — you'd have to implement $k$ separate hash functions and tune them not to be correlated. The textbook trick (Kirsch and Mitzenmacher, 2006) is that you only need *two* independent hash functions $h_1$ and $h_2$, and then $h_i(x) = h_1(x) + i \cdot h_2(x) \pmod m$ for $i = 0, 1, \ldots, k-1$ behaves indistinguishably from $k$ independent hashes for the Bloom-filter analysis. That's the double-hashing trick from chapter 12, repurposed.
+The "$k$ independent hash functions" requirement is awkward in practice. You'd have to implement $k$ separate hash functions and tune them not to be correlated. The textbook trick (Kirsch and Mitzenmacher, 2006) is that you only need *two* independent hash functions $h_1$ and $h_2$. Then $h_i(x) = h_1(x) + i \cdot h_2(x) \pmod m$ for $i = 0, 1, \ldots, k-1$ behaves indistinguishably from $k$ independent hashes for the Bloom-filter analysis. The chapter-12 double-hashing trick, repurposed.
 
-## False positives, derived
+## Why $\varepsilon = (1 - e^{-kn/m})^k$
 
 Walk through the analysis slowly. After inserting $n$ items, each setting $k$ bits, the bit array has been hit by a total of $nk$ hash positions. Assuming the hashes are independent and uniform, the probability that any *one specific* bit is *still zero* after those $nk$ writes is:
 
 $$\Pr[\text{bit still 0}] = \left(1 - \frac{1}{m}\right)^{nk} \approx e^{-nk/m}$$
 
-The approximation uses $\lim_{m \to \infty} (1 - 1/m)^{m} = 1/e$. For Bloom filters where $m$ is in the thousands at minimum, the approximation is excellent.
+The approximation uses $\lim_{m \to \infty} (1 - 1/m)^{m} = 1/e$. For Bloom filters where $m$ is in the thousands at minimum, the gap is below $1/m$ and you can read $\approx$ as $=$.
 
-Probability that a specific bit *is* 1: $1 - e^{-nk/m}$.
-
-Probability that a *false positive* happens — that all $k$ bits checked by a query for an item *not* in the set are 1 — assuming the $k$ probed positions are independent:
+Now ask the probability that any specific bit is 1: $1 - e^{-nk/m}$. And then the probability of a false positive — that all $k$ bits checked by a query for an item *not* in the set come back 1, assuming the $k$ probed positions are independent:
 
 $$\varepsilon = \left(1 - e^{-nk/m}\right)^k$$
 
-That's the false-positive rate formula. It depends on $n$ (how many items you've added), $m$ (how big the bit array is), and $k$ (how many hashes per item). $n$ is fixed by the workload; $m$ and $k$ are design parameters.
+That's the false-positive rate. It depends on $n$ (how many items you've added), $m$ (how big the bit array is), and $k$ (how many hashes per item). $n$ is fixed by the workload; $m$ and $k$ are design parameters.
 
-The bilingual restatement: **more hashes hurt past a point**, because more hashes mean more bits get set per insertion, which means the bit array fills up faster, which means more false positives downstream. The optimal $k$ minimizes the false-positive rate for a given $n$ and $m$.
+**More hashes hurt past a point.** More hashes set more bits per insertion, the array fills up faster, and the false-positive rate rises. The optimal $k$ minimizes $\varepsilon$ for a given $n$ and $m$.
 
 Take the derivative of $\varepsilon$ with respect to $k$, set it to zero, and the optimal $k$ falls out cleanly:
 
@@ -56,7 +54,7 @@ $$m^* \approx 1.44 \cdot n \cdot \log_2(1/\varepsilon)$$
 
 That's the formula from the chapter opener. A Bloom filter holding $n$ items at false-positive rate $\varepsilon$ needs about $1.44 n \log_2(1/\varepsilon)$ bits, regardless of key length. For $\varepsilon = 0.01$, that's $1.44 \times \log_2(100) \approx 9.6$ bits per item.
 
-## Implementation
+## Thirty lines and a bytearray
 
 The whole structure fits in about thirty lines of Python. The constructor takes the expected item count and the target false-positive rate, computes optimal $m$ and $k$ from the formulas above, and allocates a `bytearray` to hold the bits.
 
@@ -80,7 +78,7 @@ class BloomFilter:
         self._bits = bytearray((self._m + 7) // 8)
 ```
 
-The bit array lives inside a `bytearray` — a mutable sequence of 8-bit integers. To set bit $i$, you compute the byte index $i // 8$ and the bit-within-byte $i \bmod 8$, then OR in `1 << bit`. To test bit $i$, you AND with the same mask and check whether the result is nonzero. That's the standard bit-array implementation idiom.
+The bit array lives inside a `bytearray`, a mutable sequence of 8-bit integers. To set bit $i$, you compute the byte index $i // 8$ and the bit-within-byte $i \bmod 8$, then OR in `1 << bit`. To test bit $i$, you AND with the same mask and check whether the result is nonzero. The standard bit-array idiom.
 
 ```python {export=src/codex/structures/bloom.py}
     def _hashes(self, item: Hashable) -> Iterator[int]:
@@ -113,7 +111,7 @@ print(f"k = {bf._k}")
 print(f"bits per item: {bf._m / 10_000:.2f}")
 ```
 
-About 96 thousand bits — twelve kilobytes — to hold ten thousand items at 1% false-positive rate. Seven hash functions per item. The bits-per-item figure of about 9.6 matches the formula's $1.44 \log_2 100 \approx 9.6$.
+About 96 thousand bits (twelve kilobytes) to hold ten thousand items at 1% false-positive rate. Seven hash functions per item. The bits-per-item figure of about 9.6 matches the formula's $1.44 \log_2 100 \approx 9.6$.
 
 Now the empirical validation. Insert ten thousand random strings, then query ten thousand *other* random strings and count how many come back as false positives.
 
@@ -151,7 +149,7 @@ print(f"empirical FP rate: {fp_count / tested:.4f}")
 print(f"predicted FP rate: 0.0100")
 ```
 
-Empirical rate within a fraction of a percent of the predicted 1%. The agreement isn't an accident — the analysis is exact (modulo the $(1 - 1/m)^m \to 1/e$ approximation, which is tight at this scale), and the only randomness in the experiment is from the choice of test strings, which is exactly the regime the formula models.
+Empirical rate within a fraction of a percent of the predicted 1%. The agreement isn't an accident: the analysis is exact up to the $(1 - 1/m)^m \to 1/e$ approximation, which is wrong by less than $1/m$ at these table sizes. The only other randomness is from the choice of test strings, which is exactly the regime the formula models.
 
 Sweep the parameter and watch the formula predict reality across a range:
 
@@ -173,15 +171,15 @@ for target_rate in [0.10, 0.01, 0.001]:
           f"predicted={pred:.4f}")
 ```
 
-The predicted false-positive rate sits right on the target every time — which is the whole point of choosing $m$ and $k$ from the closed-form formulas. The structure is parametric, not heuristic.
+The predicted false-positive rate sits right on the target every time. The structure is parametric, not heuristic.
 
-## What you can't do
+## No deletion, no enumeration, no resize
 
 The list of operations a Bloom filter does *not* support is part of its contract. **Deletion isn't safe.** If you clear the $k$ bits for an item, you risk turning future *probably-yes* answers into spurious *definitely-not* answers for *other* items whose hash positions happened to overlap with the one you just deleted. The classic fix is a **counting Bloom filter**: replace each bit with a small counter (4–8 bits typically), increment on `add`, decrement on `remove`. That recovers deletion at the cost of multiplying the memory by the counter width. Mentioned here as a pointer, not implemented.
 
-**Enumeration isn't supported.** There's no `for x in bf` operation, and there couldn't be — the keys themselves were never stored, and the bit pattern alone can't reconstruct them. The structure can answer "do you contain this specific thing?" but never "what do you contain?" That asymmetry is what the cynosure was naming: the price of compression is doubt, and the doubt extends specifically to recovering the members.
+**Enumeration isn't supported.** There's no `for x in bf` operation, and there couldn't be — the keys themselves were never stored, and the bit pattern alone can't reconstruct them. The structure can answer "do you contain this specific thing?" but never "what do you contain?" The doubt the chapter opened on extends specifically to recovering the members.
 
-**Resizing isn't easy.** If you've underestimated $n$, you can't just add bits — the hash positions depend on $m$, so the existing fingerprints become meaningless after a resize. The standard workaround is *scalable Bloom filters* (Almeida et al., 2007), which chain multiple smaller filters together with increasing $m$ and decreasing $\varepsilon$. Another pointer, not built here.
+**Resizing isn't easy.** If you've underestimated $n$, you can't just add bits: the hash positions depend on $m$, so the existing fingerprints become meaningless after a resize. The standard workaround is *scalable Bloom filters* (Almeida et al., 2007), which chain multiple smaller filters together with increasing $m$ and decreasing $\varepsilon$. Another pointer, not built here.
 
 ## The three questions, applied
 
@@ -199,19 +197,17 @@ Space is $\Theta(m) = \Theta(n \log(1/\varepsilon))$ bits — linear in $n$, log
 
 ### Is it optimal?
 
-The information-theoretic lower bound for a structure supporting one-sided $\varepsilon$-error membership testing on a set of size $n$ is $n \log_2(1/\varepsilon)$ bits — you need at least that many bits to distinguish "any of the $n$ members" from "everything else" with error $\varepsilon$. The Bloom filter at optimal $k$ achieves $1.44 n \log_2(1/\varepsilon)$ bits, which is within a factor of $1.44 = 1/\ln 2$ of the lower bound. That constant is the cost of using $k$-independent hash functions; with $k = 1$ and a perfectly correlated hash, you could match the bound, but that hash function doesn't exist for arbitrary keys.
+The information-theoretic lower bound for a structure supporting one-sided $\varepsilon$-error membership testing on a set of size $n$ is $n \log_2(1/\varepsilon)$ bits. You need at least that many bits to distinguish "any of the $n$ members" from "everything else" with error $\varepsilon$. The Bloom filter at optimal $k$ achieves $1.44 n \log_2(1/\varepsilon)$ bits, within a factor of $1.44 = 1/\ln 2$ of the lower bound. That constant is the cost of using $k$-independent hash functions; with $k = 1$ and a perfectly correlated hash, you could match the bound, but that hash function doesn't exist for arbitrary keys.
 
 Structures that get closer to the lower bound exist — *quotient filters* (Bender et al., 2012), *cuckoo filters* (Fan et al., 2014), *Morton filters* (Breslow & Jayasena, 2018) — and they trade additional complexity (mostly around supporting deletion and resize) for a tighter space bound. For the canonical "remember a set, accept some false positives" problem, the basic Bloom filter is within a small constant of optimal, and that's the form that ships in every production caching system.
 
-## What Bloom filters teach you
+## Trade certainty for space
 
-The Bloom filter trades exact membership testing for a probabilistic version of the same operation, and in exchange uses an order of magnitude less memory than a structure that stores the keys themselves. It's correct in the one-sided sense — no false negatives, false positives at a tunable rate. It runs in $\Theta(k)$ per operation and uses $\Theta(n \log(1/\varepsilon))$ bits, which is within a constant factor of the information-theoretic lower bound.
+A Bloom filter achieves its memory efficiency precisely by giving up the ability to enumerate or reconstruct what it holds. The trade isn't a bug; it's the point. Asymmetric error guarantees — definite negatives, probable positives — are what make the structure useful as a pre-filter even when the positives have a known error rate.
 
-The lesson worth carrying forward is the design move: **trade certainty for space**. The structure achieves its memory efficiency precisely *by* giving up the ability to enumerate or reconstruct what it holds. The trade isn't a bug — it's the point. Asymmetric error guarantees (definite negatives, probable positives) are the contract that makes the trade work, because the asymmetry lets the structure be useful as a pre-filter even when the positives have a known error rate.
+This pattern shows up across the probabilistic-data-structures family in Part IX. Count-Min sketch trades exactness for space when *counting* frequencies of items in a stream. HyperLogLog trades exactness for space when *counting distinct items* in a stream, getting the count of a billion-element multiset accurate to within 2% using a kilobyte of memory. Each is a different version of the same move: identify exactly what the workload needs to know, and design a structure that stores only *that*, with a known error rate on the side you're allowed to be wrong.
 
-This pattern shows up across the probabilistic-data-structures family in Part IX. Count-Min sketch trades exactness for space when *counting* frequencies of items in a stream. HyperLogLog trades exactness for space when *counting distinct items* in a stream — and gets the count of a billion-element multiset accurate to within 2% using a kilobyte of memory. All of them are different versions of the same move: identify exactly what the workload needs to know, and design a structure that stores only *that*, with a known error rate on the side you're allowed to be wrong.
-
-You've now seen six data structures across this part. The last chapter introduces a structure whose contract isn't "store a value" or "check membership" — it's "maintain a partition." And the algorithm that makes it work is so close to optimal that describing its time complexity requires the inverse Ackermann function. After hash tables and Bloom filters, that's the right note for Part II to end on.
+The Bloom filter itself is correct in the one-sided sense (no false negatives, false positives at a tunable rate), runs in $\Theta(k)$ per operation, and uses $\Theta(n \log(1/\varepsilon))$ bits, within a constant factor of the information-theoretic lower bound.
 
 ## Notes and further reading
 

@@ -2,9 +2,9 @@
 
 You have a million records sitting in a dynamic array and you need to insert a new one between records 499,999 and 500,000. With the array from the last chapter you have to shift half a million elements over by one — a single `insert` call doing five hundred thousand writes. That's not a bug in your code. That's a property of contiguous storage: items next to each other in memory have to *stay* next to each other in memory, and the only way to make room in the middle is to push everything past it over.
 
-A linked list answers that complaint with a completely different memory layout. Each element lives at its own address, wherever the allocator decided to put it, and each one holds a pointer to the next. Inserting an item in the middle rewrites exactly two pointers — regardless of how big the list is.
+A linked list answers that complaint with a completely different memory layout. Each element lives at its own address, wherever the allocator decided to put it, and each one holds a pointer to the next. Inserting an item in the middle rewrites exactly two pointers, regardless of how big the list is.
 
-By the end of this chapter you'll have built singly linked, doubly linked, and circular linked lists, written the three textbook list-manipulation routines — *reverse*, *merge*, and Floyd's *tortoise-and-hare* cycle detection — and learned why a pointer is a different *kind* of address than an array index. The image to hold for the chapter is **pointer surgery**: every operation is a small, local rewrite of one or two pointers, never touching the rest of the chain. The price you pay for that locality is that you can no longer ask for the $i$-th element without walking $i$ steps to get there.
+That locality is **pointer surgery** — every operation a small, local rewrite of one or two pointers, never touching the rest of the chain. The price is that you can no longer ask for the $i$-th element without walking $i$ steps to get there. Singly linked, doubly linked, and circular variants each rebalance the trade differently; three textbook routines (reverse, merge, Floyd's tortoise-and-hare cycle detection) exercise the idiom.
 
 ## A node knows its successor
 
@@ -24,7 +24,7 @@ class Node[T]:
 
 The `next` annotation has to be a string because the class is referring to itself before its name has finished binding. That's a Python detail, not a deep one — every linked-structure language has some version of this footnote.
 
-A *chain* of nodes is just a `Node[T]` you've decided to call the head. You don't need a separate list object to walk it. To iterate, you start at the head and follow `next` pointers until you hit `None`. To find the $i$-th element, you walk $i$ steps. To find the length, you walk the whole thing. Those last two are the linked-list tax: indexed access is $\Theta(i)$, not $O(1)$, and the structure can never compete with an array on workloads where you index a lot.
+A *chain* of nodes is just a `Node[T]` you've decided to call the head. You don't need a separate list object to walk it. To iterate, you start at the head and follow `next` pointers until you hit `None`. To find the $i$-th element, you walk $i$ steps. To find the length, you walk the whole thing. Those last two are the linked-list tax: indexed access is $\Theta(i)$, not $O(1)$.
 
 A typical chain laid out flat, with addresses standing in for "wherever each node ended up in memory":
 
@@ -35,7 +35,7 @@ A typical chain laid out flat, with addresses standing in for "wherever each nod
 
 The addresses A through E might be anywhere in memory — no requirement of contiguity. The list as a whole holds together because each node's `next` pointer names the next address in the chain.
 
-I'll also wrap a chain in a small `LinkedList[T]` class that tracks the head, the tail, and the size — so that operations like "append to the end" and "ask the length" can be $O(1)$ instead of $\Theta(n)$. Without the tail pointer, append has to walk the whole chain. With it, append is two pointer writes.
+I'll also wrap a chain in a small `LinkedList[T]` class that tracks the head, the tail, and the size, so that operations like "append to the end" and "ask the length" can be $O(1)$ instead of $\Theta(n)$. Without the tail pointer, append has to walk the whole chain. With it, append is two pointer writes.
 
 ```python {export=src/codex/structures/linked.py}
 class LinkedList[T]:
@@ -108,7 +108,7 @@ The two interesting operations are `insert_after` and `delete_after`. Both take 
         self._size -= 1
 ```
 
-`insert_after` does two pointer writes: the new node's `next` gets the old successor, and the predecessor's `next` gets the new node. `delete_after` does one: the predecessor's `next` skips over the deleted target. Both are $O(1)$ — *given a handle to the node*. That "given a handle" qualifier is the silent caveat: if you have to find the node first by walking, you've paid $\Theta(n)$ before the surgery even started. Linked lists win when the caller already holds node handles — a pattern you'll meet again in chapter 11's deque and chapter 12's chained hash table.
+`insert_after` does two pointer writes: the new node's `next` gets the old successor, and the predecessor's `next` gets the new node. `delete_after` does one: the predecessor's `next` skips over the deleted target. Both are $O(1)$, given a handle to the node. That "given a handle" qualifier is the silent caveat: if you have to find the node first by walking, you've paid $\Theta(n)$ before the surgery even started. Linked lists win when the caller already holds node handles, a pattern you'll meet again in chapter 11's deque and chapter 12's chained hash table.
 
 Running the basic operations on a small example:
 
@@ -133,9 +133,9 @@ chain.insert_after(node, 99)
 print(list(chain))                       # [0, 1, 2, 99, 3, 4, 5]
 ```
 
-Notice the `while` loop walking to find the target node. That's the linked-list tax made visible: every operation on "the node with this value" pays a linear walk to find the node first. The $O(1)$ savings on `insert_after` itself doesn't change that. The structure is only really fast when something else gave you the handle.
+Notice the `while` loop walking to find the target node. That's the linked-list tax made visible: every operation on "the node with this value" pays a linear walk to find the node first. The $O(1)$ savings on `insert_after` itself doesn't change that. The structure is fast only when something else gave you the handle.
 
-## Reverse, in one pass
+## In-place reversal in one walk
 
 A classic interview problem, and the cleanest demonstration of pointer surgery in the chapter. Given the head of a chain, return the head of the same chain with every `next` pointer flipped.
 
@@ -155,9 +155,7 @@ def reverse[T](head: Node[T] | None) -> Node[T] | None:
     return prev
 ```
 
-Five lines, one walk, one node touched per step. The loop invariant: at the top of each iteration, the prefix of the chain from `head` to `prev` is already reversed, and `cur` points at the next node to flip. When the loop terminates, `cur` is `None`, the entire chain has been flipped, and `prev` is the new head — which is what the original tail used to be.
-
-Let me run it.
+Five lines, one walk, one node touched per step. The loop invariant: at the top of each iteration, the prefix of the chain from `head` to `prev` is already reversed, and `cur` points at the next node to flip. When the loop terminates, `cur` is `None`, the entire chain has been flipped, and `prev` is the new head (the original tail).
 
 ```{python}
 from codex.structures.linked import LinkedList, reverse
@@ -177,9 +175,9 @@ while cur is not None:
 print(values)   # [5, 4, 3, 2, 1] — flipped, in place, with no new node allocations
 ```
 
-Notice that `reverse` doesn't update the `LinkedList`'s head and tail attributes — it operates on the raw chain of nodes. If you wanted the wrapper class to stay consistent after a reverse, you'd write a method that calls `reverse(self.head)`, then swaps `self.head` and `self.tail`. I left that as a method-not-written so the algorithm itself stays small. The point is the surgery, not the bookkeeping.
+Notice that `reverse` doesn't update the `LinkedList`'s head and tail attributes — it operates on the raw chain of nodes. If you wanted the wrapper class to stay consistent after a reverse, you'd write a method that calls `reverse(self.head)`, then swaps `self.head` and `self.tail`. I left that as a method-not-written so the algorithm itself stays small. The point is the surgery.
 
-## Merging two sorted lists
+## Splice, don't copy
 
 Merge sort's inner step from chapter 4 reappears here, but with one big difference: when the input is a linked list, you don't have to allocate a new array to hold the merged output. You can splice the existing nodes into a single sorted chain by walking two pointers, picking the smaller-headed node at each step, and threading it onto a growing result tail. Zero allocations beyond a single dummy node used to simplify the head case.
 
@@ -235,7 +233,7 @@ print(to_list(merge_sorted(to_chain([1, 2, 3]), None)))    # [1, 2, 3]
 print(to_list(merge_sorted(None, to_chain([4, 5, 6]))))    # [4, 5, 6]
 ```
 
-This is the move that makes merge sort on linked lists *not allocate* during the merge step — a property functional-language sorts (Haskell, ML, Lisp) lean on hard. CPython's stable sort doesn't, because Python's `list` is an array.
+This is the move that makes merge sort on linked lists *not allocate* during the merge step. Functional-language sorts (Haskell, ML, Lisp) lean on it hard. CPython's stable sort doesn't, because Python's `list` is an array.
 
 ## Tortoise and hare: detecting cycles
 
@@ -243,7 +241,7 @@ A linked list isn't supposed to have cycles — the convention is that the chain
 
 Floyd's tortoise-and-hare algorithm detects cycles in $O(n)$ time and $O(1)$ space. Walk the chain with two pointers — a slow one advancing by one step per iteration, a fast one by two. If there's no cycle, the fast pointer hits `None` first and you're done. If there *is* a cycle, the fast pointer eventually catches up to the slow one from behind: both are running around the cycle, the fast one gaining one position per step, and the gap closes within $\lambda$ steps where $\lambda$ is the cycle length.
 
-That meeting point isn't generally the *entry* to the cycle — it's some position inside it that depends on $\mu$ (head-to-entry distance) and $\lambda$. A second phase recovers the entry: reset one pointer to the head, advance both by one step at a time. The congruence $\mu + k \equiv 2(\mu + k) \pmod \lambda$ — worked out on paper — shows why they meet at the entry.
+That meeting point isn't generally the *entry* to the cycle. It's some position inside it that depends on $\mu$ (head-to-entry distance) and $\lambda$. A second phase recovers the entry: reset one pointer to the head, advance both by one step at a time. The congruence $\mu + k \equiv 2(\mu + k) \pmod \lambda$, worked out on paper, shows why they meet at the entry.
 
 ```python {export=src/codex/structures/linked.py}
 def floyd_cycle[T](head: Node[T] | None) -> Node[T] | None:
@@ -263,8 +261,6 @@ def floyd_cycle[T](head: Node[T] | None) -> Node[T] | None:
 ```
 
 The function returns the cycle's entry node, or `None` if there's no cycle. The two `assert`s are there to help Python's type checker — they're invariant claims about pointers, not runtime checks meant to catch bugs.
-
-Let me build a chain with a deliberate cycle and verify Floyd finds the entry.
 
 ```{python}
 from codex.structures.linked import LinkedList, floyd_cycle
@@ -293,9 +289,9 @@ for x in [1, 2, 3]:
 print(floyd_cycle(clean.head))         # None — no cycle to find
 ```
 
-The algorithm is constant-space — two pointers, no `visited` set — and linear-time, with at most $\mu + 2\lambda$ steps across both phases. The math underneath is the kind of result that looks like a coincidence until you've worked through it once, after which it never goes away.
+The algorithm is constant-space (two pointers, no `visited` set) and linear-time, with at most $\mu + 2\lambda$ steps across both phases. The math looks like a coincidence until you work through it. After that it never goes away.
 
-## Doubly linked and circular variants
+## A second pointer makes detach local
 
 The singly linked list has one structural limitation: you can move forward but not backward. If you have a node handle and you want to delete *that* node, you can't — you'd need a handle to its predecessor, which the node itself doesn't know. That's why the API above is `delete_after`, not `delete`. The fix is to give each node a second pointer.
 
@@ -316,7 +312,7 @@ def detach[T](node: DoublyLinkedNode[T]) -> None:
     node.next = None
 ```
 
-`detach` removes a node from its chain in $O(1)$ given only the node's own handle — the operation singly linked lists fundamentally cannot do. That property is what makes the doubly linked list the natural backbone for chapter 11's deque, for LRU caches, and for any structure that holds external handles and wants deletion to be local.
+`detach` removes a node from its chain in $O(1)$ given only the node's own handle. Singly linked lists fundamentally cannot do this. That property is what makes the doubly linked list the natural backbone for chapter 11's deque, for LRU caches, and for any structure that holds external handles and wants deletion to be local.
 
 The cost is one extra pointer per node and one extra rewrite per operation. Memory roughly doubles; whether that's a fair trade depends on the workload.
 
@@ -336,8 +332,6 @@ def make_circular[T](head: Node[T] | None) -> Node[T] | None:
 And you'd walk one of these with a counter, not a `while cur is not None`, because the loop condition would never fire. That's the whole structural change — the rest of the code that operates on chains carries over unchanged.
 
 ## The three questions, applied
-
-You've now built three flavors of linked list and three textbook routines that operate on them. Time for the three questions, applied to the structure as a whole.
 
 ### Is it correct?
 
@@ -364,15 +358,13 @@ The standalone routines: `reverse` is $\Theta(n)$ time, $O(1)$ space. `merge_sor
 
 For the operations a linked list is designed to make cheap, yes. Insert and delete given a handle to the predecessor are $\Omega(1)$ — you have to write at least one pointer — and the linked list hits that bound. Reverse is $\Omega(n)$ because every position changes. Cycle detection is $\Omega(n)$ because the cycle might be anywhere in the chain.
 
-For the operations a linked list makes expensive, no — and that's exactly the trade. Random access at $\Theta(i)$ instead of $O(1)$ is the cost of giving up contiguous storage. An array can do better; a linked list fundamentally cannot. Workload decides: index-heavy callers reach for arrays, insertion-heavy callers holding node handles reach for linked lists, and most real software ends up needing some of both.
+For the operations a linked list makes expensive, no — and that's exactly the trade. Random access at $\Theta(i)$ instead of $O(1)$ is the cost of giving up contiguous storage. An array can do better; a linked list fundamentally cannot. Workload decides. Index-heavy callers reach for arrays; insertion-heavy callers holding node handles reach for linked lists. Most real software ends up needing some of both.
 
-## What linked structures teach you
+## A pointer is a different kind of address
 
-The singly linked list is correct by three invariants — head, tail, size — and makes prepend, append, and adjacent insert/delete $O(1)$ given handles, at the cost of $\Theta(i)$ random access. The doubly linked variant doubles the pointer cost in exchange for $O(1)$ detach-by-handle, which makes it the backbone of every structure that holds external handles and needs to delete by them. The circular variant is a one-line transformation that turns the chain into a loop.
+A pointer is a different kind of address than an integer index. An array index is a logical position relative to a base; recomputing it is free. A pointer is a physical address that's only useful given the pointer itself; recomputing it from a logical position requires walking. That difference is the source of every asymptotic asymmetry between arrays and linked lists.
 
-The lesson worth carrying forward is that a pointer is a *different kind of address* than an integer index. An array index is a logical position relative to a base; recomputing it is free. A pointer is a physical address that's only useful given the pointer itself; recomputing it from a logical position requires walking. That difference is the source of every asymptotic asymmetry between arrays and linked lists.
-
-Now that you have both contiguous and linked storage, the next two chapters introduce disciplines — restrictions on the operations you allow — that make these structures behave like something more than themselves. A stack restricts you to one end of the sequence; a queue restricts you to one end for input and the other for output. The implementations are short, because the structures from this chapter and the last do the heavy lifting. What those restrictions *buy* you is the interesting part.
+The singly linked list is correct by three invariants (head, tail, size) and makes prepend, append, and adjacent insert/delete $O(1)$ given handles, at the cost of $\Theta(i)$ random access. The doubly linked variant doubles the pointer cost in exchange for $O(1)$ detach-by-handle, which makes it the backbone of every structure that holds external handles and needs to delete by them. The circular variant is a one-line transformation that turns the chain into a loop.
 
 ## Notes and further reading
 

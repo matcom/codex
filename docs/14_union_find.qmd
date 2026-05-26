@@ -1,12 +1,10 @@
 # A forest where every element knows its root
 
-You have a set of $n$ elements partitioned into some number of disjoint groups, and two operations: **`union(x, y)`** merges the groups containing $x$ and $y$, and **`connected(x, y)`** asks whether they're already in the same group. Sounds simple — until you watch the textbook algorithm evolve from $O(n)$ per operation in its naive form to *effectively* $O(1)$ in its optimized form, where "effectively" means $O(\alpha(n))$ and $\alpha$ is the inverse Ackermann function, which is at most 4 for any input you'll ever construct in this universe. The progression from naive to optimized is one of the most striking optimization stories in algorithm design, and the destination is one of the most-used data structures in graph algorithms.
+You have a set of $n$ elements partitioned into some number of disjoint groups, and two operations: **`union(x, y)`** merges the groups containing $x$ and $y$, and **`connected(x, y)`** asks whether they're already in the same group. Sounds simple. The naive algorithm costs $O(n)$ per operation. Three optimizations bring it down to amortized $O(\alpha(n))$ — the inverse Ackermann function, at most 4 for any input you'll ever construct. The progression from naive to optimized is one of the most striking stories in algorithm design, and the destination is one of the most-used data structures in graph algorithms.
 
-By the end of this chapter you'll have built three versions of disjoint-set / union-find — **quick-find**, **quick-union**, and the optimized variant with **path compression and union by rank** — and you'll have measured how each optimization slashes the height of the underlying forest. You'll also have a structure ready to plug into Kruskal's minimum-spanning-tree algorithm in Part V, where the union-find is the cycle-detection engine that makes the algorithm work at all.
+Each set is a tree: **a forest of parents**. The root of the tree names the set; every non-root element holds a pointer to its parent. `find` walks up to the root. `union` links two roots together. The whole story is about *making those trees flatter* — first by being clever about which root to link under which (union by rank), then by *retroactively* flattening the path you just walked (path compression). Together those two tricks collapse the trees so aggressively that the amortized cost per operation becomes the inverse Ackermann function. The result is a structure ready to plug into Kruskal's minimum-spanning-tree algorithm in Part V, where the union-find is the cycle-detection engine that makes the algorithm work at all.
 
-The chapter's cynosure is **the forest of parents**. Each set is a tree; the root of the tree names the set; every non-root element holds a pointer to its parent. `find` walks up to the root. `union` links two roots together. The whole story is about *making those trees flatter* — first by being clever about which root to link under which (union by rank), then by *retroactively* flattening the path you just walked (path compression). Together those two tricks collapse the trees so aggressively that the amortized cost per operation becomes the inverse Ackermann function, a quantity that grows so slowly it might as well be a constant.
-
-## Partitions, dynamically
+## Merging groups, one at a time
 
 The problem: maintain a partition of $\{0, 1, \ldots, n-1\}$ that starts in $n$ singleton sets and is gradually merged via `union` calls. At any moment, support `connected(x, y)` queries that ask whether $x$ and $y$ are in the same set.
 
@@ -62,7 +60,7 @@ Quick-find wins on `find` and loses on `union`. The naive partition-as-explicit-
 
 ## Quick-union: forest of parents
 
-The opposite idea: instead of storing each element's *representative*, store each element's *parent*. The representative of a set is the element at the root of its parent-tree — the one whose parent is itself. To find the representative of $x$, walk up the parent pointers until you hit a self-loop.
+The opposite idea: instead of storing each element's *representative*, store each element's *parent*. The representative of a set is the element at the root of its parent-tree: the one whose parent is itself. To find the representative of $x$, walk up the parent pointers until you hit a self-loop.
 
 ```python {export=src/codex/structures/union_find.py}
 class QuickUnion:
@@ -88,7 +86,7 @@ class QuickUnion:
         self._parent[rx] = ry
 ```
 
-The cost has moved from `union` to `find`. Both operations now cost $O(h)$, where $h$ is the height of the relevant tree. The catch is that $h$ can grow as large as $n$ in the worst case — *spaghetti trees* — if every union chains onto an already-tall tree.
+The cost has moved from `union` to `find`. Both operations now cost $O(h)$, where $h$ is the height of the relevant tree. The catch is that $h$ can grow as large as $n$ in the worst case (*spaghetti trees*) if every union chains onto an already-tall tree.
 
 A friendly union sequence wouldn't typically produce a chain — successive `union(i, i+1)` calls actually merge the trees flatly, because `union` always finds the root of each input tree before linking. The pathological shape happens when an adversarial sequence of operations always extends the same growing tree. To make the worst case visible, I'll bypass `union` and construct the chain by hand:
 
@@ -138,7 +136,7 @@ The constructor adds a parallel `_rank` array, initialized to zero (every single
             self._rank[rx] += 1
 ```
 
-The rank-only optimization (without path compression) is enough to bound tree height by $\log_2 n$. The argument: a tree of rank $r$ contains at least $2^r$ elements. That's true at rank 0 (one element) and is preserved by `union` — two trees of equal rank $r$ merge into one of rank $r+1$ with at least $2^r + 2^r = 2^{r+1}$ elements. So a tree of rank $r$ has at least $2^r$ elements, meaning rank $\le \log_2 n$, meaning height $\le \log_2 n$, meaning `find` is $O(\log n)$.
+The rank-only optimization (without path compression) is enough to bound tree height by $\log_2 n$. The argument: a tree of rank $r$ contains at least $2^r$ elements. That's true at rank 0 (one element) and is preserved by `union` — two trees of equal rank $r$ merge into one of rank $r+1$ with at least $2^r + 2^r = 2^{r+1}$ elements. So a tree of rank $r$ has at least $2^r$ elements. Rank is bounded by $\log_2 n$, height by $\log_2 n$, and `find` runs in $O(\log n)$.
 
 That alone is already a dramatic win over the chain-shaped worst case. The next optimization gets you to near-constant.
 
@@ -181,13 +179,13 @@ One `find` call, eight pointer rewrites. After it, the tree's deep chain has col
 
 The combined effect of union by rank and path compression is what gives the structure its near-constant amortized cost. Each optimization alone would still be polynomial; together they break out of polynomial entirely. Tarjan's 1975 analysis showed the combined operations have amortized cost $O(\alpha(n))$ — the inverse Ackermann function.
 
-## What the inverse Ackermann actually means
+## Inverse Ackermann is at most 4
 
 The Ackermann function grows fast. Faster than exponential, faster than tower-of-exponentials, faster than any primitive recursive function. $A(4, 4)$ already exceeds the number of atoms in the observable universe. The *inverse* — $\alpha(n)$, the smallest $m$ such that $A(m, m) \ge n$ — grows so slowly that $\alpha(n) \le 4$ for any $n \le 2^{2^{16}} = 2^{65536}$, a number with twenty thousand digits.
 
-So when this chapter says $O(\alpha(n))$ amortized, the operational meaning is "effectively constant for any input you can construct on any computer ever built." The bound is not literally $O(1)$ — there's a real function in there — but the function is so close to a constant that the distinction has no engineering consequence. You will never run a union-find operation on inputs where $\alpha(n) > 4$.
+So when this chapter says $O(\alpha(n))$ amortized, the operational meaning is "effectively constant for any input you can construct on any computer ever built." The bound is not literally $O(1)$ — there's a real function in there — but the function is so close to a constant that the distinction has no engineering consequence.
 
-The reason it's not literally $O(1)$ is interesting on its own. The deep result (Fredman & Saks 1989) is that $\Omega(\alpha(n))$ is the *true* lower bound for this problem in the cell-probe model — there's no implementation, however clever, that can do better in the worst case. That makes path-compression-plus-union-by-rank tight at the inverse-Ackermann level, which is a striking achievement for a structure built from "child points at parent."
+The reason it's not literally $O(1)$ is the structural payoff. The deep result (Fredman & Saks 1989) is that $\Omega(\alpha(n))$ is the *true* lower bound for this problem in the cell-probe model: there's no implementation, however clever, that can do better in the worst case. That makes path-compression-plus-union-by-rank tight at the inverse-Ackermann level, a striking achievement for a structure built from "child points at parent."
 
 ```{python}
 import time
@@ -216,7 +214,7 @@ for name, cls in [
     print(f"{name:>10}: {t * 1000:>7.1f} ms")
 ```
 
-The differences widen with input size. QuickFind is dominated by its $O(n)$ union cost; QuickUnion benefits from random union sequences that happen to produce balanced trees on average; UnionFind is fastest by the amortized constant factor that the inverse-Ackermann bound predicts. Run the same benchmark at $n = 10\,000$ and the gap between QuickFind and the other two becomes orders of magnitude — which is the practical face of "amortized $O(\alpha(n))$" beating "worst-case $O(n)$."
+The differences widen with input size. QuickFind is dominated by its $O(n)$ union cost; its union cost is the bottleneck. QuickUnion does better on random sequences that happen to produce balanced trees on average. The optimized UnionFind is fastest of all, by the amortized constant factor the inverse-Ackermann bound predicts. Run the same benchmark at $n = 10\,000$ and the gap between QuickFind and the other two becomes orders of magnitude: the practical face of amortized $O(\alpha(n))$ beating worst-case $O(n)$.
 
 ## The three questions, applied
 
@@ -245,17 +243,15 @@ The amortization argument for the optimized version is non-trivial — Tarjan's 
 
 Yes, in a deeply specific sense. Fredman and Saks proved in 1989 that any data structure supporting `union` and `find` on $n$ elements must use $\Omega(\alpha(n))$ amortized time per operation in the cell-probe model — the most permissive model of computation, where you only count memory accesses. That lower bound matches Tarjan's upper bound exactly. The optimized union-find is *tight at the inverse-Ackermann level* — no implementation, however clever, can be asymptotically faster.
 
-That tightness is rare in data structures. Most of the structures in this book are within a constant factor of their lower bounds, but very few *match* their lower bounds the way union-find does. The match exists because the lower bound itself is sophisticated — it took Fredman and Saks to discover that the inverse Ackermann was inevitable, not a quirk of the algorithm.
+That tightness is unusual. Most structures in this book sit within a constant factor of their lower bound; union-find lands *on* it. The match exists because the lower bound itself is sophisticated — it took Fredman and Saks to discover that the inverse Ackermann was inevitable, not a quirk of the algorithm.
 
-## What union-find teaches you
+## A forest, an amortization, and a bound that's almost constant
 
-The three versions of union-find walk through the same progression: identify the bottleneck operation, restructure the data to make it cheap, watch the cost shift to the other operation, restructure again, find the optimization that makes *both* cheap at once. The quick-find-to-quick-union flip moves the cost from `union` to `find`. Union by rank bounds tree height by $\log n$. Path compression makes individual paths near-constant after the first walk. Together they produce a structure whose cost is so close to constant that the gap is measurable only by the inverse Ackermann function.
+Three claims survive the chapter. **The right data structure is sometimes a forest, not a tree:** the partition is a set of trees, with the root naming each set, and the elegance of the optimizations comes from this multi-tree view. **Amortized analysis pays for self-modification:** path compression rewrites the tree as a side effect of querying it, and the rebuilding cost is paid for by the cheaper queries it enables downstream. **Near-constant time bounds aren't $O(1)$ but might as well be:** once a bound is below $\alpha(n) \le 4$ for any realistic input, the distinction stops being engineering.
 
-The lessons worth carrying forward are three. **First, the right data structure is sometimes a forest, not a tree** — the partition is a set of trees, with the root naming each set, and the elegance of the optimizations comes from this multi-tree view. **Second, amortized analysis pays for self-modification** — path compression rewrites the tree as a side effect of querying it, and the rebuilding cost is paid for by the cheaper queries it enables downstream. **Third, near-constant time bounds aren't $O(1)$ but might as well be** — once a bound is below $\alpha(n) \le 4$ for any realistic input, the distinction stops being engineering.
+The three versions of union-find walk through the same progression: identify the bottleneck operation, restructure the data to make it cheap, watch the cost shift to the other operation, restructure again, find the optimization that makes both cheap at once. The quick-find-to-quick-union flip moves the cost from `union` to `find`. Union by rank bounds tree height by $\log n$. Path compression makes individual paths near-constant after the first walk.
 
-You've now seen seven data structures across this part: the dynamic array's amortized append, the linked list's pointer surgery, the stack's LIFO discipline, the queue's FIFO discipline and the monotonic-deque trick, the hash table's key-to-address map, the Bloom filter's compressed-without-enumeration set, and now union-find's evolving forest. Each one is some answer to "which operations do I want to be cheap, and what am I willing to give up to get there?" The answers compose into Parts III through IX, where every algorithm leans on one or more of these substrates without re-deriving them.
-
-The structure that returns first is this chapter's. In Part V, Kruskal's minimum-spanning-tree algorithm is *just* "sort the edges by weight, then walk them in order, adding each edge whose endpoints aren't already in the same set, refusing every edge that would create a cycle." The cycle check is `connected(u, v)`. The "add this edge" step is `union(u, v)`. The whole algorithm is a wrapper around a union-find, plus a sort.
+In Part V, Kruskal's minimum-spanning-tree algorithm is *just* sort the edges by weight, then walk them in order, adding each edge whose endpoints aren't already in the same set. The cycle check is `connected(u, v)`. The "add this edge" step is `union(u, v)`. The whole algorithm is a wrapper around a union-find, plus a sort.
 
 ## Notes and further reading
 

@@ -2,19 +2,19 @@
 
 You're walking through a maze and you keep wanting to back up to the last junction you didn't fully explore. You're compiling an expression and you keep wanting to remember the last operator you saw. You're evaluating a function call and you keep wanting to come back to the line that made the call. All three are the same data structure — a stack — and the discipline that makes them feel like the same thing is the rule that **the most recent thing is the easiest to reach**.
 
-A stack isn't really a new data structure. It's an array or a linked list with two of the operations turned off and one promoted. You can only put things in at one end and take them out at the same end. That single restriction — *last in, first out*, LIFO — is what makes function calls work, what makes parsers parse, what makes undo histories undo, and what makes the iterative version of every recursive algorithm in the rest of this book actually fit in a finite computer.
+A stack isn't really a new data structure. It's an array or a linked list with two of the operations turned off and one promoted. You can only put things in at one end and take them out at the same end. That single restriction — *last in, first out*, LIFO — is what makes function calls work, what makes parsers parse, what makes undo histories undo, and what makes recursive algorithms fit in a finite computer.
 
-By the end of this chapter you'll have built a stack two ways — array-backed and linked — implemented the **Shunting Yard** algorithm that converts an infix expression like `3 + 4 * 2` to postfix `3 4 2 * +`, and evaluated postfix with the same stack. The cynosure to hold is the stack as **a memory of pending decisions**: it holds the things you're not done with yet, in the order you became un-done with them. That image returns in Part V (iterative depth-first search), Part VI (backtracking), and Part IV (Aho-Corasick's automaton state). It's the same shape every time.
+A stack is **a memory of pending decisions** — a stack of sticky notes on your desk, each one a thing you meant to come back to, with the most recent on top. Two backings (array and linked list) satisfy the same three-operation contract. The **Shunting Yard** algorithm converts an infix expression like `3 + 4 * 2` to postfix `3 4 2 * +`; the same stack evaluates the postfix in a second pass.
 
 ## A stack is a sequence with three operations
 
-The contract is short. A stack supports three operations: **push** (put a value on top), **pop** (remove and return the top value), and **peek** (look at the top value without removing it). That's it. There's no indexed access, no iteration in any particular order, no insertion in the middle. The stack's value isn't what it lets you do — it's what it *forbids* you from doing.
+The contract is short. A stack supports three operations: **push** (put a value on top), **pop** (remove and return the top value), and **peek** (look at the top value without removing it). That's it. There's no indexed access, no iteration in any particular order, no insertion in the middle. The stack's value isn't what it lets you do; it's what it *forbids* you from doing.
 
 That restriction matters because every algorithm that uses a stack relies on it. Function call frames work because the language guarantees you can't reach down past the top frame and corrupt the one underneath. Shunting Yard works because the operator at the top of the operator stack is always the most-recently-seen one with unresolved precedence. Iterative DFS works because the next node to visit is always the most-recently-discovered one. Take the LIFO restriction away and every one of those algorithms breaks.
 
-There are two natural ways to back the contract. You can use an array — the top of the stack is the end of the array, push is `append`, pop is `pop`. Or you can use a linked list — the top of the stack is the head of the chain, push is `prepend`, pop unhooks the head. Both implementations satisfy the same three-operation contract. They differ on per-operation cost and on what you're paying in memory overhead.
+There are two natural ways to back the contract. You can use an array: the top of the stack is the end of the array, push is `append`, pop is `pop`. Or you can use a linked list: the top of the stack is the head of the chain, push is `prepend`, pop unhooks the head. Both implementations satisfy the same three-operation contract. They differ on per-operation cost and on what you're paying in memory overhead.
 
-## Backed by an array
+## Array-backed: cheap on average, paid for by doubling
 
 The simplest implementation uses Python's built-in `list`, which is itself a dynamic array of the kind you built from scratch in chapter 8. Append is amortized $O(1)$ thanks to doubling; pop is strict $O(1)$ from the end; indexed access at `[-1]` for `peek` is $O(1)$.
 
@@ -65,9 +65,9 @@ print(popped)                            # [5, 4, 3, 2, 1] — reverse of push o
 
 The pop order is the push order reversed. That's LIFO made concrete: the last thing in is the first thing out, every time.
 
-## Backed by a linked list
+## Linked-backed: strict $O(1)$, paid in pointers
 
-The linked-list-backed stack reuses `Node[T]` from chapter 9. Push prepends a new node at the head of the chain; pop unhooks the head and returns its value. Both are strict $O(1)$ — no amortization, no resize events, no doubling. The cost is one extra pointer per element (the node holds both a value and a `next` pointer) and one heap allocation per push (each node has to be constructed individually).
+The linked-list-backed stack reuses `Node[T]` from chapter 9. Push prepends a new node at the head of the chain; pop unhooks the head and returns its value. Both are strict $O(1)$: no amortization, no resize events, no doubling. The cost is one extra pointer per element (the node holds both a value and a `next` pointer) and one heap allocation per push (each node has to be constructed individually).
 
 ```python {export=src/codex/structures/stack.py}
 from codex.structures.linked import Node
@@ -102,7 +102,7 @@ class LinkedStack[T]:
         return self._top.value
 ```
 
-Twenty lines, same contract, different cost shape. The construction is so similar to the array version that the differences are only visible in the per-operation cost analysis — `push` here is strict $O(1)$ instead of amortized, but every push allocates a node, so the constant factor on each push is higher. In CPython that constant factor is large enough that the array version is faster for almost every realistic workload, and you'd reach for `LinkedStack` mostly when you cared about a *predictable* per-push cost rather than a low *average*.
+Twenty lines, same contract, different cost shape. The construction is so similar to the array version that the differences are only visible in the per-operation cost analysis: `push` here is strict $O(1)$ instead of amortized, but every push allocates a node, so the constant factor on each push is higher. In CPython that constant factor is large enough that the array version is faster for almost every realistic workload. You'd reach for `LinkedStack` mostly when you cared about a *predictable* per-push cost rather than a low *average*.
 
 ```{python}
 from codex.structures.stack import LinkedStack
@@ -120,7 +120,7 @@ print(popped)                          # ['yellow', 'blue', 'green', 'red']
 
 Same contract, same behavior, different layout under the hood. Below this layer everything looks identical; above it, both implementations are interchangeable from any caller's point of view. That interchangeability is the *point* of defining the contract first — you can swap one for the other based on workload without touching the algorithm that consumes it.
 
-## Reverse Polish, evaluated
+## Evaluating postfix with one stack
 
 Reverse Polish notation — RPN, or postfix — writes operators *after* their operands, with no need for parentheses to express grouping. `3 + 4` becomes `3 4 +`. `(1 + 2) * 3` becomes `1 2 + 3 *`. The order of evaluation is implicit in the order of the tokens, and the algorithm to evaluate an RPN expression is one of the shortest interesting programs in this book.
 
@@ -234,7 +234,11 @@ print(postfix)                       # ['1', '2', '+', '3', '4', '+', '*']
 print(evaluate_rpn(postfix))         # 21.0
 ```
 
-Three things to notice. First, the conversion and the evaluation are two separate passes, but the data structure that carries the state between them is the same — a stack. Second, the operator stack at the end of `shunting_yard` is always empty (every operator that went in has come out), and the operand stack at the end of `evaluate_rpn` always has exactly one value (the answer). Those two "exactly empty" / "exactly one" conditions are the invariants that say the expression was well-formed; if either fails, the input had a syntax error. Third, this algorithm is what every real calculator and most real expression-evaluation systems still use, sixty-plus years after Dijkstra published it. The shape doesn't get refactored because it doesn't need refactoring.
+The conversion and the evaluation are two separate passes, but the data structure that carries the state between them is the same: a stack.
+
+The operator stack at the end of `shunting_yard` is always empty (every operator that went in has come out), and the operand stack at the end of `evaluate_rpn` always has exactly one value (the answer). Those two "exactly empty" / "exactly one" conditions are the invariants that say the expression was well-formed; if either fails, the input had a syntax error.
+
+This algorithm is what every real calculator and most real expression-evaluation systems still use, sixty-plus years after Dijkstra published it.
 
 ## The three questions, applied
 
@@ -258,15 +262,13 @@ Per stack operation: push and pop are amortized $O(1)$ on `ArrayStack`, strict $
 
 For the stack itself, yes — $O(1)$ per operation is the trivial lower bound (you have to at least write the value to memory), and both implementations match it. For RPN evaluation, $\Omega(n)$ is the lower bound (you have to read every token), and `evaluate_rpn` matches it at $\Theta(n)$. For Shunting Yard, the same argument: $\Omega(n)$ to read the input, $\Theta(n)$ achieved. None of the three has room for asymptotic improvement.
 
-The deeper optimality claim is structural: any algorithm that needs to resolve operator precedence in a single left-to-right pass *needs* a stack. The reason is that you can't know whether a deferred operator will be popped or whether it'll be followed by something higher-precedence until you've looked further into the input — and a stack is exactly the data structure that lets you defer a sequence of decisions and resolve them in reverse order when the resolution moment arrives. That's not a coincidence about this problem; it's a property of any *bracket-matching*, *delimiter-tracking*, or *deferred-resolution* problem at all.
+The deeper optimality claim is structural: any algorithm that needs to resolve operator precedence in a single left-to-right pass *needs* a stack. You can't know whether a deferred operator will be popped, or whether it'll be followed by something higher-precedence, until you've looked further into the input. A stack is exactly the data structure that lets you defer a sequence of decisions and resolve them in reverse order when the resolution moment arrives. That's not a coincidence about this problem; it's a property of any *bracket-matching*, *delimiter-tracking*, or *deferred-resolution* problem.
 
-## What stacks teach you
+## Restriction is the point
 
-The stack is correct because LIFO is preserved by construction in both backings — push and pop are inverses on the most-recent end, and that's all the contract requires. It runs in $O(1)$ per operation (amortized for the array backing, strict for the linked) and $\Theta(n)$ for both `evaluate_rpn` and `shunting_yard`. It's optimal for everything it's asked to do, because the problems themselves are linear-lower-bounded.
+A data structure's value can sit in what it *forbids*, not just in what it provides. A stack is an array with most of the operations turned off, and that restriction is what lets you reason about deferred-resolution problems cleanly. The same pattern shows up again in chapter 11 (a queue is the same restriction applied to the opposite end), and in chapter 14 (union-find is a partition with the only operations being "merge two pieces" and "ask which piece this element is in"). Each wins by removing operations the underlying storage would otherwise provide.
 
-The lesson worth carrying forward is that a data structure's value can be in what it *forbids*, not just in what it provides. A stack is an array with most of the operations turned off, and that restriction is what lets you reason about deferred-resolution problems cleanly. The same pattern shows up again in chapter 11 (a queue is the same restriction applied to the opposite end), and in chapter 14 (union-find is a partition with the only operations being "merge two pieces" and "ask which piece this element is in"). Each one wins by *removing* operations the underlying storage would otherwise provide.
-
-Stacks pull from the end you put things at. The next chapter inverts the discipline — what if you have to pull from the *other* end? The answer is a queue, and the implementation isn't much longer, but the structural decisions about how to lay the data out get more interesting because the input end and the output end aren't the same anymore.
+The stack itself is correct because LIFO is preserved by construction in both backings. It runs in $O(1)$ per operation (amortized for the array backing, strict for the linked) and $\Theta(n)$ for both `evaluate_rpn` and `shunting_yard`. It's optimal for everything it's asked to do, because the problems themselves are linear-lower-bounded.
 
 ## Notes and further reading
 
