@@ -4,7 +4,7 @@ You have a long string — call it the *text* — and a much shorter string — 
 
 By the end of this chapter you'll have a `find` that returns the first index where the pattern appears, a `find_all` that returns every overlapping occurrence, an instrumented variant that counts the comparisons it does so you can watch the worst case fire in real numbers, and a clear-eyed sense of why this algorithm — usually labelled "brute force" with a faint sneer — is what `grep -F` and most production `memmem` implementations actually run when the constants matter more than the asymptote.
 
-The cynosure I want you to hold is one sentence: **a window of length $m$ slides across $n$ positions and tries each one.** That is the whole algorithm. There is no failure function, no rolling hash, no automaton. Just a window, a slide, and a character-by-character comparison at every shift. Every other pattern-matching algorithm in this part can be read as "the brute force, but skipping shifts I can prove are hopeless." If you understand the brute force, you understand the baseline against which everything else justifies itself.
+**A window of length $m$ slides across $n$ positions and tries each one.** That is the whole algorithm. There is no failure function, no rolling hash, no automaton. Just a window, a slide, and a character-by-character comparison at every shift. Every other pattern-matching algorithm in this part is the brute force, but skipping shifts I can prove are hopeless. The brute force is the baseline against which everything else justifies itself.
 
 ## Finding a needle in a string haystack
 

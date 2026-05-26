@@ -43,7 +43,7 @@ book:
       - 21_segment.qmd
       - 22_fenwick.qmd
       - lessons_3.qmd
-    - part: String Algorithms
+    - part: part4.qmd
       chapters:
       - 23_brute.qmd
       - 24_automaton.qmd
@@ -53,6 +53,7 @@ book:
       - 28_aho_corasick.qmd
       - 29_suffix_array.qmd
       - 30_edit_distance.qmd
+      - lessons_4.qmd
     - part: Graphs
       chapters: []
     - part: Dynamic Programming and Greedy Algorithms
