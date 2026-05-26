@@ -1,22 +1,22 @@
 # Rotations buy you log n
 
-Chapter 16 closed with a small disaster. You took a BST, fed it the keys $0, 1, \ldots, 15$ in sorted order, and watched the height climb to fifteen — a chain of sixteen nodes, every "right" pointer doing the work that a self-respecting balanced tree would spread across both subtrees. The in-order traversal was still sorted (the cynosure held), but the cost shape had collapsed from $\Theta(\log n)$ back to $\Theta(n)$. Lookup became linear, the structure became a linked list, and the BST property — order is *all* the rule says — turned out not to be enough.
+Chapter 16 closed with a small disaster. You took a BST, fed it the keys $0, 1, \ldots, 15$ in sorted order, and watched the height climb to fifteen. The result was a chain of sixteen nodes, every "right" pointer doing work a balanced tree would have spread across both subtrees. The in-order traversal was still sorted, but the cost shape had collapsed from $\Theta(\log n)$ back to $\Theta(n)$. Lookup became linear, the structure became a linked list, and the BST property — order is *all* the rule says — turned out not to be enough.
 
-By the end of this chapter you'll have built a generic `AVL[K, V]` with insert, search, and the same three-case delete as chapter 16, and you'll have watched a sorted insertion of $0, 1, \ldots, 127$ produce a tree of height at most eight. The cynosure to hold: **one integer per node — the height — is enough to keep the tree balanced.** Every node carries a single extra field, every insertion recomputes a handful of those fields on its way back up the recursion, and every imbalance bigger than one is fixed by a constant-time pointer-shuffle called a rotation. That's it. One integer, four rotation shapes, and the worst case stops being a worst case.
+**One integer per node — the height — is enough to keep the tree balanced.** Every node carries a single extra field, every insertion recomputes a handful of those fields on its way back up the recursion, and every imbalance bigger than one is fixed by a constant-time pointer-shuffle called a rotation. That's it. One integer, four rotation shapes, and the worst case stops being a worst case. A generic `AVL[K, V]` with insert, search, and the same three-case delete as chapter 16 turns a sorted insertion of $0, 1, \ldots, 127$ into a tree of height at most eight.
 
 ## The unbalanced problem, recovered
 
-Recall the pathology from chapter 16 in one sentence: a plain BST's height depends on the order keys arrived in. Sorted input gave you a chain of $n$ nodes; shuffled input gave you a tree of height $\approx \log_2 n$. The structural rule (smaller on the left, bigger on the right) said nothing about *shape*, so an adversary feeding you sorted keys could drive every operation to $\Theta(n)$.
+A plain BST's height depends on the order keys arrived in. Sorted input gave you a chain of $n$ nodes; shuffled input gave you a tree of height $\approx \log_2 n$. The structural rule (smaller on the left, bigger on the right) said nothing about *shape*, so an adversary feeding you sorted keys could drive every operation to $\Theta(n)$.
 
 The fix has to be local. You can't periodically rebuild the whole tree — that would cost $\Theta(n)$ on the rebuild step and defeat the point of a dynamic structure. You can't afford to scan the whole tree on every operation either. What you need is a property the tree can *maintain* during insert and delete, using only information visible at the node you're touching, that *forces* the height to be $\Theta(\log n)$ no matter what order keys arrived in.
 
-The trick is to track one extra number per node — the height of the subtree rooted there — and to enforce a tight inequality on that number at every node. When an insert or delete makes the inequality fail, you fix the violation with a $\Theta(1)$ pointer-shuffle called a **rotation**. The rotation preserves the BST invariant (the in-order traversal stays sorted) and reduces the offending subtree's height by one, which is exactly what the rebalancing needs. I'll spend the next section on the rotations themselves, because everything that follows is built from them.
+The trick is to track one extra number per node — the height of the subtree rooted there — and to enforce a tight inequality on that number at every node. When an insert or delete makes the inequality fail, you fix the violation with a $\Theta(1)$ pointer-shuffle called a **rotation**. The rotation preserves the BST invariant (the in-order traversal stays sorted) and reduces the offending subtree's height by one, which is exactly what the rebalancing needs.
 
 ## Rotations: the four shapes
 
-A rotation is a local pointer-shuffle that changes the *shape* of a small piece of the tree without changing the *order* of its keys. I'll introduce four shapes, but only two of them are genuinely distinct: left and right are mirror images of each other, and the two composite rotations are just one of those followed by the other.
+A rotation is a local pointer-shuffle that changes the *shape* of a small piece of the tree without changing the *order* of its keys. There are four shapes, but only two are genuinely distinct: left and right are mirror images of each other, and the two composite rotations are just one of those followed by the other.
 
-Picture a right rotation with me. Before the rotation, the subtree looks like this:
+Before a right rotation, the subtree looks like this:
 
 ```
         y
@@ -38,9 +38,9 @@ You can read `y` as heavier on its left side — its left child `x` is the tall 
 
 The keys stay in the same in-order positions before and after. You can read off `A < x < B < y < C` before the rotation; the same chain still holds after. So the BST invariant survives. The new root `x` ends up at most one level shorter than the old root `y`, which is the rebalancing payoff. Three pointer writes, a couple of height recomputations, and the subtree got shorter.
 
-The code follows the picture exactly. I'll write each rotation as a module-level helper because none of them need wrapper state. Each takes a node and returns the new subtree root; the caller is on the hook for splicing that new root back in.
+The code follows the picture exactly. Each rotation is a module-level helper — none of them need wrapper state — that takes a node and returns the new subtree root; the caller is on the hook for splicing that new root back in.
 
-Before the rotations themselves, I need a few tiny helpers. The "height of a possibly-null subtree" comes up everywhere, so I'll pull it out into a function rather than scatter `if node is None` checks through the rotation code.
+Three small helpers come first. The "height of a possibly-null subtree" comes up everywhere, so it lives in a function rather than scattering `if node is None` checks through the rotation code.
 
 ```python {export=src/codex/trees/avl.py}
 from typing import Iterator
@@ -61,9 +61,9 @@ class AVLNode[K, V]:
         self.height = 0  # leaf height under the root-at-depth-0 convention
 ```
 
-The node carries one extra field beyond chapter 16's `BSTNode`: `height`, the height of the subtree rooted at this node. A freshly-allocated leaf has height 0 — that's the convention from chapter 15 (root at depth 0, height is the maximum depth in the subtree). The forward-referenced string annotations are the same Python detail I used before.
+The node carries one extra field beyond chapter 16's `BSTNode`: `height`, the height of the subtree rooted at this node. A freshly-allocated leaf has height 0 — that's the convention from chapter 15 (root at depth 0, height is the maximum depth in the subtree). The forward-referenced string annotations are the same Python detail from chapter 16.
 
-The three height helpers fit in nine lines combined, and I'll lean on all three from every rotation and every rebalance step.
+The three height helpers fit in nine lines combined, and every rotation and every rebalance step leans on all three.
 
 ```python {export=src/codex/trees/avl.py}
 def _height(node: "AVLNode | None") -> int:
@@ -78,7 +78,7 @@ def _balance_factor(node: "AVLNode") -> int:
     return _height(node.left) - _height(node.right)
 ```
 
-I return $-1$ for the empty subtree so that a single-node subtree (a leaf) ends up at height 0 — same convention as chapter 16's `BST.height`. The balance factor is the left-minus-right height difference; an AVL tree requires that value to be in $\{-1, 0, +1\}$ at every node. Anything outside that range is what triggers a rotation.
+The empty subtree returns $-1$ so that a single-node subtree (a leaf) ends up at height 0 — same convention as chapter 16's `BST.height`. The balance factor is the left-minus-right height difference; an AVL tree requires that value to be in $\{-1, 0, +1\}$ at every node. Anything outside that range is what triggers a rotation.
 
 Right rotation is the workhorse. It assumes the input node has a non-null left child (you wouldn't call it otherwise — there'd be no left subtree to rotate up). Three pointer writes, two height recomputes, return the new root.
 
@@ -95,7 +95,7 @@ def _rotate_right(node: "AVLNode") -> "AVLNode":
 
 The order of the two height updates matters. `node` has just become the right child of `new_root`, so its height depends on its (possibly-rewired) left and right subtrees and must be recomputed *first*. Then `new_root`'s height depends on `node`'s new height, so it's recomputed *second*. Get the order wrong and you'll cache a stale height in `new_root` for one rotation.
 
-Left rotation is the mirror — same code with `left` and `right` swapped. I'll write it out for completeness, but conceptually it's the same operation reflected across the vertical axis.
+Left rotation is the mirror — same code with `left` and `right` swapped, the same operation reflected across the vertical axis.
 
 ```python {export=src/codex/trees/avl.py}
 def _rotate_left(node: "AVLNode") -> "AVLNode":
@@ -108,24 +108,24 @@ def _rotate_left(node: "AVLNode") -> "AVLNode":
     return new_root
 ```
 
-The two double rotations don't need their own functions — they're each just one primitive rotation followed by another. The left-right double rotation (used when a subtree's left child is heavier on *its* right side) is `_rotate_left` on the left child, then `_rotate_right` on the original node. The right-left double rotation is the mirror. I'll inline both compositions inside the rebalance step in the next section, because that's where the "which case am I in?" decision lives.
+The two double rotations don't need their own functions — they're each just one primitive rotation followed by another. The left-right double rotation (used when a subtree's left child is heavier on *its* right side) is `_rotate_left` on the left child, then `_rotate_right` on the original node. The right-left double rotation is the mirror. Both compositions live inline inside the rebalance step in the next section, where the "which case am I in?" decision lives.
 
 Each rotation is $\Theta(1)$ work — three pointer writes, two height recomputations. That is: a rotation is the cheapest possible local fix you can make to a tree's shape. The whole AVL story is about doing $\Theta(\log n)$ of these on the way back up from an insert or delete, and proving that's enough to keep the tree balanced.
 
 ## AVL: height as invariant
 
-The AVL property, stated formally: a binary search tree is an **AVL tree** if, at every node, the balance factor (left subtree height minus right subtree height) is in $\{-1, 0, +1\}$. That is: at every node, the two subtrees differ in height by at most one. Adelson-Velsky and Landis proved in 1962 that this single inequality, enforced everywhere, is enough to bound the tree's height at $O(\log n)$ — I'll come back to *why* in the next section.
+The AVL property, stated formally: a binary search tree is an **AVL tree** if, at every node, the balance factor (left subtree height minus right subtree height) is in $\{-1, 0, +1\}$. That is: at every node, the two subtrees differ in height by at most one. Adelson-Velsky and Landis proved in 1962 that this single inequality, enforced everywhere, is enough to bound the tree's height at $O(\log n)$.
 
 The operational claim is that you can maintain the property under insert and delete using only the same recursive descent as chapter 16, plus a rebalance step on the way back up. Insert descends to a `None` slot and allocates a new leaf (same as the BST). On the way back up the recursion, each ancestor recomputes its height, checks its balance factor, and — if the factor is out of range — applies the appropriate rotation to restore the AVL property at that node.
 
-I owe you the four imbalance cases. They're distinguished by the balance factor at the offending node and the balance factor at its taller child:
+The four imbalance cases are distinguished by the balance factor at the offending node and the balance factor at its taller child:
 
 - **LL** — node is left-heavy ($\text{bf} = +2$), left child is left-heavy or balanced ($\text{bf} \ge 0$). Fix: one right rotation at the node.
 - **LR** — node is left-heavy ($\text{bf} = +2$), left child is right-heavy ($\text{bf} < 0$). Fix: left rotation at the left child, then right rotation at the node.
 - **RR** — node is right-heavy ($\text{bf} = -2$), right child is right-heavy or balanced ($\text{bf} \le 0$). Fix: one left rotation at the node.
 - **RL** — node is right-heavy ($\text{bf} = -2$), right child is left-heavy ($\text{bf} > 0$). Fix: right rotation at the right child, then left rotation at the node.
 
-As I said earlier, LL and RR are mirror images; LR and RL are mirror images. Two genuinely distinct shapes, dressed up in four cases by the symmetry of left and right.
+LL and RR are mirror images; LR and RL are mirror images. Two genuinely distinct shapes, dressed up in four cases by the symmetry of left and right.
 
 You can read the rebalance helper as that case-split written out. It takes a node whose subtrees have just been updated by a recursive operation, recomputes the node's height, and either returns the node unchanged (already balanced) or returns a new subtree root after applying the right rotation pattern.
 
@@ -148,7 +148,7 @@ def _rebalance(node: "AVLNode") -> "AVLNode":
 
 You can read the two outer cases as left-heavy or right-heavy, each with an optional inner rotation on the child for the "double" variant, then a final rotation on the node itself. The asserts document the invariant: if `bf > 1` then there must be a left subtree taller than the right, so `node.left` is non-null.
 
-Now the wrapper class. You'll find it mirrors chapter 16's `BST[K, V]` almost line for line. Same `_root` and `_size` fields, same nested-helper idiom for insert and delete. The rebalance call on the way back up is the only structural change.
+The wrapper class mirrors chapter 16's `BST[K, V]` almost line for line: same `_root` and `_size` fields, same nested-helper idiom for insert and delete. The rebalance call on the way back up is the only structural change.
 
 ```python {export=src/codex/trees/avl.py}
 class AVL[K, V]:
@@ -165,7 +165,7 @@ class AVL[K, V]:
 
 `height` reads the root's cached `height` field directly: $\Theta(1)$, no traversal needed. You get a small win over chapter 16's `BST.height`, which had to walk the whole tree.
 
-Insert is the same recursive descent as the BST, with one extra call to `_rebalance` at the very end of the helper. The helper returns the (possibly new) subtree root, and the caller reassigns whichever pointer it descended through. Same functional-recursive idiom I used in chapter 16.
+Insert is the same recursive descent as the BST, with one extra call to `_rebalance` at the very end of the helper. The helper returns the (possibly new) subtree root, and the caller reassigns whichever pointer it descended through. Same functional-recursive idiom as chapter 16.
 
 ```python {export=src/codex/trees/avl.py}
     def insert(self, key: K, value: V) -> None:
@@ -185,9 +185,9 @@ Insert is the same recursive descent as the BST, with one extra call to `_rebala
         self._root = _insert(self._root)
 ```
 
-Three branches per node, just like chapter 16. The duplicate-key case returns the node immediately without rebalancing — overwriting a value doesn't change any height. The two recursive branches descend, then I call `_rebalance` on the way back up. Because `_rebalance` updates the height *before* checking the balance factor, that one call does double duty: it maintains the height field and fixes any imbalance.
+Three branches per node, just like chapter 16. The duplicate-key case returns the node immediately without rebalancing — overwriting a value doesn't change any height. The two recursive branches descend, then `_rebalance` runs on the way back up. Because it updates the height *before* checking the balance factor, that one call does double duty: it maintains the height field and fixes any imbalance.
 
-I left search and `__contains__` unchanged from chapter 16. Read-only operations don't care about heights or rebalancing.
+Search and `__contains__` are unchanged from chapter 16; read-only operations don't care about heights or rebalancing.
 
 ```python {export=src/codex/trees/avl.py}
     def search(self, key: K) -> V | None:
@@ -217,7 +217,7 @@ I left search and `__contains__` unchanged from chapter 16. Read-only operations
 
 Three lookups, an iterator, a containment check. Nothing here changes shape — the AVL property is something the tree *maintains internally*, not something you have to know about to query it. From outside, the AVL behaves like the BST of chapter 16, just with a tighter cost guarantee.
 
-Delete is the same three-case method from chapter 16, with the same successor-finding helper, plus a rebalance call on every recursive return. I'll show the successor finder first since it's a one-liner.
+Delete is the same three-case method from chapter 16, with the same successor-finding helper, plus a rebalance call on every recursive return. The successor finder is a one-liner:
 
 ```python {export=src/codex/trees/avl.py}
     def _min_node(self, node: AVLNode[K, V]) -> AVLNode[K, V]:
@@ -228,7 +228,7 @@ Delete is the same three-case method from chapter 16, with the same successor-fi
 
 Same as chapter 16: walk left until you can't. The leftmost descendant of any subtree holds its smallest key.
 
-Delete itself is the three-case dispatch from chapter 16, threaded through the same `_rebalance` call as insert. The leaf case folds into the one-child case folds into the two-children case, where I copy the in-order successor's payload up and recursively delete the successor from the right subtree.
+Delete itself is the three-case dispatch from chapter 16, threaded through the same `_rebalance` call as insert. The leaf case folds into the one-child case folds into the two-children case, where the in-order successor's payload gets copied up and the successor itself is recursively deleted from the right subtree.
 
 ```python {export=src/codex/trees/avl.py}
     def delete(self, key: K) -> None:
@@ -257,11 +257,11 @@ Delete itself is the three-case dispatch from chapter 16, threaded through the s
         self._root = _delete(self._root, key)
 ```
 
-Same three cases as chapter 16 — leaf, one child, two children — with the same trick that the leaf case and the one-child case fall out of the same two `return` lines. The structural difference is the `return _rebalance(node)` at the bottom of the helper. Whenever the recursion returns a node (rather than `None` or a spliced child), I take it through the rebalance step. That keeps the AVL property invariant under deletion the same way it does under insertion: recompute the height, check the balance factor, rotate if needed.
+Same three cases as chapter 16 — leaf, one child, two children — with the same trick that the leaf case and the one-child case fall out of the same two `return` lines. The structural difference is the `return _rebalance(node)` at the bottom of the helper. Whenever the recursion returns a node (rather than `None` or a spliced child), that node goes through the rebalance step. That keeps the AVL property invariant under deletion the same way it does under insertion: recompute the height, check the balance factor, rotate if needed.
 
-You owe me a small caution on delete: a single delete can require *multiple* rotations on the way up to the root. Insertion is the easier case because at most one rotation is needed (after a successful rotation, the subtree's height returns to what it was before the insert, so the imbalance doesn't propagate). Deletion isn't so kind — removing a node can reduce a subtree's height by one, which can in turn unbalance its parent, which can in turn unbalance *its* parent, all the way up. That's why AVL delete is $O(\log n)$ rotations in the worst case rather than $O(1)$, and it's the main reason production code prefers red-black trees (sidebar coming).
+A caution on delete: a single delete can require *multiple* rotations on the way up to the root. Insertion is the easier case because at most one rotation is needed (after a successful rotation, the subtree's height returns to what it was before the insert, so the imbalance doesn't propagate). Deletion isn't so kind — removing a node can reduce a subtree's height by one, which can in turn unbalance its parent, which can in turn unbalance *its* parent, all the way up. That's why AVL delete is $O(\log n)$ rotations in the worst case rather than $O(1)$, and it's the main reason production code prefers red-black trees (sidebar coming).
 
-Now to the demos. First, the one-rotation case. I'll insert `[1, 2, 3]` into an empty AVL. After inserting 1 and 2, you'll see a right-leaning V at the root. After inserting 3, the root's balance factor hits $-2$ and a left rotation fixes it, leaving 2 at the root with 1 and 3 as children.
+The one-rotation case: insert `[1, 2, 3]` into an empty AVL. After inserting 1 and 2, the root is a right-leaning V. After inserting 3, the root's balance factor hits $-2$ and a left rotation fixes it, leaving 2 at the root with 1 and 3 as children.
 
 ```{python}
 from codex.trees.avl import AVL
@@ -280,9 +280,9 @@ print(f"in-order:        {[k for k, _ in tree.in_order()]}")
 # [1, 2, 3] — still sorted; rotations preserve the BST invariant
 ```
 
-The third insert triggered the rotation. You watched the root change from 1 to 2, the height drop from 2 (chain) to 1 (balanced triangle), and the in-order stay sorted — same cynosure as chapter 16, plus the new one about height.
+The third insert triggered the rotation. The root changed from 1 to 2, the height dropped from 2 (chain) to 1 (balanced triangle), and the in-order stayed sorted — the BST invariant still holds, and now the height stays bounded too.
 
-Next, the sorted-insertion experiment from chapter 16, redone with AVL. Sixteen keys, $0$ through $15$, fed in sorted order. Chapter 16's plain BST gave you height 15; I'd expect AVL to keep the height close to $\log_2 16 = 4$.
+The chapter-16 sorted-insertion experiment, redone with AVL: sixteen keys, $0$ through $15$, fed in sorted order. Chapter 16's plain BST gave you height 15; AVL should keep the height close to $\log_2 16 = 4$.
 
 ```{python}
 sorted_avl: AVL[int, int] = AVL()
@@ -295,9 +295,9 @@ print(f"in-order: {[k for k, _ in sorted_avl.in_order()]}")
 # [0, 1, ..., 15] — sorted, same as the BST would have produced
 ```
 
-You're looking at height 4 instead of 15 — almost $4\times$ shorter on the same input, and the gap widens as $n$ grows. The cynosure made tactile: one integer per node, recomputed on every insert, kept the tree balanced across every one of those sixteen pathological insertions.
+Height 4 instead of 15 — almost $4\times$ shorter on the same input, and the gap widens as $n$ grows. One integer per node, recomputed on every insert, kept the tree balanced across every one of those sixteen pathological insertions.
 
-For the larger demo, I'll insert the keys $0$ through $127$ in sorted order. A balanced binary tree of 128 nodes has height 7 ($\log_2 128 = 7$). The AVL bound (which I'll prove in the next section) is $h \le 1.44 \log_2(n+2) \approx 10$ for $n=128$, so anything up to 10 is conformant. In practice on sorted input, you'll see AVL hit the perfect height of 7.
+Inserting $0$ through $127$ in sorted order pushes the demo further. A balanced binary tree of 128 nodes has height 7 ($\log_2 128 = 7$). The AVL bound (proven in the next section) is $h \le 1.44 \log_2(n+2) \approx 10$ for $n=128$, so anything up to 10 is conformant. In practice on sorted input, AVL hits the perfect height of 7.
 
 ```{python}
 big_avl: AVL[int, int] = AVL()
@@ -319,11 +319,11 @@ The AVL property bounds height. The proof is a counting argument that turns into
 
 The question to answer: among all AVL trees of a given height $h$, what's the *minimum* number of nodes any of them can have? Call that minimum $N(h)$. If you can show $N(h)$ grows exponentially in $h$, then the inverse — *for any $n$ nodes, the maximum height is logarithmic* — falls out by inverting the function.
 
-I'll build the minimum AVL tree of height $h$ recursively. Its root has two subtrees, and at least one of them must have height exactly $h - 1$ (otherwise the tree's height wouldn't be $h$). The AVL property says the other subtree's height differs by at most one, so it's either $h - 1$ or $h - 2$. To minimize the total node count, I pick the *shorter* one: $h - 2$. And to minimize each subtree, I recursively pick the *minimum-node-count* AVL tree of that height. Counting:
+Build the minimum AVL tree of height $h$ recursively. Its root has two subtrees, and at least one of them must have height exactly $h - 1$ (otherwise the tree's height wouldn't be $h$). The AVL property says the other subtree's height differs by at most one, so it's either $h - 1$ or $h - 2$. To minimize the total node count, pick the *shorter* one: $h - 2$. To minimize each subtree, recursively pick the *minimum-node-count* AVL tree of that height. Counting:
 
 $$N(h) = N(h-1) + N(h-2) + 1$$
 
-The $+1$ is the root. The base cases are $N(0) = 1$ (a single node, height 0) and $N(-1) = 0$ (the empty tree, height $-1$ under the convention I picked).
+The $+1$ is the root. The base cases are $N(0) = 1$ (a single node, height 0) and $N(-1) = 0$ (the empty tree, height $-1$ under the convention from earlier).
 
 Solve the recurrence and you'll recognize it. Define $F'(h) = N(h) + 1$. Then $F'(h) = F'(h-1) + F'(h-2)$, with $F'(0) = 2$ and $F'(-1) = 1$ — the Fibonacci recurrence shifted by a constant. So $N(h) = F_{h+3} - 1$, where $F_k$ is the $k$-th Fibonacci number with $F_1 = F_2 = 1$.
 
@@ -339,13 +339,13 @@ And $\log_\phi(n) = \log_2(n) / \log_2(\phi) \approx \log_2(n) / 0.694 \approx 1
 
 $$h \le 1.44 \log_2(n + 2)$$
 
-That is: a million keys in an AVL tree have height at most about 28; a billion keys have height at most about 43. You can compare that with a balanced binary tree's ideal of $\log_2 10^6 \approx 20$ and $\log_2 10^9 \approx 30$. AVL stays within 50% of the ideal in the worst case, and typically much closer. The trees that hit the worst-case bound are called **Fibonacci trees**, and you can read them as the AVL analogue of the pathological chain that broke the plain BST in chapter 16.
+That is: a million keys in an AVL tree have height at most about 28; a billion keys have height at most about 43. Compare that with a balanced binary tree's ideal of $\log_2 10^6 \approx 20$ and $\log_2 10^9 \approx 30$. AVL stays within 50% of the ideal in the worst case. The trees that hit the worst-case bound are called **Fibonacci trees**, the AVL analogue of the pathological chain that broke the plain BST in chapter 16.
 
 That settles the height bound: every AVL tree of $n$ nodes has $h = O(\log n)$. Every operation in this chapter walks one root-to-leaf path and does $O(1)$ work at each node, so every operation is $O(\log n)$. The constant in the bound is $1.44$, not $1.0$, but you get a constant.
 
 ## Sidebar: why production picks Red-Black
 
-I'll sketch the other self-balancing BST you'll meet in the wild — the red-black tree — because that's the one production code reaches for. A red-black tree uses a different invariant. Each node carries one **color bit**, red or black, and four rules constrain the coloring: the root is black; no red node has a red child; every path from the root down to any null leaf contains the same number of black nodes; and (in some formulations) every red node's children are non-null. You can read the fourth rule as automatic in the textbook formulation that puts a black "null sentinel" at every empty position.
+The other self-balancing BST you'll meet in the wild is the red-black tree, which production code reaches for. A red-black tree uses a different invariant. Each node carries one **color bit**, red or black, and four rules constrain the coloring: the root is black; no red node has a red child; every path from the root down to any null leaf contains the same number of black nodes; and (in some formulations) every red node's children are non-null. You can read the fourth rule as automatic in the textbook formulation that puts a black "null sentinel" at every empty position.
 
 The coloring is what bounds the height. The two rules that matter for the bound are "no two reds in a row" and "every root-to-null path has the same number of blacks". You can read off the longest possible path from root to null as one that alternates red-black-red-black; the shortest is all-black. Taken together those two rules force the longest path to be at most twice the length of the shortest, which gives $h \le 2 \log_2(n+1)$.
 
@@ -353,21 +353,21 @@ What makes red-black the production choice over AVL is the rotation count, not t
 
 That difference is decisive at scale. The C++ STL's `std::map` and `std::set` are red-black trees. Java's `TreeMap` and `TreeSet` are red-black trees. The Linux kernel's `rbtree` — used by the Completely Fair Scheduler, by the I/O scheduler, by the memory-region tracker, and a dozen other places — is a red-black tree. The slightly looser height bound costs you a handful of comparisons per lookup; the tighter rotation bound saves you arbitrarily many writes per update. In a read-heavy workload AVL would win; in a workload that mixes reads and writes, red-black wins on aggregate cost, and that's the workload most production code lives in.
 
-You should also know about one pedagogical variant. Sedgewick's 2008 **left-leaning red-black tree** — a restricted form of red-black that disallows right-leaning red links — implements the same invariant with about half the code of the classical formulation, and you'll find it used in *Algorithms* (4th ed.) to teach the structure. If you're learning red-black trees from scratch, the left-leaning variant is the gentler entry point. The asymptotic guarantees are identical to the classical formulation.
+A pedagogical variant: Sedgewick's 2008 **left-leaning red-black tree** — a restricted form of red-black that disallows right-leaning red links — implements the same invariant with about half the code of the classical formulation, and *Algorithms* (4th ed.) uses it to teach the structure. For learning red-black trees from scratch, the left-leaning variant is the gentler entry point. The asymptotic guarantees are identical to the classical formulation.
 
-The summary I'd offer you: AVL is the cleaner pedagogy; red-black is the cleaner production engineering.
+AVL is the cleaner pedagogy; red-black is the cleaner production engineering.
 
 ## The three questions, applied
 
 ### Is it correct?
 
-I'll say an AVL tree is correct as a BST if, after any sequence of `insert` and `delete` operations, the in-order traversal produces a sorted sequence of keys. It is correct as an *AVL* tree if, in addition, every node's balance factor sits in $\{-1, 0, +1\}$. You should read the two correctness criteria as stacked: the BST invariant guarantees the right *answers*; the AVL invariant guarantees the right *cost shape*.
+An AVL tree is correct as a BST if, after any sequence of `insert` and `delete` operations, the in-order traversal produces a sorted sequence of keys. It is correct as an *AVL* tree if, in addition, every node's balance factor sits in $\{-1, 0, +1\}$. The two correctness criteria stack: the BST invariant guarantees the right *answers*; the AVL invariant guarantees the right *cost shape*.
 
-The BST correctness argument is the same as chapter 16's. Every insert descends into the subtree the invariant requires, and every delete preserves the in-order ordering by either removing a leaf, splicing a single child up, or copying the in-order successor's payload into the deleted slot. Rotations don't change in-order ordering — the picture I drew in section 2 was the proof, since `A < x < B < y < C` holds before and after — so the BST invariant survives every rebalance step. The AVL invariant holds because `_rebalance` recomputes the height and applies the rotation pattern that fixes the imbalance, and the four rotation cases (LL, LR, RR, RL) exhaust the ways a single insert or delete can drive a balance factor outside the legal range.
+The BST correctness argument is the same as chapter 16's. Every insert descends into the subtree the invariant requires, and every delete preserves the in-order ordering by either removing a leaf, splicing a single child up, or copying the in-order successor's payload into the deleted slot. Rotations don't change in-order ordering — the rotation picture from section 2 is the proof, since `A < x < B < y < C` holds before and after — so the BST invariant survives every rebalance step. The AVL invariant holds because `_rebalance` recomputes the height and applies the rotation pattern that fixes the imbalance, and the four rotation cases (LL, LR, RR, RL) exhaust the ways a single insert or delete can drive a balance factor outside the legal range.
 
 ### How efficient is it?
 
-Here's the cost table I owe you for an AVL tree of $n$ nodes:
+Cost table for an AVL tree of $n$ nodes:
 
 | Operation | Time | Extra space |
 |-----------|------|-------------|
@@ -390,14 +390,18 @@ Among self-balancing BSTs, AVL isn't always the best constant. Red-black trees p
 
 What an AVL tree gives you that the alternatives don't is the *tightest* worst-case height bound among rotation-based self-balancing trees. If you want a tree that's never taller than $1.44 \log_2 n$ no matter what, and you're willing to pay for it in update cost, AVL is the structure to reach for.
 
-## What self-balancing BSTs teach you
+## A local rule, a global cost shape
 
-One integer per node — the height — is enough to keep the tree balanced. Every node carries one extra field; every insert and delete recomputes a handful of those fields on its way back up the recursion; every imbalance bigger than one gets fixed by a constant-time pointer-shuffle called a rotation. You can read the AVL property (balance factor in $\{-1, 0, +1\}$) as the local rule, and the Fibonacci-tree counting argument as what turns that local rule into a global $1.44 \log_2 n$ height bound.
+One integer per node — the height — is enough to keep the tree balanced. Every node carries one extra field; every insert and delete recomputes a handful of those fields on its way back up the recursion; every imbalance bigger than one gets fixed by a constant-time pointer-shuffle called a rotation. The AVL property (balance factor in $\{-1, 0, +1\}$) is the local rule, and the Fibonacci-tree counting argument is what turns that local rule into a global $1.44 \log_2 n$ height bound.
 
-Three lessons worth carrying forward. **First, a local invariant can deliver a global cost shape.** The AVL property is checkable at one node with one integer-subtraction, and yet enforcing it everywhere guarantees the *whole tree* is logarithmically tall. That pattern — local rule, global guarantee — shows up in red-black trees, in B-trees, in segment trees, in nearly every structure in the rest of Part III. **Second, rotations are how trees fix themselves.** A rotation is the cheapest possible local change to a tree's shape that preserves an ordering invariant, and once you've seen the four AVL cases, the rotation idiom carries forward to splay trees, treaps, red-black trees, and beyond. **Third, worst-case guarantees cost something in update overhead, and that cost is sometimes the right thing to pay and sometimes not.** AVL trees pay for their tight height bound with $O(\log n)$ rotations per delete; red-black trees trade a looser bound for a constant rotation count and win in practice. Knowing which trade you're making is the engineer's contribution.
+A local invariant can deliver a global cost shape. The AVL property is checkable at one node with one integer-subtraction, and yet enforcing it everywhere guarantees the *whole tree* is logarithmically tall. That pattern — local rule, global guarantee — shows up in red-black trees, in B-trees, in segment trees, in nearly every structure in the rest of Part III.
+
+Rotations are how trees fix themselves. A rotation is the cheapest possible local change to a tree's shape that preserves an ordering invariant, and once you've seen the four AVL cases, the rotation idiom carries forward to splay trees, treaps, red-black trees, and beyond.
+
+Worst-case guarantees cost something in update overhead, and that cost is sometimes the right thing to pay and sometimes not. AVL trees pay for their tight height bound with $O(\log n)$ rotations per delete; red-black trees trade a looser bound for a constant rotation count and win in practice. Knowing which trade you're making is the engineer's contribution.
 
 Chapter 18 is the variant that gives up *explicit* rotations on every step and replaces them with *probabilistic* balance. A treap assigns each node a random priority on insertion, and maintains a heap order on those priorities while keeping the BST order on the keys. The randomness alone gives you $O(\log n)$ expected height, no balance factor needed — a different way of buying the same guarantee.
 
 ## Notes and further reading
 
-The AVL tree is the original self-balancing BST, introduced by Georgy Adelson-Velsky and Evgenii Landis in 1962 in their paper "An algorithm for the organization of information," published in *Doklady Akademii Nauk SSSR* — the name "AVL" is their initials. CLRS (4th ed.) §13 covers red-black trees as its self-balancing canon and treats AVL only briefly in the exercises; Sedgewick and Wayne's *Algorithms* (4th ed.) §3.3 develops the left-leaning red-black variant Sedgewick introduced in 2008, alongside the 2-3 and 2-3-4 trees that motivate it. Knuth's *The Art of Computer Programming*, vol. 3, §6.2.3 has the canonical analysis of AVL trees including the Fibonacci-tree height bound derivation I sketched in section 4. The choice between AVL and red-black in practice is discussed in Pfaff's 2004 paper "Performance Analysis of BSTs in System Software," which benchmarks both against real kernel workloads and lands on red-black for the same reasons I sketched in the sidebar.
+The AVL tree is the original self-balancing BST, introduced by Georgy Adelson-Velsky and Evgenii Landis in 1962 in their paper "An algorithm for the organization of information," published in *Doklady Akademii Nauk SSSR* — the name "AVL" is their initials. CLRS (4th ed.) §13 covers red-black trees as its self-balancing canon and treats AVL only briefly in the exercises; Sedgewick and Wayne's *Algorithms* (4th ed.) §3.3 develops the left-leaning red-black variant Sedgewick introduced in 2008, alongside the 2-3 and 2-3-4 trees that motivate it. Knuth's *The Art of Computer Programming*, vol. 3, §6.2.3 has the canonical analysis of AVL trees including the Fibonacci-tree height bound derivation sketched in section 4. The choice between AVL and red-black in practice is discussed in Pfaff's 2004 paper "Performance Analysis of BSTs in System Software," which benchmarks both against real kernel workloads and lands on red-black for the same reasons the sidebar sketched.

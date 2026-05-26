@@ -2,13 +2,11 @@
 
 Chapter 19's heap used index arithmetic over a flat array to keep one question cheap: where is the minimum? I want to push that "structure-implied-by-the-layout" idea further and answer a question the heap can't: given an array of numbers, what is the sum (or min, or max) of an arbitrary contiguous range, and how do I keep that answer cheap when the underlying values change?
 
-By the end of this chapter you'll have built a **segment tree**: a binary tree where every node owns a sub-interval of the array and stores the aggregate of the values in that interval. You'll have point-update plus range-query in $O(\log n)$ per operation, and you'll have the harder case (range-update plus range-query) solved with **lazy propagation**, a technique that defers work until somebody actually asks for it.
+**Every node owns an interval, and the answer to any range query is the sum of the $O(\log n)$ canonical intervals that tile it.** A segment tree is what you get when you stop thinking about array indices and start thinking about intervals as first-class objects. The structure gives point-update plus range-query in $O(\log n)$ per operation, and the harder case — range-update plus range-query — yields to **lazy propagation**, a technique that defers work until someone asks for it.
 
-The cynosure to hold: **every node owns an interval, and the answer to any range query is the sum of the $O(\log n)$ canonical intervals that tile it.** A segment tree is what you get when you stop thinking about array indices and start thinking about intervals as first-class objects.
+## Updates cheap or queries cheap — pick one
 
-## The range-query problem
-
-Here's the problem. You have an array of $n$ numbers — call them $a_0, a_1, \ldots, a_{n-1}$ — and you need to support two operations in any order, any number of times.
+You have an array of $n$ numbers — call them $a_0, a_1, \ldots, a_{n-1}$ — and you need to support two operations in any order, any number of times.
 
 1. **Update** one position: set $a_i$ to a new value.
 2. **Query** a range: return the sum (or min, or max, or xor) of $a_l, a_{l+1}, \ldots, a_{r-1}$.
@@ -19,11 +17,11 @@ You have two naive approaches, each handling one operation beautifully and the o
 
 **Approach 2: store prefix sums.** Maintain $P_k = a_0 + a_1 + \cdots + a_{k-1}$. Now a range sum is one subtraction, $O(1)$. But updating $a_i$ shifts every prefix sum from $P_{i+1}$ onward by the same delta, so you rewrite the right half of the array. $O(n)$ per update.
 
-For a mixed workload of comparable updates and queries, both approaches degrade to $O(n)$ amortized per operation, which is the cost of doing nothing clever at all. The segment tree gives you $O(\log n)$ for **both**. Bilingually: on an array of a million elements, both update and query cost about twenty steps; on a billion, about thirty.
+For a mixed workload of comparable updates and queries, both approaches degrade to $O(n)$ amortized per operation, which is the cost of doing nothing clever at all. The segment tree gives you $O(\log n)$ for **both**. On an array of a million elements, both update and query cost about twenty steps; on a billion, about thirty.
 
-## The segment-tree layout
+## Every node owns an interval
 
-I'll think of the array's index range $[0, n)$ as one big interval, recursively split in half. The root node owns $[0, n)$. Its left child owns $[0, n/2)$; its right child owns $[n/2, n)$. The recursion bottoms out at intervals of length one, where each leaf owns one array position and stores its value.
+The array's index range $[0, n)$ is one big interval, recursively split in half. The root node owns $[0, n)$. Its left child owns $[0, n/2)$; its right child owns $[n/2, n)$. The recursion bottoms out at intervals of length one, where each leaf owns one array position and stores its value.
 
 Every internal node stores the aggregate (sum, min, …) of the values in its interval. The root stores the aggregate over $[0, n)$; a node owning $[2, 5)$ stores $a_2 + a_3 + a_4$. The invariant I'll maintain is: **every internal node's stored value equals the aggregate of its two children's stored values.**
 
@@ -31,11 +29,11 @@ That recursive split is a balanced binary tree of height $\lceil \log_2 n \rceil
 
 When $n$ isn't a power of two, the recursive split is still well-defined (you split at the midpoint of each interval), but the implicit-tree index range can exceed $2n - 1$. The safe over-allocation is $4n$ slots; that always fits, by a one-paragraph induction on the recursion depth. I use **half-open intervals** $[l, r)$ throughout, following Python's idiom (the convention `list[l:r]` follows), so the midpoint split partitions $[lo, mid) \cup [mid, hi)$ with no overlap.
 
-The cynosure shows up here. A range query like "sum of $[3, 11)$" doesn't visit every leaf in $[3, 11)$ — that would be $O(n)$. It visits at most $O(\log n)$ internal nodes whose intervals together *tile* $[3, 11)$ exactly. Each visited node returns its stored aggregate in $O(1)$, and I sum them. The tiling is what makes the query logarithmic.
+A range query like "sum of $[3, 11)$" doesn't visit every leaf in $[3, 11)$ — that would be $O(n)$. It visits at most $O(\log n)$ internal nodes whose intervals together *tile* $[3, 11)$ exactly. Each visited node returns its stored aggregate in $O(1)$, and I sum them. The tiling is what makes the query logarithmic.
 
-## Point update, range query
+## Walking down to update, three cases to query
 
-I'll build the structure top-down, then add update and query. The constructor takes the data and an aggregation `op` with its identity element (0 for sum, $-\infty$ for max, etc.).
+The constructor takes the data and an aggregation `op` with its identity element (0 for sum, $-\infty$ for max, etc.).
 
 ```python {export=src/codex/trees/segment.py}
 from collections.abc import Sequence
@@ -103,9 +101,9 @@ The recursive helper figures out whether $i$ falls in the left half or the right
         self._tree[node] = self._op(self._tree[2 * node], self._tree[2 * node + 1])
 ```
 
-You can see the walk visits exactly one node per level, descending into the half containing $i$ and ignoring the other. Tree height is $O(\log n)$, so update is $O(\log n)$ time and $O(\log n)$ stack frames. Bilingually: updating one position in a million-element tree touches about twenty nodes.
+You can see the walk visits exactly one node per level, descending into the half containing $i$ and ignoring the other. Tree height is $O(\log n)$, so update is $O(\log n)$ time and $O(\log n)$ stack frames. Updating one position in a million-element tree touches about twenty nodes.
 
-Now the range query. To compute the aggregate over $[l, r)$ from a node owning $[lo, hi)$, three cases come up. **Disjoint**: the two intervals don't overlap, so the node contributes nothing; return the identity. **Contained**: the node's interval lies entirely inside the query, so the stored aggregate is exactly what I want. **Crossing**: partial overlap, so recurse on both children and combine.
+To compute the range-query aggregate over $[l, r)$ from a node owning $[lo, hi)$, three cases come up. **Disjoint**: the two intervals don't overlap, so the node contributes nothing; return the identity. **Contained**: the node's interval lies entirely inside the query, so the stored aggregate is exactly what I want. **Crossing**: partial overlap, so recurse on both children and combine.
 
 ```python {export=src/codex/trees/segment.py}
     def query(self, l: int, r: int) -> T:
@@ -124,7 +122,7 @@ Now the range query. To compute the aggregate over $[l, r)$ from a node owning $
 
 The three-case split is the heart of the algorithm. Disjoint lets me prune whole subtrees that contribute nothing. Contained stops the recursion at the deepest node still entirely inside the query; that node *is* a canonical tile. Crossing is the only case that descends, and it only happens on the $O(\log n)$ nodes along the *boundaries* of the query range.
 
-Demonstrating on a power-of-two array of eight values, with queries before and after a point update.
+A power-of-two array of eight values, with queries before and after a point update:
 
 ```{python}
 from codex.trees.segment import SegmentTree
@@ -173,15 +171,15 @@ The aggregate flipped from sum to max with one argument. The segment tree isn't 
 
 The dual problem swaps the roles. Updates are now over ranges (say, "add 5 to every element in $[l, r)$") and queries ask for a single element. A segment tree handles this in $O(\log n)$ per operation too: each node stores a **delta** ("this much should be added to every element in my interval"), a range update adds the delta to each tile of the canonical decomposition, and a point query at position $i$ sums the deltas along the root-to-leaf path.
 
-I won't implement this variant separately — the next section's lazy propagation subsumes it. Build the lazy version and call `query(i, i+1)` and you get the point-query semantics for free.
+The lazy version below subsumes this case; call `query(i, i+1)` for point-query semantics.
 
-## Range update + range query: lazy propagation
+## Defer the work until somebody asks
 
 The combined problem (range update *and* range query, both $O(\log n)$) is where the segment tree earns its complexity. Both operations need to touch many tree nodes, and the trick is to make the touching cheap.
 
 The idea is **lazy**. When a range update fully contains a node's interval, I want to record "every element under this node should be increased by `delta`" and stop, rather than walk down to the leaves. So I add a parallel array, `lazy[node]` per node, that records pending updates not yet pushed down. `tree[node]` is kept in sync with the current aggregate *assuming the lazy values above the node have been applied*; `lazy[node]` records updates that affect the subtree but haven't been propagated to the children yet.
 
-The invariant I'll maintain: **`tree[node]` is the correct aggregate for the node's interval, accounting for all lazy values at this node and at every ancestor, but not yet for any lazy values stored at descendants.** Every operation that descends through a node pushes its lazy value down first.
+The invariant: **`tree[node]` is the correct aggregate for the node's interval, accounting for all lazy values at this node and at every ancestor, but not yet for any lazy values stored at descendants.** Every operation that descends through a node pushes its lazy value down first.
 
 ```python {export=src/codex/trees/segment.py}
 class LazySegmentTree:
@@ -268,7 +266,7 @@ Range query is structurally identical to the non-lazy version, with one new line
 
 The push-down inside `_query` keeps the invariant intact: before descending into a child, the parent's pending update has to land there, so whatever the child reports is consistent with every update issued so far.
 
-I'll demo range-add plus range-sum on a fresh array of eight ones.
+Range-add plus range-sum on a fresh array of eight ones:
 
 ```{python}
 from codex.trees.segment import LazySegmentTree
@@ -317,7 +315,7 @@ The cost table for an array of $n$ elements:
 
 The $O(\log n)$ bound on query has a tight argument. A range query at $[l, r)$ visits a tree node if the node's interval overlaps the query but isn't contained in it (crossing), or if it contributes directly (contained). The contained nodes form the canonical tile decomposition; at most 4 per level can appear (two near the left boundary, two near the right), for at most $4 \log n$ total. Crossing nodes are their ancestors, also $O(\log n)$. Per-node work is $O(1)$.
 
-Bilingually: on a million-element array both operations touch about $4 \log_2(10^6) \approx 80$ tree nodes; on a billion, about 120. Storage is $\Theta(n)$: the $4n$ over-allocation absorbs index slack for non-power-of-two $n$, and the lazy variant doubles that with the `_lazy` array.
+On a million-element array both operations touch about $4 \log_2(10^6) \approx 80$ tree nodes; on a billion, about 120. Storage is $\Theta(n)$: the $4n$ over-allocation absorbs index slack for non-power-of-two $n$, and the lazy variant doubles that with the `_lazy` array.
 
 ### Is it optimal?
 
@@ -325,9 +323,15 @@ For the point-update + range-query workload, $O(\log n)$ per operation is asympt
 
 You can sometimes do better with extra assumptions. If updates are *only* increments and queries are *only* sums, a **Fenwick tree** (chapter 22) matches the same $O(\log n)$ bound with half the code and a smaller constant. If queries only ever cover the whole array, the problem trivializes to a counter. The segment tree's $O(\log n)$ is the price of supporting *arbitrary* ranges with *arbitrary* associative aggregates and *arbitrary* updates; drop any of those and a more specialized structure can do better.
 
-## What segment trees teach you
+## The layout is the algorithm
 
-Every node owns an interval, and the answer to any range query is the sum of the $O(\log n)$ canonical intervals that tile it. That's the cynosure, and once it lands the rest is bookkeeping. Three lessons for you to carry forward. **First, the right abstraction is sometimes an interval, not an index.** The naive approaches think about indices; the segment tree gives every interval a node, and range queries become one lookup instead of $n$. **Second, laziness is a data-structure technique, not just a programming-language one.** A range update marks $O(\log n)$ tiles and stops; the marks only propagate when a subsequent query forces them. The same idea powers garbage collection, copy-on-write file systems, and database query planners. **Third, the layout is the algorithm.** A segment tree is a flat array under index arithmetic, chapter 19's trick again. What changes is what each slot stores. The implicit-binary-tree-over-flat-array pattern has been the backbone of three consecutive chapters; chapter 22 makes it four.
+Every node owns an interval, and the answer to any range query is the sum of the $O(\log n)$ canonical intervals that tile it. Once that lands the rest is bookkeeping.
+
+The right abstraction is sometimes an interval, not an index. The naive approaches think about indices; the segment tree gives every interval a node, and range queries become one lookup instead of $n$. The shift from "which position?" to "which interval?" is what turns a linear-time scan into a logarithmic-time descent.
+
+Laziness is a structural technique, not just a syntactic one. A range update marks $O(\log n)$ tiles and stops; the marks only propagate when a subsequent query forces them. The same idea powers garbage collection, copy-on-write file systems, and database query planners — deferred work that materializes only on demand.
+
+A segment tree is a flat array under index arithmetic, chapter 19's trick again. What changes is what each slot stores. The implicit-binary-tree-over-flat-array pattern has been the backbone of three consecutive chapters; chapter 22 makes it four.
 
 Chapter 22 takes the segment tree's range-sum capability and asks: can the same workload be solved with half the code? The answer is yes, by giving up generality. A **Fenwick tree** handles prefix sums (and therefore range sums by subtraction) in $O(\log n)$, using a single array of size $n$ and a bit-manipulation trick on the lowest set bit.
 
