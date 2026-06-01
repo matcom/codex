@@ -1,0 +1,10 @@
+# Ordering vertices and finding strong components
+
+<!--
+TODO Part V ch 37 — Topological sort and SCC
+
+Topological ordering of DAGs: Kahn's algorithm (in-degree BFS) and the
+DFS finish-time order. Then Tarjan's algorithm for strongly connected
+components in a single DFS pass with low-link values. Builds heavily on
+DFS vocabulary from chapter 33.
+-->

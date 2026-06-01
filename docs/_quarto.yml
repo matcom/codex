@@ -54,8 +54,17 @@ book:
       - 29_suffix_array.qmd
       - 30_edit_distance.qmd
       - lessons_4.qmd
-    - part: Graphs
-      chapters: []
+    - part: part5.qmd
+      chapters:
+      - 31_graph_rep.qmd
+      - 32_bfs.qmd
+      - 33_dfs.qmd
+      - 34_dijkstra.qmd
+      - 35_relaxation.qmd
+      - 36_mst.qmd
+      - 37_topo_scc.qmd
+      - 38_flow.qmd
+      - lessons_5.qmd
     - part: Dynamic Programming and Greedy Algorithms
       chapters: []
     - part: Specialized Domains

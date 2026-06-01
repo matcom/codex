@@ -1,0 +1,11 @@
+# Representations of graphs
+
+<!--
+TODO Part V ch 31 — Representations of graphs
+
+Adjacency list, adjacency matrix, edge list. When to use which.
+Sets up the `Graph[V]` types used across the part: weighted vs. unweighted,
+directed vs. undirected. Discuss memory/access trade-offs and the
+"sparse vs dense" rule of thumb. Establish naming and conventions used
+in chapters 32–38.
+-->

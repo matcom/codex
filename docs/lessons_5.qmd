@@ -1,0 +1,32 @@
+# Lessons from Part V {.unnumbered}
+
+<!--
+TODO Part V capstone — Lessons from Graphs
+
+Themes to draw out (match the depth of lessons_4):
+
+- Representation shapes the algorithm — adjacency list vs. matrix is
+  not a storage choice; it changes which questions are cheap. The
+  choice cascades through every algorithm in the part.
+- Relaxation as the unifying technique — Dijkstra, Bellman-Ford,
+  Floyd-Warshall, and Prim's MST all maintain an upper-bound estimate
+  and tighten it repeatedly. The difference between them is the
+  order in which they consider edges.
+- The cut property — MST correctness reduces to a single graph
+  theorem; Kruskal and Prim are two orderings of the same proof.
+- DFS is the swiss-army knife for structural questions —
+  connectivity, cycles, topological order, strongly connected
+  components, bridges, articulation points. All of them are DFS
+  plus a small bookkeeping tweak.
+- Flow as constructive duality — max-flow min-cut is LP-duality made
+  fully visible. The augmenting-path procedure is the constructive
+  half of the proof.
+
+## What's next
+
+Part VI picks up the DP thread — the Floyd-Warshall grid from chapter 35
+is already DP; chapter 30's edit-distance grid was DP; and the SCC
+condensation from chapter 37 turns a directed graph into a DAG on which
+DP runs in linear time. Part VI develops the framework explicitly and
+revisits both.
+-->

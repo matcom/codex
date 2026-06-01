@@ -1,0 +1,11 @@
+# Flow networks and the max-flow min-cut theorem
+
+<!--
+TODO Part V ch 38 — Ford-Fulkerson and Edmonds-Karp
+
+Capacitated networks. Residual graphs. Augmenting paths. Ford-Fulkerson
+with arbitrary augmenting path choice; Edmonds-Karp picks the shortest
+augmenting path via BFS (chapter 32) and runs in $O(VE^2)$. The
+max-flow min-cut theorem as the constructive duality argument. The
+capstone-difficulty chapter of the part.
+-->

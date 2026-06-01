@@ -1,0 +1,9 @@
+# Spanning trees of minimum weight
+
+<!--
+TODO Part V ch 36 — Kruskal and Prim
+
+The cut property as the unifying theorem. Kruskal's algorithm sorts
+edges and adds with union-find (chapter 14); Prim's grows from a single
+vertex with a heap (chapter 19). Two reading orders of the same proof.
+-->

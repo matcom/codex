@@ -1,0 +1,10 @@
+# Depth-first traversal and structural questions
+
+<!--
+TODO Part V ch 33 — DFS
+
+Recursive and iterative formulations. Discovery and finish times.
+Connected components, cycle detection, classification of edges (tree,
+back, forward, cross). Builds the vocabulary that chapter 37 (topo + SCC)
+reuses. Uses the stack from chapter 10.
+-->

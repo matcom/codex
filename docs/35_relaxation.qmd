@@ -1,0 +1,11 @@
+# Relaxation under negative weights and across all pairs
+
+<!--
+TODO Part V ch 35 — Bellman-Ford and Floyd-Warshall
+
+Two algorithms in one chapter — both are relaxation variants on the
+edge set. Bellman-Ford: $O(VE)$ for single-source, handles negative
+edges, detects negative cycles. Floyd-Warshall: $O(V^3)$ for all-pairs
+via DP. Frame as the same idea applied with different edge-ordering
+strategies. Connects forward to dynamic programming (Part VI).
+-->

@@ -1,0 +1,9 @@
+# Breadth-first traversal and the layered frontier
+
+<!--
+TODO Part V ch 32 — BFS
+
+Frontier-based traversal. Level-order, shortest paths in unweighted graphs,
+bipartiteness check as a colored BFS. Uses the queue from chapter 11.
+Establishes the "expand the frontier" pattern reused in Edmonds-Karp (ch 38).
+-->

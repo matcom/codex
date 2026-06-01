@@ -1,0 +1,10 @@
+# Shortest paths under non-negative weights
+
+<!--
+TODO Part V ch 34 — Dijkstra
+
+Single-source shortest path on graphs with non-negative edge weights.
+Greedy choice + the relaxation step. Uses the heap from chapter 19 for
+the priority queue. Establish the "relaxation" vocabulary used again
+in chapter 35.
+-->
