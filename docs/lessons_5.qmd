@@ -1,32 +1,29 @@
 # Lessons from Part V {.unnumbered}
 
-<!--
-TODO Part V capstone — Lessons from Graphs
+Eight chapters about graphs, and the same four moves kept appearing. Every algorithm in the part either explored the graph by tracking what it had already reached, maintained an estimate it tightened until it was tight, searched for a certificate that proved the current answer optimal by exhausting a natural bound, or found an augmenting path through a transformed graph. The chapter titles had different names — BFS, Dijkstra, Kruskal, Tarjan, Edmonds-Karp — but the underlying operations were few. What changed was the substrate: how the graph was represented, what estimates were maintained, which bound was the termination condition.
 
-Themes to draw out (match the depth of lessons_4):
+## The patterns that kept showing up
 
-- Representation shapes the algorithm — adjacency list vs. matrix is
-  not a storage choice; it changes which questions are cheap. The
-  choice cascades through every algorithm in the part.
-- Relaxation as the unifying technique — Dijkstra, Bellman-Ford,
-  Floyd-Warshall, and Prim's MST all maintain an upper-bound estimate
-  and tighten it repeatedly. The difference between them is the
-  order in which they consider edges.
-- The cut property — MST correctness reduces to a single graph
-  theorem; Kruskal and Prim are two orderings of the same proof.
-- DFS is the swiss-army knife for structural questions —
-  connectivity, cycles, topological order, strongly connected
-  components, bridges, articulation points. All of them are DFS
-  plus a small bookkeeping tweak.
-- Flow as constructive duality — max-flow min-cut is LP-duality made
-  fully visible. The augmenting-path procedure is the constructive
-  half of the proof.
+**Representation determines the cost of basic operations.** The first question in each chapter was not "how does the algorithm work?" but "what graph representation does it need?" Adjacency lists make neighbor enumeration $O(\deg(v))$ per vertex but make "does edge $(u, v)$ exist?" an $O(\deg(u))$ lookup. Adjacency matrices flip both: edge existence is $O(1)$, but iterating over neighbors pays $\Theta(n)$ per vertex even in a sparse graph. Every algorithm in the part chose its representation first, because that choice cascaded into every complexity claim. Dijkstra's $O((n + m) \log n)$ is an adjacency-list bound; on an adjacency matrix it degrades to $O(n^2)$. Bellman-Ford's $O(nm)$ edge-relaxation loop is an edge-list bound. Floyd-Warshall's triple loop is an adjacency-matrix bound. The representation is the algorithm's cost model.
+
+**Relaxation is the unifying primitive for distance.** Dijkstra, Bellman-Ford, Floyd-Warshall, and Prim all shared the same outer skeleton: maintain an upper-bound estimate, relax edges to tighten it, repeat until no tightening is possible. What differed was the order. Dijkstra relaxed the globally nearest vertex at each step, making the estimate tight in one pass per vertex — but only when edge weights are non-negative. Bellman-Ford relaxed every edge at every step and ran $n - 1$ rounds, tolerating negative weights at the cost of an $O(nm)$ outer loop. Floyd-Warshall relaxed through intermediate vertices in a fixed order, computing all-pairs distances in one $O(n^3)$ cube of iterations. Prim's MST used the same priority-queue loop as Dijkstra but maintained minimum edge weight to the growing tree instead of path distance from the source. These are not four different algorithms. They are four orderings of the same relaxation loop, each ordering justified by a different invariant.
+
+**DFS timestamps are structural certificates.** DFS discovery and finish times are not integers for the sake of having integers. Each timestamp certified something. A finish time $f(u) > f(v)$ for an unreachable pair $(u, v)$ proves that $v$ was fully explored inside $u$'s subtree — which is exactly the topological-sort argument. A vertex $u$ with the maximum finish time in a weakly connected component is the root of a DFS tree that spans the component's reverse — which is Kosaraju's SCC argument. Tarjan's low-link is a compressed finish time: the minimum finish time reachable from $v$'s subtree via at most one back edge. The same integer, annotated in a different way, answered every structural question the part raised: cycle detection, topological order, cut vertices, bridges, SCCs. DFS is a systematic annotator that encodes the tree's structure in its timestamps.
+
+**Termination condition equals optimality certificate.** The cleanest pattern in the part is also the least obvious one: every algorithm stopped precisely when it had proven its own answer was optimal. Dijkstra's priority queue reaches a vertex when all shorter paths have been settled — the settled-set invariant is the proof. Kruskal's greedy choice of the minimum-weight crossing edge is correct by the cut property — the cut property is the proof. Tarjan's algorithm identifies an SCC when the low-link of its root equals its own discovery time — the low-link equality is the certificate. Edmonds-Karp terminates when BFS finds no augmenting path — the unreachable set defines a minimum cut of capacity equal to the current flow, which is the proof that no more flow is possible. In each case, the algorithm's stopping rule is not "nothing left to do" but "I have built a certificate." The algorithm and its proof of correctness terminate together.
+
+**The residual graph converts a flow problem into a reachability problem.** The key move in chapter 38 was the backward arc, not the BFS loop or the capacity table. Every edge $(u, v)$ in the original network gets a reverse arc $(v, u)$ in the residual graph with capacity equal to the current flow. That reverse arc is what lets the algorithm cancel a locally suboptimal routing decision: sending flow backward along $(v, u)$ is equivalent to reducing flow on $(u, v)$, and that reduction can free capacity for a better path. Without the backward arcs, an augmenting-path procedure would find a maximal flow but not necessarily a maximum one. The residual graph is the transformation that makes the problem correct. Max-flow becomes: find any path in this derived graph. That reduction — from optimization to reachability — is the chapter's central argument.
+
+## Meta-lessons
+
+**The greedy exchange argument is the proof technique for local optimality.** Kruskal's MST is correct not because greedy algorithms are correct in general — they are not — but because of the cut property: any minimum spanning tree includes the minimum-weight edge crossing any cut. The proof is an exchange argument: assume an MST that omits the minimum-weight edge and show that swapping it in produces an MST of equal or lesser weight. The same argument structure underlies Huffman coding, interval scheduling, and every greedy algorithm in the book. When you ask "why is the greedy choice safe here?", you are asking for the exchange argument, and the answer is always a bound that shows the swap cannot increase cost.
+
+**Choosing the right inner subroutine changes the complexity class.** Ford-Fulkerson with arbitrary path selection is not a polynomial algorithm for real-valued capacities and is $O(nU)$ for integers. Replacing the arbitrary path selection with BFS — a single-line change to the inner subroutine — converts it to $O(nm^2)$. Replacing the linear scan in Prim's algorithm with a binary heap converts it from $O(n^2)$ to $O((n + m) \log n)$. The outer loop structure stays identical. What changes is whether the loop body maintains a useful invariant cheaply or expensively. This pattern — same outer loop, different inner work — is the main lever available for turning a correct but slow algorithm into a correct and fast one.
+
+**Every algorithm in the part proved its optimality by finding a dual bound.** Dijkstra's settled set and the relaxation invariant form a primal-dual pair: primal is the set of known shortest paths; dual is the lower bound that no shorter path exists. The min-cut certificate in max-flow is the dual of the flow: primal is the amount flowing from source to sink; dual is the cut capacity that bounds it. Kruskal's cut property is the MST dual: the primal spanning tree; the dual the sequence of cuts that certify each edge choice. These are all instances of LP duality in combinatorial disguise. The insight is not "you can write a linear program for each of these problems" — although you can — but that the primal-dual structure is what makes the algorithm's termination condition and its correctness proof the same statement.
 
 ## What's next
 
-Part VI picks up the DP thread — the Floyd-Warshall grid from chapter 35
-is already DP; chapter 30's edit-distance grid was DP; and the SCC
-condensation from chapter 37 turns a directed graph into a DAG on which
-DP runs in linear time. Part VI develops the framework explicitly and
-revisits both.
--->
+Floyd-Warshall's triple loop is already dynamic programming. The graph is implicit in the recurrence — $d[i][j][k]$ is the shortest path from $i$ to $j$ using only vertices $1, \ldots, k$ as intermediates — and the algorithm fills the table bottom-up exactly as a DP algorithm would. The SCC condensation turns any directed graph into a DAG, and a DAG has a topological order, and a topological order is the correct bottom-up evaluation order for DP on graphs. Every DP on a DAG is a shortest-path computation in disguise, and every shortest-path computation on a DAG can be solved in linear time with DP. Part VI develops both.
+
+The relaxation primitive does not disappear in Part VI. It generalizes. Where Part V's relaxation tightened path-length estimates, Part VI's recurrences tighten optima over subsets, intervals, prefixes, and independent sets. The BFS and DFS idioms carry over directly: BFS-order is topological order on DAGs, and topological order is the correct evaluation order for DP. The relaxation loop recurs in every Part VI recurrence; the traversal idioms show up in every Part VI evaluation order. Part V did not end. It extended.
