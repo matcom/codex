@@ -2,8 +2,6 @@
 
 You have a long string — call it the *text* — and a much shorter string — call it the *pattern* — and you want to know where, if anywhere, the pattern occurs inside the text. That is the pattern-matching problem in its rawest form, and it is the question every algorithm in this part is going to answer, each one trading more preprocessing for less scanning. I want to start where the field starts, with the algorithm that does no preprocessing at all and gets surprisingly far on the strength of a simple double loop.
 
-By the end of this chapter you'll have a `find` that returns the first index where the pattern appears, a `find_all` that returns every overlapping occurrence, an instrumented variant that counts the comparisons it does so you can watch the worst case fire in real numbers, and a clear-eyed sense of why this algorithm — usually labelled "brute force" with a faint sneer — is what `grep -F` and most production `memmem` implementations actually run when the constants matter more than the asymptote.
-
 **A window of length $m$ slides across $n$ positions and tries each one.** That is the whole algorithm. There is no failure function, no rolling hash, no automaton. Just a window, a slide, and a character-by-character comparison at every shift. Every other pattern-matching algorithm in this part is the brute force, but skipping shifts I can prove are hopeless. The brute force is the baseline against which everything else justifies itself.
 
 ## Finding a needle in a string haystack
@@ -195,8 +193,6 @@ For exact pattern matching with no preprocessing, $\Omega(n)$ is the lower bound
 The algorithms in the next four chapters all run in $O(n + m)$ worst-case time — the brute force's $O(n)$ best case made worst-case-tight. KMP gets there with a precomputed failure function that lets shifts reuse work from previous shifts. Boyer-Moore gets there (well, $O(nm)$ worst-case, $O(n/m)$ best-case) by reading the pattern right-to-left and skipping whole regions on a mismatch. Rabin-Karp gets there in expectation with a rolling hash that compares fingerprints instead of full strings. The finite-automaton view of chapter 24 is the conceptual bridge that explains why KMP and Aho-Corasick are the same idea in different costumes.
 
 So the brute force is optimal in the best case and a factor of $m$ off in the worst case — and yet it's the algorithm production code most often ships. The next four chapters are about closing the worst-case gap, and one of the things you'll watch is each algorithm fighting to keep the brute force's best-case behaviour while neutralizing its worst case.
-
-## What brute force teaches you
 
 There's a temptation to read "brute force" as an insult — the algorithm you ship before you've thought hard about the problem. I want you to read it differently. The brute force is the algorithm that does *only the work the problem definition forces it to do*. It does not preprocess, it does not memoize, it does not skip. Every comparison it makes is one the spec couldn't have asked it not to make without giving it extra information.
 

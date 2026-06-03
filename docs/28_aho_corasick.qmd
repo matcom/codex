@@ -4,7 +4,7 @@ Chapter 27 closed by pointing at the multi-pattern case as Rabin-Karp's real nic
 
 **Trie plus failure links equals KMP's failure function generalized to a tree.** Chapter 20 built the trie — one branch per character, the path from root to node spells the key. Chapter 25 built KMP's failure function — for each prefix of one pattern, how much of my recent progress is still salvageable on a mismatch. Aho-Corasick is what you get when you combine those two ideas: build a trie of all $k$ patterns, then add a failure link to every node pointing at the deepest other node whose string is a proper suffix of this node's string. The trie tells you which patterns extend forward; the failure links tell you what to fall back to when extension fails. One scan over the text, one fail-link chase per character on average, every match of every pattern reported.
 
-By the end of this chapter you'll have built that combined structure on the classical demo set `{he, she, his, hers}`, watched the BFS construction of the failure links produce non-trivial fall-backs you can verify by hand, scanned the text `"ushers"` and recovered all three matches that famously fire at nearly the same scan position, swept the canonical text from earlier Part IV chapters with three patterns at once for twelve matches in a single pass, and seen how the same matcher can be built once and reused across many texts the way a virus-scanner ruleset gets reused across every file on disk. The empower-promise is that once you have Aho-Corasick, multi-pattern matching stops being a separate algorithm — it's just the trie chapter and the KMP chapter clicked together.
+Once you have Aho-Corasick, multi-pattern matching stops being a separate algorithm — it's just the trie chapter and the KMP chapter clicked together.
 
 ## What if you wanted to match a thousand patterns at once?
 
@@ -288,8 +288,6 @@ For multi-pattern exact matching with $k$ patterns of total length $M$ in a text
 For *single*-pattern matching ($k = 1$), Aho-Corasick reduces to KMP — the trie collapses to a chain, the fail-links collapse to the failure function, and the scan loop becomes KMP's matching loop. So Aho-Corasick is at least as good as KMP, and strictly better when $k > 1$ because KMP doesn't share structure across patterns. Rabin-Karp's expected $O(n + km)$ for multi-pattern matching is the closest competitor; Aho-Corasick beats it deterministically and has no notion of a worst case driven by adversarial input.
 
 The Commentz-Walter algorithm extends Aho-Corasick with Boyer-Moore-style skipping — it scans windows right-to-left and can skip multiple characters per window when no pattern's suffix is found. That's a different cost shape (sublinear in good cases, worse in bad ones), and for short pattern sets it can beat Aho-Corasick by a constant factor, but it doesn't change the asymptotic bound.
-
-## What Aho-Corasick teaches you
 
 Two lessons I want you to take from this chapter, and one observation about where the chapter sits in Part IV.
 

@@ -323,8 +323,6 @@ The preprocessing is more nuanced. KMP's $\Theta(m)$ preprocessing is informatio
 
 So KMP is optimal for the exact-matching problem in essentially every formal sense — preprocessing time, scan time, total space — except for the constant factor in the scan, where the brute force from chapter 23 still wins on cache-friendly hardware whenever the average case is what matters. The next chapter starts answering "what if I'm willing to do *more* preprocessing in exchange for *sublinear* scanning?" — which is the door Boyer-Moore opens.
 
-## What KMP teaches you
-
 Two lessons I want you to carry forward.
 
 **First, the right representation can collapse an algorithm down to one variable.** Chapter 24's DFA stored a two-dimensional table — state by character — and chapter 25's KMP stores a one-dimensional array, the failure function. Same algorithm, same scan-time behaviour, dramatically less space. The collapse happened because most of the table's entries were answering the same question ("on a mismatch, what's the longest still-salvageable prefix?") and that question has a one-number answer per state. When you see a table whose rows are dense but whose entries collapse along a single axis, you have a candidate for a sparse-encoding rewrite. Compilers, parsers, regular-expression engines, and string-matching libraries all live on variants of this idea.

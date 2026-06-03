@@ -1,10 +1,6 @@
 # Skipping ahead by reading the mismatch
 
-I closed chapter 25 by promising a change of lens. KMP and the chapter-24 DFA both scan left to right, both read every text character at least once, and both spend preprocessing on the question "after a mismatch, how much of my recent progress is salvageable?" Their answer is $\Theta(n)$ — every text character is read exactly once, and that bound is information-theoretically tight if you insist on scanning the text in order. Boyer-Moore breaks that assumption. By scanning each window of the text *right to left* and preprocessing the pattern with a different question in mind, the algorithm earns the right to skip entire stretches of the text without reading them at all. **The wrong letter is a hint — it tells you how far you can jump.** When a window mismatches at some position, the character that disagreed names a shift distance directly, and that distance is often far larger than one.
-
-By the end of this chapter you'll have built two preprocessing tables — the bad-character table and the good-suffix table — combined them into a matcher that runs in $O(n/m)$ in the favorable case and $O(nm)$ in the worst, watched it recover the same four matches of `"ain"` you've been verifying since chapter 23, and seen it do dramatically fewer character comparisons than brute force on the same input. You'll also see, honestly, where the sublinear win evaporates: there are pathological patterns where neither heuristic rescues the algorithm, and the worst case is genuinely $O(nm)$ until Galil's 1979 modification patches it. I'll point at Galil but won't implement him — the patch is intricate and the pedagogical payoff is small.
-
-The chapter's promise is that you'll leave with a working, instrumented Boyer-Moore matcher and a clear intuition for why scanning order matters: right-to-left exposes a class of skips that left-to-right structurally cannot see.
+KMP and the chapter-24 DFA both scan left to right, both read every text character at least once, and both spend preprocessing on the question "after a mismatch, how much of my recent progress is salvageable?" Their answer is $\Theta(n)$ — every text character is read exactly once, and that bound is information-theoretically tight if you insist on scanning the text in order. Boyer-Moore breaks that assumption. By scanning each window of the text *right to left* and preprocessing the pattern with a different question in mind, the algorithm earns the right to skip entire stretches of the text without reading them at all. **The wrong letter is a hint — it tells you how far you can jump.** When a window mismatches at some position, the character that disagreed names a shift distance directly, and that distance is often far larger than one.
 
 ## Reading the window right-to-left
 
@@ -368,8 +364,6 @@ Space is $O(m + \sigma)$ for the two preprocessing tables ($\sigma$ keys in the 
 Boyer-Moore with the good-suffix rule (the version I wrote) achieves $\Theta(n + m)$ worst-case comparisons for `find`, matching KMP's asymptotic bound — Cole's 1994 paper proved this rigorously, with a tight constant of $3n + O(m)$ (versus KMP's $2n + O(m)$). For `find_all`, the unmodified version can degrade further on adversarial input and needs Galil's 1979 patch to recover linear behaviour.
 
 The deeper claim — and the one that's stayed true since 1977 — is that Boyer-Moore is *practically* optimal on the kinds of text humans actually search: long texts, moderately long patterns, large alphabets, no adversarial structure. In that regime, the sublinear best case dominates and the worst case rarely fires. The matcher you'd actually deploy is some variant of Boyer-Moore (or Horspool's simplification, or Sunday's Quick Search, all in this family); the matcher you'd analyze for worst-case bounds is KMP. The two algorithms live in different parts of the cost-shape plane, and choosing between them is an engineering decision about which input distribution you expect.
-
-## What Boyer-Moore teaches you
 
 Two lessons I want you to take from this chapter.
 

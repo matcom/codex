@@ -1,7 +1,5 @@
 # Compiling the pattern into a machine
 
-At the end of chapter 23 I promised you a different lens. The brute force matcher slid a window across the text and, at every shift, compared character by character — and at every mismatch it threw away everything it had just learned. If the first three characters of the pattern matched and the fourth disagreed, the next shift went right back to comparing character zero of the pattern against the next character of the text, as if those three matching characters had never happened. That is the wastefulness I want to fix, and the fix begins with a reframing that costs nothing but completely changes what the algorithm looks like.
-
 Here is the move. Stop thinking of the pattern as a *string* and start thinking of it as a *machine*. Specifically, a deterministic finite automaton — a DFA — with one state for every prefix of the pattern and a transition on every character. State 0 means "I haven't matched anything yet." State 1 means "the last character I read was the pattern's first character." State 2 means "the last two characters I read are the pattern's first two characters." All the way up to state $m$, which means "I just finished matching the whole pattern."
 
 **One state per length of matched prefix — the pattern *is* a DFA.** Every state's number is the length of the pattern prefix I've matched against the recent suffix of the text I've read. The transitions encode the only piece of preprocessing the brute force was missing — when a character disagrees, *how much of what I already matched is still salvageable?* The DFA answers that question in advance, once, and from then on the text scan becomes a single loop: read a character, look up the next state, repeat. KMP is the same DFA, stored more cleverly.
@@ -204,8 +202,6 @@ Bilingually: searching a million-character text for a 10-character pattern over 
 Scanning at $\Theta(n)$ is optimal in the strongest sense — you have to read every character of the text at least once to be sure the pattern doesn't appear, so $\Omega(n)$ is the lower bound, and the DFA matches it. That's the brute force's worst-case-tight upgrade I promised: the brute force runs at $\Theta(n)$ in the best case and $\Theta(nm)$ in the worst case; the DFA runs at $\Theta(n)$ in both.
 
 Preprocessing at $\Theta(m \cdot |\Sigma|)$ space is *not* optimal. KMP achieves the same $\Theta(n)$ scan with $\Theta(m)$ preprocessing — a factor of $|\Sigma|$ smaller. Aho-Corasick generalizes the failure-function idea to multiple patterns simultaneously, keeping the same scan-time guarantee. The DFA's full transition table is conceptually clean but operationally wasteful; the next two chapters are the engineering work that recovers the same scan-time guarantee at lower preprocessing cost.
-
-## What the automaton view teaches you
 
 The DFA isn't just an implementation of pattern matching — it's a *lens* on the entire problem. Once you see it, every other algorithm in this part is the same DFA dressed differently.
 
