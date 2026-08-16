@@ -14,6 +14,7 @@ vars:
     same license. The source code is separately licensed under MIT.
   accent: "#7c3aed"
 files:
+  - docs/front-matter.md
   - docs/index.md
   - docs/00_intro.md
 
