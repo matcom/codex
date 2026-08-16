@@ -1,8 +1,17 @@
 theme: book
 vars:
   title: The Algorithm Codex
-  subtitle: A literate reference of common algorithms
-  author: Alejandro Piad-Morffis, Ph.D.
+  subtitle: "Volume I: Classical Algorithms and Data Structures"
+  author: Alejandro Piad Morffis, PhD
+  institution: School of Mathematics and Computer Science, University of Havana
+  copyright: "2026"
+  edition: First edition, August 2026
+  license: >-
+    This work is licensed under CC BY-NC-SA 4.0 (Creative Commons
+    Attribution-NonCommercial-ShareAlike 4.0 International). You are free
+    to share and adapt this material for non-commercial purposes, provided
+    you give appropriate credit and distribute your contributions under the
+    same license. The source code is separately licensed under MIT.
   accent: "#7c3aed"
 files:
   - docs/index.md

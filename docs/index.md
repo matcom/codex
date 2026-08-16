@@ -37,9 +37,9 @@ The Algorithm Codex is organized into several major parts, designed to take you 
 * **Trees**: This part covers hierarchical data, from binary search trees to self-balancing structures and specialized variants like heaps and tries.
 * **String Algorithms**: We focus on pattern matching and text processing, covering algorithms from exact matching (KMP, Boyer-Moore) to advanced suffix structures.
 * **Graphs**: A significant section dedicated to relational data, covering traversals, shortest paths, spanning trees, and flow networks.
-* **Dynamic Programming and Greedy Algorithms**: We delve into powerful paradigms for solving optimization problems by exploiting subproblem structure and local optimality.
-* **Specialized Domains**: We explore deep subregions of Computer Science, including computational geometry, number theory, and game theory.
-* **Advanced Complexity**: The book concludes with the frontiers of computation, exploring NP-completeness, approximation algorithms, and randomized approaches.
+## Volume II
+
+Volume II of *The Algorithm Codex* is in preparation. It will extend this work into advanced and specialized algorithmic territory, including: dynamic programming and greedy paradigms; computational geometry; number theory and cryptographic algorithms; NP-completeness, approximation algorithms, and randomized approaches; and selected topics from game theory and advanced graph theory. Volume I is self-contained; Volume II will build on the foundations laid here.
 
 ## About the coding style
 
