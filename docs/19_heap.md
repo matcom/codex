@@ -1,0 +1,333 @@
+# An array that pretends to be a tree
+
+Chapter 18's treap was governed by two ordering rules at once — a BST rule on keys and a max-heap rule on random priorities — and the heap rule was a passenger, the bookkeeping that kept the tree shallow. I want to flip that arrangement and let the heap rule carry the whole structure. No keys, no BST descent, no in-order traversal — just one ordering rule on the data itself, and a very particular layout that makes the rule cheap to maintain.
+
+A heap is an array that pretends to be a tree. The "tree" is a fiction the index arithmetic sustains; the storage is contiguous; the pointer overhead is zero. A generic `Heap[T]` built on a plain Python list supports two operations — `push` adds an item, `pop_min` removes the smallest — both running in $O(\log n)$ time. Building a heap from $n$ items in one shot costs $\Theta(n)$ rather than $\Theta(n \log n)$, and the same structure becomes the priority queue Dijkstra's shortest-path algorithm plugs into in Part V.
+
+**Parent at index `(i-1)//2`, children at `2i+1` and `2i+2` — the whole tree lives in index arithmetic.** That spareness is what makes the heap the default substrate for priority queues, scheduling, graph search, and any algorithm that needs "smallest first."
+
+## Two operations, nothing else
+
+The contract is two operations. **`push(item)`** adds an item to the collection. **`pop_min() -> item`** removes and returns the smallest item currently held, where "smallest" is decided by Python's `<` operator on the items. That's it. No way to look up an arbitrary item. No way to iterate the items in order. No way to ask "is this in the heap?" without popping everything out. The structure is restricted by what it can't do, and that restriction is exactly what buys the cost shape.
+
+The same move at a smaller scale runs through chapters 10 and 11. A stack is a list that refuses everything but the top; a queue refuses everything but the head. The refusal is the discipline, and the discipline is what makes both operations $O(1)$ on a layout that wouldn't otherwise support arbitrary access in constant time. A heap takes the same idea up one level: it refuses everything except "the smallest" and "add one more," and in exchange gets $O(\log n)$ on both.
+
+This chapter uses a **min-heap** throughout. The other convention — a max-heap, which pops the largest — is symmetric; flip every `<` to `>` and you've ported the implementation. Min wins because the dominant applications — Dijkstra's shortest-path, A* search, event-driven simulation, scheduling by deadline — all want smallest-first.
+
+## The tree is the index arithmetic
+
+A heap is conceptually a binary tree, but the tree is implicit. I lay the nodes in a Python list, level by level, left to right. The root sits at index 0. Its two children sit at indices 1 and 2. Its grandchildren sit at indices 3, 4, 5, 6. In general, for the node at index $i$:
+
+- **Parent index:** $\lfloor (i - 1) / 2 \rfloor$, which is `(i - 1) // 2` in Python.
+- **Left child index:** $2i + 1$.
+- **Right child index:** $2i + 2$.
+
+You can check the arithmetic on any node. The node at index 7 has parent at index 3, left child at 15, right child at 16. The root has no parent; children whose computed index exceeds the array length simply don't exist — leaves are the indices where one or both children would land past the end.
+
+The tree is **complete** by construction: filling the list left-to-right at each level guarantees every level except possibly the last is full, and the last is filled from the left. No gaps. That's not an invariant I maintain; it's a property of the layout, free.
+
+The tree's height is **exactly** $\lfloor \log_2 n \rfloor$ for $n$ elements. A complete binary tree of $n$ nodes has that height, period — no constants, no randomization, no balance factors. The structure is balanced because the layout makes it impossible to be otherwise.
+
+On top of that layout, I impose the **heap order**: every parent is less than or equal to both of its children. Equivalently, the root holds the minimum. The order is local — each node-and-its-children triple satisfies it independently — but the local rule adds up to the global property that the minimum is always at index 0. The heap order is the only invariant the operations actively maintain.
+
+## Sift up, sift down
+
+Two repair operations cover the maintenance. `push` may violate the heap order at a new leaf, so I sift the new item *up* toward the root. `pop_min` may violate the heap order at the root, so I sift the replacement *down* toward a leaf. Each repair does at most one swap per level on a tree of $\lfloor \log_2 n \rfloor$ levels, so each is $O(\log n)$.
+
+The class skeleton has a private list, an optional iterable of items at construction time, and `__len__` for the usual reasons.
+
+```python {export=src/codex/trees/heap.py}
+from collections.abc import Iterable
+
+
+class Heap[T]:
+    def __init__(self, items: Iterable[T] | None = None) -> None:
+        if items is None:
+            self._heap: list[T] = []
+        else:
+            self._heap = list(items)
+            for i in range(len(self._heap) // 2 - 1, -1, -1):
+                self._sift_down(i)
+
+    def __len__(self) -> int:
+        return len(self._heap)
+```
+
+If no items are supplied, the heap starts empty and grows by `push`. If items *are* supplied, the constructor runs build-heap — the bottom-up loop I'll justify in the next section — to repair every internal node in place. It lives in the constructor so the wrapper reads as one operation rather than getting split across two blocks.
+
+For `push`, the new item lands at the next free index — the end of the list — and gets sifted up. The sift-up walk asks at each step: is this item smaller than its parent? If yes, swap and continue from the parent's index. If no, the heap order is restored and the loop stops.
+
+```python {export=src/codex/trees/heap.py}
+    def push(self, item: T) -> None:
+        self._heap.append(item)
+        self._sift_up(len(self._heap) - 1)
+
+    def _sift_up(self, i: int) -> None:
+        while i > 0:
+            parent = (i - 1) // 2
+            if self._heap[i] < self._heap[parent]:
+                self._heap[i], self._heap[parent] = (
+                    self._heap[parent],
+                    self._heap[i],
+                )
+                i = parent
+            else:
+                return
+```
+
+The loop terminates either when `i` reaches the root or when the heap order holds. The maximum number of iterations is the depth of the new leaf — $\lfloor \log_2 n \rfloor$ — so `push` is $O(\log n)$ in time and $O(1)$ in extra space.
+
+`pop_min` is the symmetric operation. I lift the root out (it's the minimum, the value I'm returning), then move the *last* leaf into the root slot to keep the array compact, and sift the replacement down. Why the last leaf? Because removing any other element would leave a gap in the middle of the array, breaking the implicit-tree layout. The last leaf is the only one I can pull out without shifting indices.
+
+```python {export=src/codex/trees/heap.py}
+    def peek_min(self) -> T:
+        if not self._heap:
+            raise IndexError("peek from empty heap")
+        return self._heap[0]
+
+    def pop_min(self) -> T:
+        if not self._heap:
+            raise IndexError("pop from empty heap")
+        root = self._heap[0]
+        last = self._heap.pop()
+        if self._heap:
+            self._heap[0] = last
+            self._sift_down(0)
+        return root
+```
+
+I expose `peek_min` because reading the minimum without removing it is a common request — Dijkstra's loop often wants to know whether the smallest candidate is good enough before committing to pop it. Both `peek_min` and `pop_min` raise `IndexError` on an empty heap, mirroring `list.pop`.
+
+The sift-down loop mirrors sift-up. At each step the current node compares against its smaller child; if the node is already smaller-or-equal, the heap order holds and the loop stops. Otherwise the node swaps with that smaller child and the loop continues from the child's index.
+
+```python {export=src/codex/trees/heap.py}
+    def _sift_down(self, i: int, n: int | None = None) -> None:
+        if n is None:
+            n = len(self._heap)
+        while True:
+            left = 2 * i + 1
+            right = 2 * i + 2
+            smallest = i
+            if left < n and self._heap[left] < self._heap[smallest]:
+                smallest = left
+            if right < n and self._heap[right] < self._heap[smallest]:
+                smallest = right
+            if smallest == i:
+                return
+            self._heap[i], self._heap[smallest] = (
+                self._heap[smallest],
+                self._heap[i],
+            )
+            i = smallest
+```
+
+The `n` parameter is a hint that says "treat only the first `n` slots as the heap." It defaults to the whole list. The reason it exists is in-place heap-sort: you can sort an array by repeatedly extracting the root and shrinking the logical heap by one, leaving the extracted root in the slot it vacated. The `n` parameter lets sift-down know where the logical heap currently ends. It's there for any caller who wants the in-place pattern.
+
+Each sift-down call performs at most $\lfloor \log_2 n \rfloor$ swaps, one per level, so `pop_min` runs in $O(\log n)$ time. On a heap of a million items, both `push` and `pop_min` need at most about 20 comparisons; on a billion items, about 30. Logarithmic in the formal sense, instantaneous in the practical sense.
+
+Push eleven values in arbitrary order, print the internal array (heap-ordered, not sorted), then pop them all and verify the output is sorted ascending.
+
+```python
+from codex.trees.heap import Heap
+
+h: Heap[int] = Heap()
+for x in [3, 1, 4, 1, 5, 9, 2, 6, 5, 3, 5]:
+    h.push(x)
+
+# The internal layout — heap-ordered but NOT sorted. The root (index 0)
+# is the minimum; every parent ≤ both children, but siblings can be in
+# any order relative to each other.
+print(f"internal: {h._heap}")
+
+# Pop everything; the output sequence is sorted ascending — the BST has
+# no monopoly on producing sorted output, the heap gets there too.
+popped = [h.pop_min() for _ in range(11)]
+print(f"popped:   {popped}")
+```
+
+The internal array isn't sorted — the heap order is much weaker than total order. What it guarantees is that index 0 is the minimum, and that's what `pop_min` needs. The popped sequence is sorted because each pop extracts the current minimum, and removing the minimum leaves the second-smallest as the new minimum, and so on.
+
+## Build-heap in O(n)
+
+If I want to drop $n$ items into a heap up front, the obvious approach is $n$ pushes, for $O(n \log n)$ total work. That's what an external caller would do if they didn't know any better. But there's a much better way, due to Floyd in 1964, and the constructor I wrote up there is already using it.
+
+The idea: take the items as-is, in the order they arrived, and treat the resulting list as a "candidate heap" that probably violates the heap order all over. Then run `_sift_down` on every internal node, from the deepest internal node up to the root. Each sift-down repairs its subtree; by the time the loop reaches the root, every subtree is heap-ordered, and so is the whole tree.
+
+The loop goes from $\lfloor n/2 \rfloor - 1$ down to 0 because indices $\lfloor n/2 \rfloor$ through $n - 1$ are leaves — no children in the array, already a one-element heap, no work needed. Only the first half of the array needs repair, and the repair runs bottom-up.
+
+This loop runs in $\Theta(n)$ total time, not $\Theta(n \log n)$. The naive bound says each sift-down costs $O(\log n)$ and the loop runs it $n/2$ times, giving $O(n \log n)$. That's not wrong, just loose. The tight bound comes from noticing that **most of the sift-downs are short**. The deepest sift-down (at the root) costs up to $\log n$, but there's only one of those. The shortest sift-downs, just above the leaves, cost 1 each, and there are $n/4$ of them. Most of the work is done by the cheap ones.
+
+The counting goes like this. A complete binary tree of $n$ nodes has roughly $n/2^{h+1}$ nodes at height $h$, each doing at most $h$ steps. Total:
+
+$$T(n) \le \sum_{h=0}^{\lfloor \log_2 n \rfloor} \frac{n}{2^{h+1}} \cdot h = \frac{n}{2} \sum_{h=0}^{\infty} \frac{h}{2^{h}}$$
+
+The infinite sum $\sum h / 2^h$ converges to exactly 2 — derivable from the derivative of the geometric series at $r = 1/2$; the appendix's section on convergent sums has the identity. Substituting: $T(n) \le n$. So the total work is at most $n$ — *linear*, not $n \log n$.
+
+Building a heap of a million items via $n$ pushes costs roughly $2 \times 10^7$ comparisons; via Floyd's bottom-up trick, about $10^6$. The asymptotic ratio is $\log n$, which is 20 at this size.
+
+Same eleven values as before, but passed to the constructor instead of pushed one at a time.
+
+```python
+from codex.trees.heap import Heap
+
+items = [3, 1, 4, 1, 5, 9, 2, 6, 5, 3, 5]
+h: Heap[int] = Heap(items=items)
+
+# The internal array after build-heap — heap-ordered, but not necessarily
+# the same shape as the n-pushes version, because the two procedures
+# settle into different valid heap configurations.
+print(f"internal: {h._heap}")
+
+# Pop everything; sorted output is the contract, regardless of which
+# valid heap shape the procedure happened to land on.
+popped = [h.pop_min() for _ in range(len(items))]
+print(f"popped:   {popped}")
+```
+
+Pop sequence is sorted, same as the push-based version — the contract is the same, the cost is different. The internal arrays after the two procedures *can* differ, because there are multiple valid heap configurations for the same multiset; on this particular input they happen to coincide, but the contract only promises heap order, not a specific layout.
+
+The same trick gives **heap-sort** for free. Build-heap, then pop everything out — the pop sequence is sorted ascending. Total cost $\Theta(n) + n \cdot \Theta(\log n) = \Theta(n \log n)$, the same asymptotic class as merge-sort and quicksort, but in a predictable shape. Heap-sort is what gives chapter 7's algorithm catalog its $O(n \log n)$ worst-case sorting bound without quicksort's adversarial-input pathology.
+
+```python
+from codex.trees.heap import Heap
+
+# Heap-sort by build-heap + repeated pop. The fastest correct way to
+# sort with a heap; matches Python's sorted() output exactly.
+items = [5, 2, 8, 1, 9, 3, 7, 4, 6]
+h: Heap[int] = Heap(items=items)
+heap_sorted = [h.pop_min() for _ in range(len(items))]
+print(f"heap-sort: {heap_sorted}")
+print(f"sorted():  {sorted(items)}")
+print(f"match: {heap_sorted == sorted(items)}")
+```
+
+The match holds. Heap-sort is a real sorting algorithm: the only $O(n \log n)$ comparison sort I know that runs in place with no extra memory. Embedded contexts, where allocating a merge buffer is a problem, reach for it for exactly that reason.
+
+At $n = 10^5$, both build approaches run on the same shuffled input — $n$ pushes against one build-heap call — and the ratio gets reported. The asymptotic prediction says the ratio should be $\log_2(10^5) \approx 17$. The empirical reality on Python is more modest, because the per-operation interpreter overhead is large enough to squash the asymptotic separation at this size.
+
+```python
+import random
+import time
+from codex.trees.heap import Heap
+
+random.seed(0)
+n = 100_000
+data = list(range(n))
+random.shuffle(data)
+
+# n separate pushes — total cost O(n log n)
+t0 = time.perf_counter()
+h_pushes: Heap[int] = Heap()
+for x in data:
+    h_pushes.push(x)
+t_pushes = time.perf_counter() - t0
+
+# build-heap in one shot — total cost O(n)
+t0 = time.perf_counter()
+h_build: Heap[int] = Heap(items=data)
+t_build = time.perf_counter() - t0
+
+print(f"n pushes:    {t_pushes * 1000:7.1f} ms")
+print(f"build-heap:  {t_build * 1000:7.1f} ms")
+print(f"ratio:       {t_pushes / t_build:.2f}x")
+# build-heap wins by a small but real factor — roughly 1.2-1.5x on
+# pure Python at this size. The asymptotic ratio of log_2(10^5) ≈ 17
+# only shows up when the per-comparison cost is small (C, Rust, etc.);
+# Python's interpreter overhead dominates and squashes the gap.
+```
+
+Build-heap wins, but by less than the asymptotic theory predicts — Python's per-operation interpreter overhead is large enough that the $\log n$ factor compresses into a ~1.2x to 1.5x runtime gap at $n = 10^5$. The same benchmark in C would show the predicted 15–20x. The point is the *direction* of the win, not the magnitude — build-heap is asymptotically cheaper, and the cost shape is real even when constants smear it.
+
+## From "smallest item" to "highest priority"
+
+A heap orders items by `<`. A priority queue orders *jobs* by a separate priority value attached to each job. Pythonically, the way to bridge the two is to push `(priority, job)` tuples — tuples compare lexicographically, so the priority dominates the comparison and ties break on the job itself.
+
+```python {export=src/codex/trees/heap.py}
+class HeapPriorityQueue[K, V]:
+    def __init__(self) -> None:
+        self._heap: Heap[tuple[K, V]] = Heap()
+
+    def __len__(self) -> int:
+        return len(self._heap)
+
+    def push(self, priority: K, item: V) -> None:
+        self._heap.push((priority, item))
+
+    def pop(self) -> tuple[K, V]:
+        return self._heap.pop_min()
+```
+
+A thin wrapper — twenty lines of class scaffolding around the heap's two operations. The point of giving it its own type is that the API names `priority` and `item` separately, which reads better at the call site than passing a tuple by hand.
+
+```python
+from codex.trees.heap import HeapPriorityQueue
+
+pq: HeapPriorityQueue[int, str] = HeapPriorityQueue()
+pq.push(3, "answer the email backlog")
+pq.push(1, "page from on-call — wake up")
+pq.push(2, "review the open pull request")
+
+# Pop in priority order — smallest priority first, which here means
+# the most urgent task (the on-call page) comes out first.
+while len(pq):
+    print(pq.pop())
+```
+
+Priority 1 wins, priority 2 follows, priority 3 last. That's the contract Dijkstra and A* and event-driven simulation all rely on: pull the most urgent thing first, regardless of when it was inserted.
+
+## D-ary heaps, Fibonacci heaps, and what they cost
+
+The binary heap is one point on a wider design space. Two variants matter enough to mention even though I won't implement them.
+
+A **d-ary heap** replaces the binary branching factor with a parameter $d$. Each node has $d$ children, the tree's height drops from $\log_2 n$ to $\log_d n$, but sift-down now compares against $d$ children per level instead of 2. Net effect: `push` gets cheaper (fewer levels for sift-up to walk), `pop_min` gets more expensive per level (more child comparisons), but the same number of levels deep. For applications where push is much more common than pop, $d = 4$ or $d = 8$ wins in practice. Dijkstra's shortest-path on a graph with $E$ edges and $V$ vertices is the canonical example — each edge produces a push, each vertex produces a pop, so the optimal $d$ is roughly $E / V$, the average degree.
+
+A **Fibonacci heap** (Fredman & Tarjan, 1987) is a different structure entirely — a forest of trees with lazy merging, where `push` and `decrease-key` run in $O(1)$ amortized time and `pop_min` runs in $O(\log n)$ amortized time. The asymptotic win for Dijkstra is real: $O((V + E) \log V)$ becomes $O(E + V \log V)$, which matters when $E$ is large. But the constants are bad — doubly-linked sibling lists, parent pointers, mark bits, a cascading-cut procedure on `decrease-key`. On every input size you'll see, Fibonacci heaps lose to binary heaps in practice. The binary heap is the engineering winner. When the constants are out of whack, the better asymptotic loses.
+
+## The three questions, applied
+
+### Is it correct?
+
+A heap is correct if `pop_min` returns the minimum currently held after any sequence of operations. Two structural invariants do the work: **completeness** (the array's nodes form a complete binary tree under the parent-at-`(i-1)//2` interpretation) and **heap order** (every parent ≤ both children). Completeness is a layout property — I never insert or delete in the middle of the array, only at the end, so it's maintained for free. Heap order is what `_sift_up` and `_sift_down` actively maintain.
+
+`push` preserves heap order because `_sift_up` swaps the new item upward exactly as long as it's smaller than its parent. Each swap restores the rule locally and may introduce a violation one level higher; the loop terminates when either no violation exists or the new item reaches the root. `pop_min` returns `_heap[0]`, which is the minimum by the heap order invariant; the last leaf moves to the root, and `_sift_down` swaps it downward with whichever child is smaller until the order holds again.
+
+Build-heap preserves heap order by induction on subtree size. Each leaf is trivially a one-element heap. When `_sift_down(i)` runs on an internal node $i$ whose left and right subtrees are already heaps, sift-down repairs the subtree rooted at $i$ without disturbing the subtree property below. Running the loop from $\lfloor n/2 \rfloor - 1$ down to 0 processes every internal node *after* its children's subtrees are already heaps, so the induction holds at every step.
+
+### How efficient is it?
+
+The cost table for a heap of $n$ elements:
+
+| Operation | Time | Extra space |
+|-----------|------|-------------|
+| `push` | $O(\log n)$ | $O(1)$ — in-place swaps |
+| `pop_min` | $O(\log n)$ | $O(1)$ |
+| `peek_min` | $O(1)$ | $O(1)$ |
+| `__len__` | $O(1)$ | $O(1)$ |
+| `Heap(items)` (build-heap) | $\Theta(n)$ | $O(n)$ — for the list |
+| Heap-sort (build + $n$ pops) | $\Theta(n \log n)$ | $O(n)$ |
+
+Worst and average cases coincide here, because the heap order is maintained by every operation rather than degraded by adversarial inputs. There's no input that drives a heap to height $n$ — the layout forbids it. That's a stronger guarantee than a BST gives you: a BST's worst case is $O(n)$ on sorted input, and the AVL and treap chapters spent their effort buying back the $O(\log n)$ bound. A heap gets the height for free.
+
+Storage per element is one slot in the contiguous list — no pointers, no metadata. A heap of $n$ integers is an array of $n$ integers, full stop.
+
+### Is it optimal?
+
+For the priority queue contract specifically, a binary heap is asymptotically optimal — both `push` and `pop_min` run in $O(\log n)$, matching the comparison-based lower bound for any structure that supports both ordered insertion and ordered extraction. The argument: $n$ pushes followed by $n$ pop-mins produces sorted output, and sorting in the comparison model requires $\Omega(n \log n)$ comparisons (Stirling's bound, appendix-math). If both operations were $o(\log n)$, the $2n$ operations would do $o(n \log n)$ comparisons total, contradicting the sorting lower bound.
+
+You can do better than $O(\log n)$ on `push` alone if you give up something — Fibonacci heaps trade implementation complexity for $O(1)$ amortized push. You can do better than $O(\log n)$ on `pop_min` if you restrict the items to integers in a known range — chapter 6's counting and radix sort tricks carry over to bucket-based priority queues. The binary heap is the comparison-based, no-assumptions-about-priorities sweet spot.
+
+## The cheapest implementation is the one with no pointers
+
+Parent at index $(i-1)//2$, children at $2i+1$ and $2i+2$ — the whole tree lives in index arithmetic, and that's what makes the heap so spare. No node objects, no pointers, no balance factors. Just a contiguous array, three index formulas that turn it into an implicit complete binary tree, and two repair operations to maintain the local heap order. Both repairs are $O(\log n)$ because the height is $\lfloor \log_2 n \rfloor$ by layout, and that bound is automatic — no input can degrade it.
+
+A heap's contiguous array beats any pointer-based equivalent for the same reason chapter 8's dynamic array beats chapter 9's linked list: the cache loves contiguous data, and the CPU loves predictable index arithmetic. When the access pattern fits a contiguous layout, take the layout.
+
+Restricting an interface buys a cost shape the unrestricted version couldn't deliver. A heap is a list that refuses everything except `push` and `pop_min`; that refusal is what makes both $O(\log n)$ on an implicit-tree layout that wouldn't support general ordered queries. Same move as the stack and queue chapters.
+
+The tight analysis is often not the obvious one. Build-heap looks like it should be $O(n \log n)$; that's what the loose argument gives. The tight bound is $\Theta(n)$, from noticing that most sift-downs are short. The loose bound is correct but useless; the tight bound is what explains why build-heap is the right way to construct a heap from a known input.
+
+Chapter 20 takes the implicit-structure idea in a different direction. Where a heap's "structure" is a tree implied by index arithmetic over flat storage, a trie's structure is a tree where the *path from the root to a node* encodes the key — the data structure's shape *is* the data it stores. Same principle, different geometry.
+
+## Notes and further reading
+
+The binary heap was introduced by J. W. J. Williams in 1964 in *Communications of the ACM* 7(6):347–348 — the structure and the heap-sort algorithm appear together in that short paper. Robert Floyd's 1964 *CACM* 7(12):701 paper "Algorithm 245: Treesort 3" is the source of the $\Theta(n)$ bottom-up build-heap trick the constructor uses. CLRS (4th ed.) chapter 6 has the canonical textbook treatment — heaps, heap-sort, and priority queues in one chapter, with the tight build-heap analysis and a careful proof of correctness. Sedgewick & Wayne's *Algorithms* (4th ed.) §2.4 develops the same material with a priority-queue focus. The Dijkstra-specific d-ary optimization with $d = E/V$ goes back to Johnson's 1975 "Priority Queues with Update and Finding Minimum Spanning Trees." The Fibonacci heap is Michael Fredman and Robert Tarjan's 1987 *Journal of the ACM* paper "Fibonacci Heaps and Their Uses in Improved Network Optimization Algorithms" — the canonical reference for both the structure and its impact on Dijkstra's bound. Python's standard-library `heapq` module implements the same min-heap algorithm in pure C; it's the right thing to reach for in production, but the pure-Python version above makes the algorithm visible in a way the C source doesn't.

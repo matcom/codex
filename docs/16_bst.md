@@ -1,0 +1,377 @@
+# Smaller on the left, bigger on the right
+
+You have a binary tree, but you don't get to put values wherever you want anymore. You agree to a rule: at every node, every key on the left is smaller, every key on the right is bigger. That single constraint turns the substrate of chapter 15 into a structure that can *answer queries* — find a key in $\Theta(\log n)$ on a balanced tree, insert without disturbing the order, delete without breaking it. A binary search tree is what happens when you force a binary tree's values to know their place.
+
+**The in-order traversal of a BST is sorted — that's the entire structure restated.** Every claim about correctness in this chapter cashes out to that one sentence. Every operation is designed to preserve it.
+
+## Order as invariant
+
+A binary tree is a **binary search tree** if, for every node, every key in its left subtree is strictly less than the node's key, and every key in its right subtree is strictly greater. The rule is recursive — it has to hold at every node, not just at the root.
+
+That definition deliberately disallows duplicates of a given key (the strict inequalities forbid them). Take it as a working contract; the duplicate-handling decision lands further down.
+
+The reason the rule earns its name comes from a tiny theorem. Recall the in-order traversal from chapter 15: left subtree, then the node itself, then the right subtree. Apply that walk to a BST. The left subtree's keys are all smaller than the node; by induction, the recursive walk emits them in sorted order. The node comes next, larger than everything emitted so far. Then the right subtree's keys, all larger than the node; by induction again, the walk emits them in sorted order, and the smallest of them is still larger than the node. You get a monotone increasing sequence.
+
+Every operation below is checked the same way: insert some keys, run `in_order`, confirm the output is sorted. If the order is preserved, the invariant is preserved, and the structure is correct. In-order = sorted is the testing strategy.
+
+What does the invariant buy you? Exactly the structure binary search on a sorted array used in chapter 2: at each node you compare your target to the current key, and one comparison eliminates an entire half of the remaining tree. Lookup, insert, and delete all become **walk root-to-leaf** operations, which cost $\Theta(h)$ where $h$ is the tree's height. For a balanced tree, $h = \Theta(\log n)$. That is: a million keys cost you about twenty comparisons; a billion cost about thirty. Same shape as binary search.
+
+What does the invariant cost you? Two things. First, every insertion has to find the right spot, so insertion is no longer the $\Theta(1)$ tail-append you get from an unordered list or a hash table — you pay $\Theta(h)$ for it. Second, the height can degenerate. The structural rule says nothing about *balance*, only about order. Insert keys in sorted order and the tree becomes a linked list — every "right subtree" is non-empty, every "left subtree" is empty, and you've recovered chapter 1's $\Theta(n)$ linear scan with extra steps. The fourth section of this chapter is exactly that pathology; chapter 17 is what you do about it.
+
+The first two operations almost write themselves.
+
+## Insert and search
+
+Insert and search both follow the same pattern: at each node, compare the query key to the node's key, and recurse into the half the invariant tells you the answer must live in. If the target is smaller, go left. If larger, go right. If equal, you've found it.
+
+A BST node carries a key *and* a value: the key is what the structure orders by, and the value is the payload you want to look up. Same shape as chapter 15's `BinaryNode`, but generic in two parameters instead of one.
+
+```python {export=src/codex/trees/bst.py}
+from typing import Iterator
+
+
+class BSTNode[K, V]:
+    def __init__(
+        self,
+        key: K,
+        value: V,
+        left: "BSTNode[K, V] | None" = None,
+        right: "BSTNode[K, V] | None" = None,
+    ) -> None:
+        self.key = key
+        self.value = value
+        self.left = left
+        self.right = right
+```
+
+Same forward-referenced string annotations as `BinaryNode` — the class refers to itself before its name has finished binding. Two children, one key, one value. Comparison happens directly on `K` via `<`, `>`, and `==` — I'm assuming the keys are mutually comparable. Chapters 3 and 4 used the `Ordering[T]` protocol from `codex.types` for sort routines, but here I'll keep the comparisons in-line; the BST's character is the structural recursion, not the comparison plumbing.
+
+The wrapper class is where I'll put the public methods. It owns the root pointer and an incremental size counter — keeping `len(tree)` in $O(1)$ is worth the one extra arithmetic operation per insert and delete.
+
+```python {export=src/codex/trees/bst.py}
+class BST[K, V]:
+    def __init__(self) -> None:
+        self._root: BSTNode[K, V] | None = None
+        self._size: int = 0
+
+    def __len__(self) -> int:
+        return self._size
+```
+
+The first real operation is `insert`. Walk the tree, comparing the new key to the current node's key, descending left or right until you find a `None` slot to attach a new node at — or until you hit an existing node with the same key, in which case I'll overwrite the value. The functional-recursive idiom returns the new subtree root at every level, so the caller reassigns whichever pointer it just descended through. That same idiom will carry me through delete, and it ports straight to AVL and treap in later chapters.
+
+I'll write `insert` as a thin public wrapper around a nested recursive helper. Keeping the helper nested lets it mutate the wrapper's `_size` counter via closure capture instead of being threaded as a parameter.
+
+```python {export=src/codex/trees/bst.py}
+    def insert(self, key: K, value: V) -> None:
+        def _insert(node: BSTNode[K, V] | None) -> BSTNode[K, V]:
+            if node is None:
+                self._size += 1
+                return BSTNode(key, value)
+            if key < node.key:
+                node.left = _insert(node.left)
+            elif key > node.key:
+                node.right = _insert(node.right)
+            else:
+                node.value = value  # replace existing value, leave size unchanged
+            return node
+
+        self._root = _insert(self._root)
+```
+
+Three branches per node, plus the base case. The base case allocates a fresh leaf and bumps the size — that's the only place new nodes ever come from. The two recursive branches descend into the half the invariant says the new key belongs in, and reassign the child pointer to whatever the recursion returned. The fourth case (equal key) is the duplicate-handling decision I deferred above: I overwrite the existing value, which gives the BST dict-like behaviour — one slot per key, last writer wins.
+
+Other policies are defensible. You could **reject** duplicates and raise an error (strict-set behaviour). You could **count multiplicities** with a counter field on each node (useful for multisets). You could insert a duplicate into either subtree under a tie-breaking rule, which is common in textbook BST treatments but makes the in-order traversal merely non-decreasing rather than strictly increasing, weakening the sortedness guarantee. **Replace-value** is the cleanest for a dictionary-shaped structure and the one most production map-like BSTs use, so that's what I'll pick.
+
+Search is the same recursion stripped of the writes.
+
+```python {export=src/codex/trees/bst.py}
+    def search(self, key: K) -> V | None:
+        node = self._root
+        while node is not None:
+            if key < node.key:
+                node = node.left
+            elif key > node.key:
+                node = node.right
+            else:
+                return node.value
+        return None
+
+    def __contains__(self, key: K) -> bool:
+        return self.search(key) is not None
+```
+
+I wrote `search` iteratively because there's no need to thread anything back up — the answer is found at one node and returned directly. Three comparisons, one descent per level, $\Theta(h)$ in the worst case. `__contains__` is the boolean version that lets `key in tree` work as Python expects.
+
+The in-order generator mirrors chapter 15's `inorder`, yielding `(key, value)` pairs and using the same nested-helper pattern.
+
+```python {export=src/codex/trees/bst.py}
+    def in_order(self) -> Iterator[tuple[K, V]]:
+        def _walk(node: BSTNode[K, V] | None) -> Iterator[tuple[K, V]]:
+            if node is None:
+                return
+            yield from _walk(node.left)
+            yield (node.key, node.value)
+            yield from _walk(node.right)
+
+        yield from _walk(self._root)
+```
+
+The canonical tree comes from inserting nine keys in an order chosen so the shape is small enough to draw and asymmetric enough to exercise all the delete cases later: `[8, 3, 10, 1, 6, 14, 4, 7, 13]`. The resulting tree looks like this:
+
+```
+        8
+       / \
+      3   10
+     / \    \
+    1   6    14
+       / \   /
+      4   7 13
+```
+
+Nine nodes, height 3, in-order should be `[1, 3, 4, 6, 7, 8, 10, 13, 14]` if I've done my work.
+
+```python
+from codex.trees.bst import BST
+
+tree: BST[int, str] = BST()
+for k in [8, 3, 10, 1, 6, 14, 4, 7, 13]:
+    tree.insert(k, f"v{k}")
+
+print(f"size: {len(tree)}")                          # 9 — nine keys, no duplicates
+print(f"in-order: {[k for k, _ in tree.in_order()]}")
+# [1, 3, 4, 6, 7, 8, 10, 13, 14] — sorted, as the invariant promises
+
+print(f"search 7:  {tree.search(7)}")                # v7 — present
+print(f"search 99: {tree.search(99)}")               # None — missing
+print(f"6 in tree?  {6 in tree}")                    # True — key 6 is in the tree
+print(f"99 in tree? {99 in tree}")                   # False — key 99 is not
+```
+
+The in-order output is sorted. Every subsequent operation gets checked against the same thing.
+
+The duplicate-handling contract from above, made visible — overwriting key 7:
+
+```python
+tree.insert(7, "v7-replaced")
+print(f"size after overwrite: {len(tree)}")          # 9 — still nine, no new node
+print(f"search 7:  {tree.search(7)}")                # v7-replaced — value updated
+```
+
+Same number of nodes, new value. The duplicate-handling rule is doing what I said it would.
+
+## Delete, the three-case method
+
+Insertion was easy because it only ever attaches a new leaf — every existing pointer stays valid. Deletion is harder, because removing an interior node leaves a hole in the tree, and you have to fill the hole in a way that preserves the BST invariant. The textbook algorithm splits the problem into three cases by how many children the node-to-delete has.
+
+The cases are mutually exclusive and cover everything. **Zero children** (a leaf): just unlink it. The parent's pointer to the leaf becomes `None`. **One child** (left or right only): splice the child up into the deleted node's place. The grandparent now points directly at the grandchild, and the BST invariant is preserved because the entire subtree you're lifting was already on the correct side of every ancestor. **Two children**: the hard case. You can't just lift one child because the other has nowhere to go. The trick is to find the **in-order successor**, which is the smallest key in the right subtree, copy its key and value into the node-to-delete, and then recursively delete the successor from the right subtree. Because the successor is the leftmost node of the right subtree, it has at most one child (its right one), so the recursive delete falls into case zero or case one and terminates cleanly.
+
+The in-order successor works because the deleted node's in-order position gets filled by the next key in the sorted sequence, which by definition is the successor. You shift the values up by one slot, and the in-order traversal stays monotone.
+
+The combined delete logic runs past twenty lines as one function, so two helpers carry it — one for the successor finder, one for the recursive delete itself.
+
+The first helper is the successor-finder. The leftmost node of any subtree holds the smallest key in that subtree — another direct consequence of the invariant — so two lines suffice: walk left until you can't.
+
+```python {export=src/codex/trees/bst.py}
+    def _min_node(self, node: BSTNode[K, V]) -> BSTNode[K, V]:
+        while node.left is not None:
+            node = node.left
+        return node
+```
+
+The `delete` method itself is a public wrapper around a nested recursive helper. The helper takes the current subtree root and the target key, walks down to find the matching node, then handles the three cases at the match site. I parameterize the recursion by `k` rather than capturing the outer `key` — that's what lets the two-children case re-invoke the recursion with the successor's key.
+
+```python {export=src/codex/trees/bst.py}
+    def delete(self, key: K) -> None:
+        def _delete(
+            node: BSTNode[K, V] | None, k: K
+        ) -> BSTNode[K, V] | None:
+            if node is None:
+                return None  # key not present — nothing to do
+            if k < node.key:
+                node.left = _delete(node.left, k)
+                return node
+            if k > node.key:
+                node.right = _delete(node.right, k)
+                return node
+            # node.key == k — match site, dispatch on children
+            if node.left is None:
+                self._size -= 1
+                return node.right  # leaf or right-only child
+            if node.right is None:
+                self._size -= 1
+                return node.left   # left-only child
+            # two children: copy successor's payload, then recursively delete the
+            # successor from the right subtree (it has at most one child, so the
+            # recursive call lands in one of the simpler cases above).
+            succ = self._min_node(node.right)
+            node.key = succ.key
+            node.value = succ.value
+            node.right = _delete(node.right, succ.key)
+            return node
+
+        self._root = _delete(self._root, key)
+```
+
+The first three branches walk down the tree. The fourth — when keys match — is the case split. Notice how the leaf case and the one-child case fall out of the same two lines: if `left` is `None`, returning `right` works whether `right` is also `None` (leaf) or a real subtree (right-only child); same in reverse for `left`. That's why I called it the three-case method but the code only has two physical branches plus the two-children case.
+
+The two-children case copies the successor's payload into the node and then recursively deletes the successor from the right subtree. The recursion is guaranteed to find the successor (because `_min_node` walked there), and the successor has at most one child, so the recursive call terminates immediately in one of the simpler cases. I decrement the size counter only once, because only the recursive call hits a node-with-fewer-than-two-children.
+
+The leftmost node of any subtree holds the smallest key in that subtree — that's another direct consequence of the invariant. For the two-children delete on the canonical tree, I'll be deleting key 3, whose right subtree is rooted at 6. The leftmost descendant of 6 is 4 (6's own left child). So 4 gets copied up into the 3-slot, and then 4 is recursively deleted from the right subtree, where it falls into the leaf case.
+
+I'll demonstrate the three cases on freshly-rebuilt copies of the canonical tree:
+
+```python
+def build_canonical() -> BST[int, str]:
+    t: BST[int, str] = BST()
+    for k in [8, 3, 10, 1, 6, 14, 4, 7, 13]:
+        t.insert(k, f"v{k}")
+    return t
+
+
+# Case 1 — leaf: delete key 1 (no children)
+t1 = build_canonical()
+t1.delete(1)
+print(f"after delete 1 (leaf):     {[k for k, _ in t1.in_order()]}")
+# [3, 4, 6, 7, 8, 10, 13, 14] — still sorted, 1 is gone
+
+# Case 2 — one child: delete key 14 (only left child, 13)
+t2 = build_canonical()
+t2.delete(14)
+print(f"after delete 14 (1 child): {[k for k, _ in t2.in_order()]}")
+# [1, 3, 4, 6, 7, 8, 10, 13] — 13 spliced up into 14's slot
+
+# Case 3 — two children: delete key 3 (children 1 and 6; successor is 4)
+t3 = build_canonical()
+t3.delete(3)
+print(f"after delete 3 (2 child):  {[k for k, _ in t3.in_order()]}")
+# [1, 4, 6, 7, 8, 10, 13, 14] — 4 has moved into the 3-slot, then was removed from below
+```
+
+All three in-order outputs are still sorted, and the size has dropped by one in each case. Preserving sortedness is the test; every case passes it.
+
+The root is deletable by the same algorithm, and deleting a missing key is a silent no-op.
+
+```python
+t = build_canonical()
+t.delete(99)                                # not present — no-op
+print(f"size after no-op:  {len(t)}")     # 9 — nothing happened
+t.delete(8)                                 # the root, two children
+print(f"size after root:   {len(t)}")     # 8 — root replaced by its in-order successor
+print(f"in-order:          {[k for k, _ in t.in_order()]}")
+# [1, 3, 4, 6, 7, 10, 13, 14] — still sorted, 8 is gone, 10 became the new root
+```
+
+## When BSTs go wrong
+
+Everything above assumed the BST was *reasonable* — a height proportional to $\log n$, root-to-leaf walks that cost about twenty comparisons for a million keys. The structural rule guarantees no such thing. The rule says only that keys are sorted by position; it says nothing about balance. The same nine keys I inserted as `[8, 3, 10, 1, 6, 14, 4, 7, 13]` produced a tree of height 3 — but if I'd inserted them sorted, the result would have been a chain of nine nodes, one per level. Lookups would cost nine comparisons instead of three.
+
+The pathology is most vivid at sixteen keys. Using the convention from chapter 15 — root has depth 0, height is the maximum depth of any node — a 16-node chain has height 15 (root at 0, deepest leaf at 15).
+
+```python {export=src/codex/trees/bst.py}
+    def height(self) -> int:
+        def _height(node: BSTNode[K, V] | None) -> int:
+            if node is None:
+                return -1  # empty: -1 so a single node ends up at height 0
+            return 1 + max(_height(node.left), _height(node.right))
+
+        return _height(self._root)
+```
+
+I return $-1$ for the empty tree so that a single-node tree comes out at height 0 — a root at depth 0 and no other nodes. The recursive case is the maximum of the two subtree heights plus one for the edge from the current node to its taller child.
+
+Inserting the integers 0 through 15 in their natural order, then redoing the experiment on a shuffled copy of the same keys:
+
+```python
+import random
+from codex.trees.bst import BST
+
+# Sorted insertion — every key is larger than its predecessor, so every
+# insertion goes down the right spine. The tree becomes a chain.
+sorted_tree: BST[int, int] = BST()
+for k in range(16):
+    sorted_tree.insert(k, k)
+
+print(f"sorted insertion: 16 keys, height = {sorted_tree.height()}")
+# 15 — a chain of 16 nodes, root at depth 0, deepest leaf at depth 15
+print(f"in-order:         {[k for k, _ in sorted_tree.in_order()][:8]}...")
+# [0, 1, 2, 3, 4, 5, 6, 7]... — still sorted (it always is) but the shape is a list
+```
+
+The tree is structurally a linked list — every left child is `None`, every right child is the next integer. If you search for key 15 it walks all sixteen nodes; that's a $\Theta(n)$ operation hiding inside an algorithm meant to be $\Theta(\log n)$. In-order is still sorted; the cost shape has collapsed.
+
+The same sixteen keys, shuffled by a fixed seed for reproducibility:
+
+```python
+keys = list(range(16))
+random.seed(42)
+random.shuffle(keys)
+print(f"shuffle order: {keys}")
+# [7, 9, 5, 6, 14, 10, 12, 8, 1, 2, 13, 15, 4, 11, 0, 3]
+
+shuffled_tree: BST[int, int] = BST()
+for k in keys:
+    shuffled_tree.insert(k, k)
+
+print(f"shuffled insertion: 16 keys, height = {shuffled_tree.height()}")
+# 5 — close to log2(16) = 4, dramatically better than the sorted chain
+print(f"in-order:           {[k for k, _ in shuffled_tree.in_order()][:8]}...")
+# [0, 1, 2, 3, 4, 5, 6, 7]... — same sorted output, completely different shape
+```
+
+You get height 5 — within a constant factor of $\log_2 16 = 4$. The sorted tree had height 15, exactly $n - 1$. Same data, same algorithm, two cost regimes separated by an order of magnitude, and the only difference is the order keys arrived in.
+
+That is: a BST's cost depends on its insertion history. Knuth's classical result is that a BST built from a uniformly-random permutation has expected height $\approx 1.39 \log_2 n$, so random data lands close to the balanced ideal. But you don't always control the order data arrives in. Sorted streams, near-sorted streams, and adversarial sequences all push the height toward $n - 1$.
+
+The reasonable response, then, is: don't trust your user to randomize the input. Build a structure that *enforces* its own balance no matter what order keys arrive in. That's chapter 17 — self-balancing BSTs that perform rotations on every insert and delete to keep the height bounded by $\Theta(\log n)$ regardless of input order. In-order is still sorted; only the shape-maintenance rule gets stricter.
+
+## The three questions, applied
+
+### Is it correct?
+
+A BST is correct if, after any sequence of `insert` and `delete` operations, its in-order traversal still produces a sorted sequence of keys. That single check is equivalent to the structural invariant; the invariant is what makes the equivalence hold.
+
+`insert` preserves the invariant because at every node, it descends into exactly the subtree the invariant requires the new key to live in — strictly-less keys to the left, strictly-greater keys to the right — and the new leaf is attached at a `None` slot where no in-order position needs shifting. `search` is correct because at every node, the invariant tells you where the answer must be: if the target is smaller than the current key, the answer is in the left subtree or nowhere; if larger, in the right subtree or nowhere.
+
+`delete` carries the densest argument. The leaf case preserves the invariant because removing a leaf doesn't change any other key's position in the in-order order — the sequence just loses one element. The one-child case preserves it because the subtree being lifted is contiguous in the in-order order, and lifting it to a position where its ancestor used to sit doesn't change the relative ordering of any pair of remaining keys. The two-children case preserves it because the in-order successor is, by definition, the key that comes next in the sorted sequence — copying its payload into the deleted node's slot is exactly what the sorted sequence would look like with the deleted key removed.
+
+### How efficient is it?
+
+The cost table for a tree of $n$ nodes with height $h$:
+
+| Operation | Time | Extra space |
+|-----------|------|-------------|
+| `insert`  | $\Theta(h)$ | $\Theta(h)$ — recursion stack |
+| `search` / `__contains__` | $\Theta(h)$ | $\Theta(1)$ — iterative walk |
+| `delete`  | $\Theta(h)$ | $\Theta(h)$ — recursion stack |
+| `in_order` | $\Theta(n)$ | $\Theta(h)$ — generator stack |
+| `height`  | $\Theta(n)$ | $\Theta(h)$ |
+| `__len__` | $\Theta(1)$ | $\Theta(1)$ |
+
+That is: every single-key operation costs one root-to-leaf walk. For a balanced tree where $h = \Theta(\log n)$, that's about twenty comparisons for a million keys — the same shape as binary search on a sorted array, but with the structure preserved across modifications. For a worst-case tree where $h = n - 1$, those operations degrade to $\Theta(n)$ and you'd have been better off using a sorted array with binary lookup.
+
+The expected behaviour under random insertions is what Knuth's $1.39 \log_2 n$ height bound captures — the constant is just above $\log 2$, so a random BST lands within roughly 40% of the perfectly-balanced height. Python's `dict` and `sorted` are both built around different ideas (hashing and merge-sort, respectively) precisely because BST performance is *too dependent on input order* for you to want it as a default choice for a general dictionary.
+
+### Is it optimal?
+
+For the comparison-based model on arbitrary input, **a balanced BST is optimal**. Any data structure supporting ordered insert, search, and delete on $n$ keys must use $\Omega(\log n)$ comparisons per operation in the worst case. The information-theoretic argument is short: distinguishing among $n$ keys takes $\log_2 n$ yes/no answers, and a comparison is one yes/no answer. So $\Theta(\log n)$ per operation is tight at the model level, and a balanced BST achieves it.
+
+The BST in *this* chapter is not optimal — its worst-case height is $\Theta(n)$, which makes its worst-case operations $\Theta(n)$. The gap between "balanced BST" and "BST that happens to be balanced for now" is exactly what chapter 17 closes by adding rotation-based rebalancing. A red-black tree, AVL tree, or treap will give you $\Theta(\log n)$ per operation **regardless of insertion order**, and at that point you're at the comparison-based lower bound.
+
+For *some* workloads, a hash table beats a balanced BST (average $O(1)$ vs. $O(\log n)$), but only because the hash table gives up the ordering. You can't ask a hash table for "the smallest key", "all keys in `[lo, hi]`", or "the in-order traversal". The BST keeps those queries cheap; the hash table doesn't have them at all. The right comparison is that **balanced BSTs are optimal among comparison-based ordered dictionaries**, and that's the niche the rest of Part III lives in.
+
+## One ordering rule, three new operations
+
+The in-order traversal of a BST is sorted — that's the entire structure restated. Every operation here was designed to preserve that traversal. Insert descended into the half the invariant demanded; search descended into the half the invariant guaranteed; delete's three cases were exactly the cases that keep the sorted sequence intact. Structural rule and traversal output: same fact, told twice.
+
+A single ordering rule is enough to turn a substrate into a structure. Chapter 15's binary tree had no rule; you could put any value in any node. Chapter 16's BST adds *one* constraint, and lookup, insert, and delete all become $\Theta(\log n)$ on a well-shaped tree. The leap from $\Theta(n)$ to $\Theta(\log n)$ in chapter 2 needed a sorted array; here you get the same leap on data that *changes*, paid for by the same constraint applied locally at every node.
+
+Recursive helpers that return the new subtree root are the lingua franca of tree-mutating algorithms. Insert and delete both used the same `_op(node, ...) -> new_node` shape, and the same shape carries through AVL rotations and treap operations in the next chapters. Once that idiom is internalized, the recursion writes itself.
+
+A structural invariant is not a performance guarantee. The BST property says only that keys are sorted by position; it says nothing about balance. The pathological insertion in section four was a worst case that the invariant permits, and a structure whose worst-case cost matters needs *additional* rules beyond the structural one.
+
+Chapter 17 is the next rule. By adding a small bit of rebalancing logic — a constant-time rotation triggered when a subtree's height gets out of whack — you can force every insert and delete to leave behind a tree of height $\Theta(\log n)$, no matter what order keys arrive in. The unbalanced worst case is what rotations fix.
+
+## Notes and further reading
+
+Binary search trees are covered in CLRS (4th ed.) chapter 12 as the canonical comparison-based ordered dictionary, with the three-case delete laid out exactly as I've done here. Sedgewick and Wayne's *Algorithms* (4th ed.) §3.2 is the cleanest pedagogical treatment of insert and search, and is where Knuth's $1.39 \log_2 n$ expected-height result for random-order insertion is laid out in student-friendly form; Sedgewick attributes the BST as a data structure to independent work in the late 1950s by P.F. Windley, A.D. Booth, A.J.T. Colin, and others. Knuth's *The Art of Computer Programming*, vol. 3 (Sorting and Searching), §6.2.2 has the original expected-height analysis. The deletion algorithm in this chapter (in-order-successor variant) is sometimes called *Hibbard deletion* after T.N. Hibbard's 1962 paper "Some Combinatorial Properties of Certain Trees with Applications to Searching and Sorting"; it's known to leave the tree slightly less balanced than alternating successor/predecessor strategies, but the asymptotic cost is the same and the code is half the size.

@@ -1,0 +1,66 @@
+# Preface {.unnumbered}
+
+![](logo.png)
+
+Welcome to The Algorithm Codex.
+
+This book is a repository of common algorithms used in all areas of computer science. It contains reference implementations in Python for many well-known (and some not-so-much) algorithms spanning from simple linear search to sorting, graphs, computational geometry, data structures, flow networks, game theory, number theory, optimization, and many other fields.
+
+We wrote this book to serve as a complement for the main bibliography in a typical Computer Science major. You will not find comprehensive theory of algorithms in this book, or detailed analyses. However, we do present some basic intuitions into why most of the presented algorithms work and a back-of-the-envelope cost analysis whenever it makes sense.
+
+The order in which algorithms are presented is our best attempt to build the most complex ideas on top of the simpler ones. We start with basic algorithms that everyone can understand and progressively move towards the more advanced.
+
+The algorithms are presented in a literate programming format. The gist is that we combine code and prose in the best possible way to maximize understanding. Actually, the source code is generated from the book source, and not the other way around--that is what literate programming is, after all. Accompanying this book, you will find an [open source repository](https://github.com/matcom/codex) with the exact implementations in this book.
+
+You can read the book online at <https://matcom.github.io/codex/>.
+
+## What is this book about?
+
+The Algorithm Codex is designed as a multifaceted resource for a broad spectrum of the computational community. **Students** will find it to be a vital bridge between theoretical university lectures and the concrete reality of modern implementations, serving as a complement to standard academic curricula.
+
+For **professors**, the book provides a library of clean, pedagogical code that emphasizes structural clarity over complexity. **Researchers** can utilize these implementations as a reliable reference for standard algorithmic logic when prototyping new ideas, while **developers** will gain a deeper understanding of the underlying abstractions that power their daily tools.
+
+Ultimately, even **enthusiasts** driven by curiosity will find the logical elegance of these algorithms accessible through the lens of literate programming.
+
+It is equally important to clarify what this project represents by stating that this is **not a programming book**; we assume that the reader is already proficient in Python 3 and understands the fundamental principles of software development. We deliberately avoid **pseudo-code** in favor of actual, runnable Python to ensure that no logic is lost in translation.
+
+Furthermore, this work is **not an algorithm design book** and should not be viewed as a replacement for comprehensive theoretical texts such as *Introduction to Algorithms*. We do not offer **formal proofs of correctness** or exhaustive mathematical analysis, choosing instead to build intuition through back-of-the-envelope cost estimates and prose.
+
+Finally, the Codex is **not a production cookbook** meant for direct copy-pasting into high-stakes environments; our code is optimized for readability and educational insight rather than the micro-optimizations required for production-level software.
+
+## Content of the Book
+
+The Algorithm Codex is organized into several major parts, designed to take you from foundational concepts to specialized domains and the limits of computation:
+
+* **Searching and Sorting**: We establish the core intuitions of algorithmic efficiency by exploring how to find and organize data in linear and logarithmic time.
+* **Fundamental Data Structures**: We implement essential abstractions—including linked lists, stacks, queues, and hash tables—that serve as the building blocks for more complex systems.
+* **Trees**: This part covers hierarchical data, from binary search trees to self-balancing structures and specialized variants like heaps and tries.
+* **String Algorithms**: We focus on pattern matching and text processing, covering algorithms from exact matching (KMP, Boyer-Moore) to advanced suffix structures.
+* **Graphs**: A significant section dedicated to relational data, covering traversals, shortest paths, spanning trees, and flow networks.
+* **Dynamic Programming and Greedy Algorithms**: We delve into powerful paradigms for solving optimization problems by exploiting subproblem structure and local optimality.
+* **Specialized Domains**: We explore deep subregions of Computer Science, including computational geometry, number theory, and game theory.
+* **Advanced Complexity**: The book concludes with the frontiers of computation, exploring NP-completeness, approximation algorithms, and randomized approaches.
+
+## About the coding style
+
+The code in this book is written in Python 3, specifically the 3.13 version.
+
+We make extensive use of Python's generic syntax to write clean but fully typed methods that leverage the best and most modern practices in software development. Other than that, the code is often written in the simplest possible way that works. We don't make unnecessary optimizations like taking bounds out of a loop. On the other hand, our code is optimized in the algorithmic sense; it is fast because it exploits the inherent structure of the problem.
+
+Since most of our code is pure, functional algorithms, we often rely on public, plain Python functions. We thus have very few classes, and the ones we have are very simple, often nothing but data stores. However, we do make heavy use of protocols and abstract classes, especially those in the Python standard library like sequences, maps, and queues.
+
+## Support The Algorithm Codex
+
+This book is free, as in free beer and free speech, and it will always be.
+
+The book content is licensed CC-BY-NC-SA, that means you are free to share the book in any format (HTML, ePUB, PDF) with anyone, and produce any derivatives you want, as long as you also share those freely for posterity.
+
+The source code is licensed MIT, and thus you can use the algorithms implemented here for anything, including classes, academic work, but also writing commercial software.
+
+The only thing you cannot do is resell the book itself or any derivative work like lecture notes, translations, etc.
+
+If you want to support this effort, the best way to do is to [buy the official PDF](https://store.apiad.net/l/codex).
+
+## Stay in touch
+
+Most of the chapters in this book are first published as standalone articles in [The Computist Journal](https://blog.apiad.net). Subscribing there is the best way to stay in the loop and get early access to most of the material.

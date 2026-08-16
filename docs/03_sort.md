@@ -1,0 +1,229 @@
+# Fixing inversions, one at a time
+
+An unsorted list is just a list. A sorted list is a different beast — you can binary-search it in $O(\log n)$ (you saw that last chapter); you can find duplicates by walking once through it in $O(n)$; you can compute medians, percentiles, and any range query in time that depends only on the *answer*, not on the data. Sorting is the act of granting a list those superpowers, and the cost is paid once.
+
+Three classical sorts — *selection*, *insertion*, *bubble* — are all quadratic for what's almost the same deep reason. **An inversion is a pair of positions $(i, j)$ with $i < j$ but $\text{items}[i] > \text{items}[j]$** — the local evidence that a list isn't sorted. The whole chapter is about how to remove them.
+
+The same image carries the next chapter, with a twist. The sorts here fix inversions *one at a time*; the sorts in the next fix *many at once*. The factor between $O(n^2)$ and $O(n \log n)$ is exactly the gap between those two strategies.
+
+## Inversions: the distance from sortedness
+
+An inversion is a pair of indices that's out of order. Formally: given a sequence `items` and an ordering, an inversion is a pair $(i, j)$ with $i < j$ and $\text{items}[i] > \text{items}[j]$.
+
+A sorted sequence has **zero inversions** — every pair is in order, by definition. A reverse-sorted sequence has the **maximum**: every pair is out of order, which gives you $\binom{n}{2} = n(n-1)/2$ inversions. A random sequence sits roughly in the middle: a uniformly random permutation has an expected $n(n-1)/4$ inversions, half the maximum, because each of the $\binom{n}{2}$ pairs is equally likely to be either ordered or not.
+
+So the inversion count is a *distance from sortedness*. It runs from zero (already there) to $n(n-1)/2$ (worst possible). Sorting an array means driving its inversion count to zero. The choice of algorithm is the choice of *how* you remove them.
+
+The brute-force way to count inversions is to look at every pair:
+
+```python {export=src/codex/sort/inversions.py}
+from typing import Sequence
+from codex.types import Ordering, default_order
+
+
+def count_inversions[T](
+    items: Sequence[T], order: Ordering[T] = default_order
+) -> int:
+    n = len(items)
+    count = 0
+    for i in range(n):
+        for j in range(i + 1, n):
+            if order(items[i], items[j]) > 0:
+                count += 1
+    return count
+```
+
+It's $O(n^2)$, which is fine — counting inversions is going to be a teaching aid in this chapter, not a production tool. (There's an $O(n \log n)$ way to count them as a side effect of merge sort; you'll see it in the next chapter.)
+
+```python
+from codex.sort.inversions import count_inversions
+
+print(count_inversions([1, 2, 3, 4, 5]))            # 0 — already sorted
+print(count_inversions([5, 4, 3, 2, 1]))            # 10 — reverse sorted: n(n-1)/2 = 5*4/2
+print(count_inversions([3, 1, 4, 1, 5, 9, 2, 6]))   # 8 — somewhere in between
+```
+
+## Selection sort: find the extremum, repeat
+
+The most direct way to sort: stand at position 0 and ask *"what should go here?"* The answer is the minimum of the whole array. Find it, swap it into position 0, then repeat for position 1 (the minimum of what's left), position 2, and so on.
+
+```python {export=src/codex/sort/basic.py}
+from typing import MutableSequence
+from codex.types import Ordering, default_order
+
+
+def selection_sort[T](
+    items: MutableSequence[T], order: Ordering[T] = default_order
+) -> None:
+    n = len(items)
+    for i in range(n):
+        min_idx = i
+        for j in range(i + 1, n):
+            if order(items[j], items[min_idx]) < 0:
+                min_idx = j
+        items[i], items[min_idx] = items[min_idx], items[i]
+```
+
+The inner loop is exactly the `minimum`-finding pattern from chapter 1, scoped to the unsorted tail. The outer loop runs $n$ times; the inner loop runs $n-i-1$ times on iteration $i$. Total comparisons: $1 + 2 + \cdots + (n-1) = n(n-1)/2$. That's $O(n^2)$, regardless of the input — selection sort makes the same number of comparisons on a sorted array as on a random one.
+
+```python
+from codex.sort.basic import selection_sort
+
+items = [3, 1, 4, 1, 5, 9, 2, 6]
+selection_sort(items)
+print(items)   # [1, 1, 2, 3, 4, 5, 6, 9] — sorted in place
+```
+
+Selection sort swaps `items[i]` with `items[min_idx]`, which can be a *long* swap — `min_idx` might be all the way at the end of the array. That matters for the inversion analysis. A long swap can change the inversion count by a lot more than one, in either direction. So selection sort doesn't tell a clean inversion story. Its $O(n^2)$ comes from a different argument: $n$ passes, each doing $O(n)$ work to find an extremum. The inversion story belongs to the next two algorithms.
+
+## Insertion sort: each element finds its place
+
+The classic *"how you sort a hand of cards"* algorithm. Take the second card; slot it before or after the first. Take the third; slide it left until it's in the right place. Take the fourth; same idea. At iteration $i$, the prefix `items[0:i]` is already sorted, and your only job is to insert `items[i]` into its right place among them.
+
+The insertion happens by repeated adjacent swaps. You compare `items[i]` to its left neighbor; if it's smaller, swap them, then compare the result to *its* new left neighbor; keep going until the element either reaches index 0 or meets something it's not smaller than.
+
+```python {export=src/codex/sort/basic.py}
+def insertion_sort[T](
+    items: MutableSequence[T], order: Ordering[T] = default_order
+) -> None:
+    for i in range(1, len(items)):
+        j = i
+        while j > 0 and order(items[j], items[j - 1]) < 0:
+            items[j], items[j - 1] = items[j - 1], items[j]
+            j -= 1
+```
+
+```python
+from codex.sort.basic import insertion_sort
+
+items = [3, 1, 4, 1, 5, 9, 2, 6]
+insertion_sort(items)
+print(items)   # [1, 1, 2, 3, 4, 5, 6, 9]
+
+# On already-sorted input, insertion sort does no swaps — the inner while loop never enters
+sorted_items = [1, 2, 3, 4, 5]
+insertion_sort(sorted_items)
+print(sorted_items)  # [1, 2, 3, 4, 5] — unchanged
+```
+
+**Every swap in insertion sort is an adjacent swap.** And an adjacent swap fixes *exactly one* inversion — the pair you just unswapped. (Two non-adjacent elements that were inverted? Still inverted after, since you didn't touch their pair.)
+
+So the total number of swaps that insertion sort performs is exactly the number of inversions in the original array.
+
+```python
+def insertion_sort_counting(items):
+    items = list(items)
+    swaps = 0
+    for i in range(1, len(items)):
+        j = i
+        while j > 0 and items[j] < items[j - 1]:
+            items[j], items[j - 1] = items[j - 1], items[j]
+            j -= 1
+            swaps += 1
+    return items, swaps
+
+
+items = [3, 1, 4, 1, 5, 9, 2, 6]
+inversions_before = count_inversions(items)
+sorted_items, swaps = insertion_sort_counting(items)
+print(f"inversions in input: {inversions_before}")   # 8
+print(f"swaps performed:     {swaps}")                # 8
+print(f"match:                {inversions_before == swaps}")  # True
+```
+
+That's not a coincidence and it's not specific to this input. Insertion sort's swap count is exactly the inversion count of its input; the running time tracks it within a constant factor. On already-sorted input (zero inversions), the inner `while` never enters and insertion sort runs in $O(n)$ — it's the best of the three on that case. On reverse-sorted input ($n(n-1)/2$ inversions), it does the maximum work. Insertion sort's cost is the input's distance from sortedness, measured in inversions, made literal.
+
+## Bubble sort: the cleanest inversion story
+
+Same discipline as insertion sort, different traversal order. Walk the array left to right; whenever two adjacent elements are out of order, swap them. After one pass, the largest element has *bubbled* to the end. Then walk again over the remaining unsorted prefix. After $k$ passes, the $k$ largest elements are at the end, in their final positions.
+
+```python {export=src/codex/sort/basic.py}
+def bubble_sort[T](
+    items: MutableSequence[T], order: Ordering[T] = default_order
+) -> None:
+    n = len(items)
+    for i in range(n - 1):
+        for j in range(n - 1 - i):
+            if order(items[j], items[j + 1]) > 0:
+                items[j], items[j + 1] = items[j + 1], items[j]
+```
+
+```python
+from codex.sort.basic import bubble_sort
+
+items = [3, 1, 4, 1, 5, 9, 2, 6]
+bubble_sort(items)
+print(items)   # [1, 1, 2, 3, 4, 5, 6, 9]
+```
+
+Bubble sort, like insertion sort, swaps only adjacent elements. So the same lemma applies: total swaps = initial inversions.
+
+```python
+def bubble_sort_counting(items):
+    items = list(items)
+    swaps = 0
+    n = len(items)
+    for i in range(n - 1):
+        for j in range(n - 1 - i):
+            if items[j] > items[j + 1]:
+                items[j], items[j + 1] = items[j + 1], items[j]
+                swaps += 1
+    return items, swaps
+
+
+items = [3, 1, 4, 1, 5, 9, 2, 6]
+_, swaps = bubble_sort_counting(items)
+print(f"inversions in input: {count_inversions(items)}")  # 8
+print(f"bubble sort swaps:   {swaps}")                     # 8
+```
+
+Same number. That's the beautiful invariant: **insertion sort and bubble sort do exactly the same number of swaps on any input**, because both are restricted to adjacent swaps, and each adjacent swap fixes exactly one inversion. The difference between them is only *where in the array each swap happens* — insertion sort does its work locally as it scans; bubble sort does its work globally each pass. The total amount of work, measured in swaps, is identical.
+
+That's a deeper fact than it looks. The choice between insertion and bubble sort isn't about efficiency. It's about *traversal order*. They're solving the same problem, paying the same price, in the same currency.
+
+## The three questions, applied
+
+### Is it correct?
+
+All three sorts have clean loop invariants.
+
+- **Selection sort.** At the start of iteration $i$, the prefix `items[0:i]` holds the $i$ smallest elements in sorted order. The iteration finds the minimum of `items[i:]` and places it at position $i$, extending the sorted prefix by one. After $n$ iterations the entire array is the sorted prefix.
+- **Insertion sort.** At the start of iteration $i$, the prefix `items[0:i]` is sorted (but not necessarily its final values — it may shift further as later elements arrive). The iteration inserts `items[i]` into its right place within that prefix, so `items[0:i+1]` is sorted at the end.
+- **Bubble sort.** After pass $k$, the suffix `items[n-k:n]` holds the $k$ largest elements in sorted order, in their final positions. The next pass walks only over the unsorted prefix and bubbles its largest element to the boundary.
+
+In each case the invariant holds at the start, is preserved by each iteration, and at termination implies the whole array is sorted.
+
+### How efficient is it?
+
+All three are $O(n^2)$ time and $O(1)$ extra space — the algorithms sort in place, modifying the input directly.
+
+The detail is interesting though, and it splits the algorithms into two camps.
+
+- **Selection sort** does *exactly* $n(n-1)/2$ comparisons on every input. The structure of the input — sorted, reverse-sorted, random — doesn't affect the comparison count. It always does $n$ passes, each doing $O(n)$ work to find the minimum. Best case = worst case = average case.
+- **Insertion sort and bubble sort** do a number of swaps equal to the inversion count of the input. On sorted input that's zero swaps, giving $O(n)$ time (you still need the outer loop to verify, and the comparisons happen). On reverse-sorted input it's $n(n-1)/2$ swaps, giving $O(n^2)$. On random input it's about $n^2/4$ swaps, still $O(n^2)$.
+
+Said another way: selection sort is *constant work, regardless of luck*. Insertion and bubble are *as much work as the input deserves* — which, for a random input, is the same amount on average, but they win big on inputs that are nearly sorted.
+
+### Is it optimal?
+
+This is the chapter's punch, and it splits into two cleanly different claims.
+
+**Claim 1.** Any comparison-based sorting algorithm that uses **only adjacent swaps** must do at least as many swaps as there are inversions in the input. In the worst case (reverse-sorted input), that's $n(n-1)/2$. So insertion sort and bubble sort are tight at $\Omega(n^2)$ swaps in the worst case — there's no clever rearrangement within the adjacent-swap discipline that gets you below the inversion count.
+
+The argument is one sentence: an adjacent swap changes the inversion count by exactly $\pm 1$. To get from any starting inversion count $k$ to zero, you need at least $k$ adjacent swaps. The worst-case $k$ is $n(n-1)/2$. Done.
+
+**Claim 2.** Selection sort isn't restricted to adjacent swaps — it makes long swaps — so the inversions argument doesn't apply to it. Its $O(n^2)$ comes from a different structural fact: to identify the minimum of a sub-array of size $m$, you need $m - 1$ comparisons (no comparison-based algorithm can do better; same adversary argument from chapter 1). Selection sort does this $n$ times for sub-arrays of size $n, n-1, n-2, \ldots, 1$. Total: $\Theta(n^2)$ comparisons, unavoidably.
+
+Both claims land in the same place — $\Omega(n^2)$ — but for different reasons. Insertion and bubble sort are stuck because they only fix one inversion per operation. Selection sort is stuck because it can't shortcut the extremum-finding work. The next chapter breaks both restrictions at once.
+
+## Distance from sortedness
+
+Selection, insertion, and bubble sort are all correct — three slightly different loop invariants for what's morally the same shape. All three run in $O(n^2)$ time and $O(1)$ space. And all three are optimal *within their respective restrictions*: insertion and bubble are stuck at $\Omega(n^2)$ because they only swap adjacent elements, selection is stuck because it can't beat the extremum-finding lower bound — but those restrictions are exactly what an algorithm can give up to do better.
+
+The inversion count measures distance from sortedness. An unsorted array is *some specific number of pair-swaps away from sorted*, and that number bounds how much work any local algorithm has to do. The reason quadratic sorts are quadratic is that they fix one inversion at a time, and there can be a quadratic number of inversions.
+
+The way out is to **fix many inversions per operation**. Merge sort does it by combining two sorted halves and resolving all the cross-inversions in a single linear pass. Quicksort does it by partitioning around a pivot, which places one element in its final position and resolves all the inversions involving that pivot in one swap. Both algorithms break the one-inversion-per-swap ceiling, and both pay for it with a $\log n$ factor instead of an $n$ factor.
+
+## Notes and further reading
+
+The inversion count as a structural property of permutations is treated thoroughly in Knuth's *The Art of Computer Programming* Vol. 3 §5.1.1, where it appears under the name "inversions of a permutation." Selection, insertion, and bubble sort are CLRS (4th ed.) §2.1 and §2.2 and Sedgewick & Wayne's *Algorithms* (4th ed.) §2.1. The equivalence between adjacent-swap counts and inversion counts is folklore but worth attributing — it's the structural fact that makes insertion sort the right choice for *nearly-sorted* input, which is why it's used as the base case inside most production hybrid sorts (Timsort, Introsort). Counting inversions in $O(n \log n)$ via merge sort is a standard exercise you'll meet in the next chapter.

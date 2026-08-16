@@ -1,0 +1,323 @@
+# Branching from one root
+
+A binary tree is the smallest data structure that lets information *branch*. Every node has at most two children — a left and a right — and from any node you can either descend or stop. That single restriction is enough to give you sorted-data structures with $\Theta(\log n)$ lookup, hierarchical layouts for arithmetic expressions and file systems, and priority queues with logarithmic insertion.
+
+**Every node has at most two children — but the recursion has only one shape.** Pre-, in-, and post-order differ by exactly one line. Once you see that, the rest of the chapter is bookkeeping — the four traversals, Morris's threaded in-order walk in $O(1)$ extra space, and a serializer that round-trips a tree through a string.
+
+## The shape of a tree
+
+The definition is recursive because the recursion *is* the data structure. A binary tree is either empty, or it's a node holding a value plus two children — each of which is, itself, a binary tree. That's it. The base case (empty) and the recursive case (value plus two sub-trees) are everything.
+
+A few words that come up constantly. The **root** is the topmost node — the one no other node points at. A **leaf** has no children. The **depth** of a node is the number of edges from the root down to it (root has depth 0). The **height** of a tree is the maximum depth of any node, equivalently the longest root-to-leaf path. A perfectly balanced tree of $n$ nodes has height $\lfloor \log_2 n \rfloor$.
+
+That last fact is what makes binary trees interesting as a *cost shape*. Part I lived at $\Theta(n)$; Part II broke through to $\Theta(1)$ for the operations it cared about. Part III sits between those two, at $\Theta(\log n)$ — the cost of walking from root to leaf in a balanced tree. That's the "throw half away with every comparison" shape you met in chapter 2 with binary search on a sorted array, recovered here for *data that changes* — insertions, deletions, updates — without falling back to $\Theta(n)$ rebuilds.
+
+The simplest possible node is a value and two child pointers. Generic in the value type, plain Python class, no decorators or protocols.
+
+```python {export=src/codex/trees/binary.py}
+from collections import deque
+from typing import Iterator
+
+
+class BinaryNode[T]:
+    def __init__(
+        self,
+        value: T,
+        left: "BinaryNode[T] | None" = None,
+        right: "BinaryNode[T] | None" = None,
+    ) -> None:
+        self.value = value
+        self.left = left
+        self.right = right
+```
+
+The forward-referenced string annotations are the same Python detail that came up with `LinkedNode` in chapter 9 — the class is referring to itself before its name has finished binding. The shape itself is exactly the recursive definition: a value, plus two optional sub-trees. `None` is the empty-tree case.
+
+The canonical tree for this chapter is small enough to trace by hand and asymmetric enough that the four traversals all give visibly different outputs:
+
+```
+        1
+       / \
+      2   3
+     / \   \
+    4   5   6
+```
+
+You build it bottom-up, leaves first, then parents:
+
+```python
+from codex.trees.binary import BinaryNode
+
+# leaves first, then parents
+n4 = BinaryNode(4)
+n5 = BinaryNode(5)
+n6 = BinaryNode(6)
+n2 = BinaryNode(2, left=n4, right=n5)
+n3 = BinaryNode(3, right=n6)        # no left child
+root = BinaryNode(1, left=n2, right=n3)
+
+print(f"root value: {root.value}")
+print(f"root.left  is node {root.left.value}, root.right is node {root.right.value}")
+```
+
+Six nodes, height 2, asymmetric on purpose so traversal order disambiguates the four walks. Every section below uses this same tree.
+
+With `BinaryNode` and the six-node example tree in hand, the next question is the obvious one. How do you visit every node, and in what order?
+
+## Four walks around the same tree
+
+There are four canonical traversals of a binary tree, and the recursion-has-one-shape claim is best understood by writing them. The three depth-first orders — pre-, in-, and post-order — are *the same three-line recursion with the "visit self" line moved*. Level-order — the fourth — uses a queue instead of recursion, which sets it apart.
+
+Pre-order visits a node *before* its children. The recursion does three things in order: emit this node's value, recurse left, recurse right.
+
+```python {export=src/codex/trees/binary.py}
+def preorder[T](node: BinaryNode[T] | None) -> Iterator[T]:
+    if node is None:
+        return
+    yield node.value
+    yield from preorder(node.left)
+    yield from preorder(node.right)
+```
+
+The base case is the empty tree — there's nothing to yield. The recursive case is the three-line sandwich. I wrote this as a generator (`yield` / `yield from`) so traversal is lazy: a consumer that only needs the first few values doesn't pay for the whole walk.
+
+In-order moves the `yield` line *between* the two recursive calls. Now you emit a node's value *after* its left subtree and *before* its right subtree.
+
+```python {export=src/codex/trees/binary.py}
+def inorder[T](node: BinaryNode[T] | None) -> Iterator[T]:
+    if node is None:
+        return
+    yield from inorder(node.left)
+    yield node.value
+    yield from inorder(node.right)
+```
+
+Post-order moves it all the way to the end. Children first, parent last.
+
+```python {export=src/codex/trees/binary.py}
+def postorder[T](node: BinaryNode[T] | None) -> Iterator[T]:
+    if node is None:
+        return
+    yield from postorder(node.left)
+    yield from postorder(node.right)
+    yield node.value
+```
+
+Three functions, identical except for the position of one line. The recursion has one shape, and the "kind" of traversal is just where you put the visit.
+
+Level-order is different. It walks the tree breadth-first — root, then both children, then all four grandchildren, then the eight great-grandchildren, and so on, one row at a time. The natural data structure for that is the FIFO queue from chapter 11: enqueue the root, then in a loop dequeue a node, emit its value, and enqueue its non-empty children.
+
+```python {export=src/codex/trees/binary.py}
+def level_order[T](root: BinaryNode[T] | None) -> Iterator[T]:
+    if root is None:
+        return
+    queue: deque[BinaryNode[T]] = deque([root])
+    while queue:
+        node = queue.popleft()
+        yield node.value
+        if node.left is not None:
+            queue.append(node.left)
+        if node.right is not None:
+            queue.append(node.right)
+```
+
+The discipline is the same one that powers breadth-first search on a graph — FIFO ordering guarantees you process every node at depth $d$ before any node at depth $d+1$. Here the "graph" is a tree, so each node is visited exactly once and there's no need for a "seen" set.
+
+All four traversals on the canonical tree:
+
+```python
+from codex.trees.binary import preorder, inorder, postorder, level_order
+
+print(f"pre-order:   {list(preorder(root))}")    # [1, 2, 4, 5, 3, 6]
+print(f"in-order:    {list(inorder(root))}")     # [4, 2, 5, 1, 3, 6]
+print(f"post-order:  {list(postorder(root))}")   # [4, 5, 2, 6, 3, 1]
+print(f"level-order: {list(level_order(root))}") # [1, 2, 3, 4, 5, 6]
+```
+
+Same six values, four different sequences. Pre-order is the natural choice when you want a copy of the tree's *shape* — each node lands in the stream before its descendants. In-order is the one chapter 16 leans on hardest: for a binary search tree it spits the values out *sorted*. Post-order is what you reach for when each subtree must be *finished* before its parent — evaluating an expression tree, deleting nodes, computing aggregates from leaves up. Level-order is the right fit when distance from the root is what matters — printing the tree row-by-row, or finding the shallowest node satisfying some predicate.
+
+The recursive walks have one cost that doesn't show in the time bound: they use $\Theta(h)$ space on the call stack. For a balanced tree that's $\Theta(\log n)$, but for a pathological chain it's $\Theta(n)$. The next section is what you do when even that's too much.
+
+## Walking without a stack
+
+Recursive in-order needs the call stack to remember which ancestors it still has to revisit on its way back up. An iterative version using an explicit `list` as a stack has the same space cost — you've just moved the stack from C to Python. The natural question is whether you can walk the tree using only $O(1)$ *extra* memory — no recursion, no auxiliary stack, no array.
+
+Joseph Morris answered yes, in 1979, with a beautiful trick: **temporarily rewrite the tree itself**. Look at the leaves and partial nodes whose `right` is `None` — those null slots are wasted memory you can borrow. The Morris idea is to make the `right` pointer of each in-order *predecessor* point back at its in-order *successor*, so when the traversal finishes walking a left subtree it can hop directly back to the current node without a stack frame. Then, the second time the traversal reaches that node, it *unwrites* the thread and continues.
+
+A worked example on the canonical tree. Start at node 1; its left subtree is non-empty, so find 1's in-order predecessor — the rightmost node in its left subtree, which is node 5 — and write `5.right = 1` as a thread. Descend into 2; its predecessor is 4, so write `4.right = 2` and descend into 4. From 4, left is empty: emit 4, follow `4.right` back to 2. At 2 the second time, detect the thread (you put it there), unwrite it, emit 2, descend right into 5. From 5, left is empty: emit 5, follow the thread back to 1. Detect, unwrite, emit 1, descend right into 3. And so on. Output: `[4, 2, 5, 1, 3, 6]` — identical to recursive in-order, using only the loop variables as extra memory.
+
+The whole algorithm fits in fifteen-odd lines, but it earns its decomposition: there's a body loop, and inside that loop a sub-step that finds the predecessor and either writes or unwrites the thread. The sub-step lifts out as its own helper.
+
+```python {export=src/codex/trees/binary.py}
+def _rightmost[T](node: BinaryNode[T], stop: BinaryNode[T]) -> BinaryNode[T]:
+    while node.right is not None and node.right is not stop:
+        node = node.right
+    return node
+```
+
+`_rightmost` walks down right pointers from `node` until it either runs out (`right is None` — no thread yet, you're going to install one) or finds `stop` (`right is stop` — the thread is already installed by a previous pass, you're going to remove it). The `stop` parameter is the trick — it lets the helper serve both phases of the algorithm without a flag.
+
+The body of Morris in-order is then a while-loop on a `cur` pointer. Two cases at every step. If `cur.left` is empty, the in-order position is right here — emit `cur.value` and step right. Otherwise, find the rightmost descendant of the left subtree; if its `right` is empty, install a thread back to `cur` and descend left; if its `right` is already `cur`, the thread was installed on a previous pass, so unwrite it (restore `None`), emit `cur.value`, and step right.
+
+```python {export=src/codex/trees/binary.py}
+def morris_inorder[T](root: BinaryNode[T] | None) -> Iterator[T]:
+    cur = root
+    while cur is not None:
+        if cur.left is None:
+            yield cur.value
+            cur = cur.right
+            continue
+        pred = _rightmost(cur.left, cur)
+        if pred.right is None:
+            pred.right = cur                 # install thread
+            cur = cur.left
+        else:
+            pred.right = None                # remove thread, restore tree
+            yield cur.value
+            cur = cur.right
+```
+
+Two branches at each step, no recursion, no auxiliary stack — the only mutable state is `cur`, `pred`, and the temporarily-installed threads inside the tree itself. When the loop finishes, every thread has been removed, so the tree is bit-identical to its starting state. That's the algorithm's contract: it *mutates* and *unmutates* in the same pass, leaving the tree as it found it.
+
+Hand-verifying that Morris and the recursive in-order produce the same sequence:
+
+```python
+from codex.trees.binary import morris_inorder
+
+# rebuild the canonical tree to be safe from earlier demo mutations
+n4 = BinaryNode(4); n5 = BinaryNode(5); n6 = BinaryNode(6)
+n2 = BinaryNode(2, left=n4, right=n5)
+n3 = BinaryNode(3, right=n6)
+root = BinaryNode(1, left=n2, right=n3)
+
+print(f"recursive in-order: {list(inorder(root))}")
+print(f"morris in-order:    {list(morris_inorder(root))}")
+print(f"tree restored?      {n4.right is None and n5.right is None}")
+```
+
+Same sequence both ways. The last check confirms that the threads were removed — nodes 4 and 5 (the in-order predecessors of 2 and 1 respectively) have their original `right is None` restored after the walk.
+
+The cost is $O(n)$ time and $O(1)$ *extra* space (beyond the tree itself). The time bound takes a second to see — some edges look like they're traversed twice — but the careful argument is that every edge is traversed at most three times (install thread, descend, remove thread), so total work is $\Theta(n)$. Morris is roughly 2–3× slower than recursive in-order in raw wall-clock, and you trade that constant factor for never blowing the recursion stack.
+
+A tree also needs to be written *down* — to a string, a file, the network — so it can be read back later.
+
+## Writing a tree to a string
+
+The serialization problem: turn a binary tree into a flat sequence of tokens so it can be written to a file and re-parsed into the same tree. The catch is that the tree's *shape* has to survive the round trip. Pre-order alone isn't enough — the sequence `[1, 2, 3]` could be a chain, a left-leaning V, a right-leaning V, or a balanced triangle. You can't tell from the values.
+
+The fix is a classic textbook trick: pre-order with **explicit null markers**. Whenever the recursion hits `None`, emit a sentinel token — `"#"` here. That gives every recursive call exactly one token to consume, and the tree's shape is encoded by where the nulls land. For the canonical tree, the serialization is `1 2 4 # # 5 # # 3 # 6 # #` — thirteen tokens for six values, with the seven `#` markers carrying the shape information.
+
+Serialization is one block; deserialization splits into a small driver and a recursive parser, two blocks for clarity.
+
+```python {export=src/codex/trees/binary.py}
+def serialize[T](root: BinaryNode[T] | None) -> str:
+    tokens: list[str] = []
+
+    def _walk(node: BinaryNode[T] | None) -> None:
+        if node is None:
+            tokens.append("#")
+            return
+        tokens.append(str(node.value))
+        _walk(node.left)
+        _walk(node.right)
+
+    _walk(root)
+    return " ".join(tokens)
+```
+
+The inner `_walk` is the same three-line pre-order recursion you wrote earlier, with `None` mapped to `"#"` instead of being a silent base case. The outer function joins the token list with spaces and returns the string.
+
+Deserialization is the inverse, and it takes a small driver that splits the string into tokens and feeds them to a recursive parser.
+
+```python {export=src/codex/trees/binary.py}
+def deserialize(s: str) -> BinaryNode[int] | None:
+    tokens = iter(s.split())
+    return _parse(tokens)
+```
+
+The driver hands an iterator over the token stream to `_parse`, which consumes exactly the tokens belonging to one subtree and stops. Because the recursion shape and the serialization shape match, the iterator naturally hands off cleanly between recursive calls.
+
+```python {export=src/codex/trees/binary.py}
+def _parse(tokens: Iterator[str]) -> BinaryNode[int] | None:
+    token = next(tokens)
+    if token == "#":
+        return None
+    node = BinaryNode(int(token))
+    node.left = _parse(tokens)
+    node.right = _parse(tokens)
+    return node
+```
+
+`_parse` consumes one token per call. If it's the null marker, return `None` (matching the `_walk` base case). Otherwise allocate a node, then recurse on the iterator — the left subtree is parsed first, then the right, mirroring the serialization order. The iterator's state advances across recursive calls because it's the *same iterator object*, threaded through. That's why I split the entry function from the worker: it lets me hand a fresh iterator to the top of the recursion exactly once.
+
+I picked `BinaryNode[int]` as the return type because the textual round trip needs the values to be parseable from strings. A fully generic round trip would need a serializer-and-parser per type — real-world JSON or protobuf territory, out of scope here. The shape of the algorithm doesn't change.
+
+Round-tripping the canonical tree:
+
+```python
+from codex.trees.binary import serialize, deserialize
+
+n4 = BinaryNode(4); n5 = BinaryNode(5); n6 = BinaryNode(6)
+n2 = BinaryNode(2, left=n4, right=n5)
+n3 = BinaryNode(3, right=n6)
+root = BinaryNode(1, left=n2, right=n3)
+
+encoded = serialize(root)
+print(f"encoded: {encoded}")
+
+decoded = deserialize(encoded)
+print(f"pre-order of decoded:   {list(preorder(decoded))}")
+print(f"in-order of decoded:    {list(inorder(decoded))}")
+print(f"level-order of decoded: {list(level_order(decoded))}")
+```
+
+Same pre-, in-, and level-order outputs as the original — the structure survived the round trip intact. The encoded string is `1 2 4 # # 5 # # 3 # 6 # #`, exactly as predicted.
+
+This isn't the *only* encoding that round-trips. Knowing both pre-order and in-order (without null markers) also uniquely identifies a tree as long as values are distinct — that's how CLRS sets up the reconstruction problem. The pre-order-with-nulls form is simpler because it uses one sequence and works even when values repeat.
+
+## The three questions, applied
+
+### Is it correct?
+
+The four traversals are correct because each one is a faithful implementation of its recursive definition — pre-, in-, and post-order differ only in where the `yield` line sits, and that position corresponds exactly to the named visit order. Level-order is correct because the FIFO discipline guarantees all depth-$d$ nodes are emitted strictly before any depth-$(d+1)$ node, by the same argument that makes BFS work on a graph.
+
+Morris in-order is correct because the thread invariant is preserved at every loop iteration: when you install `pred.right = cur` you've claimed an otherwise-null pointer; when you later detect `pred.right is cur`, the only way it's true is that *this same iteration* installed it (the descent into the left subtree never touches `cur`). So unwriting the thread restores the tree, and emitting `cur.value` between the left and right walks matches the recursive in-order position.
+
+The serialize / deserialize pair is correct because the pre-order-with-nulls encoding has the round-trip property — each recursive call emits exactly enough tokens to be re-consumed by exactly one recursive call on the deserializing side.
+
+### How efficient is it?
+
+The cost table for a tree of $n$ nodes with height $h$:
+
+| Operation | Time | Extra space |
+|-----------|------|-------------|
+| `preorder` / `inorder` / `postorder` | $\Theta(n)$ | $\Theta(h)$ — call stack |
+| `level_order` | $\Theta(n)$ | $O(w)$ — queue, where $w$ is the maximum tree width |
+| `morris_inorder` | $\Theta(n)$ | $\Theta(1)$ |
+| `serialize` / `deserialize` | $\Theta(n)$ | $\Theta(n)$ — output string / token list |
+
+That is: every traversal touches each node a constant number of times, so wall-clock cost is linear in the tree's size. The space columns are where the structures differ — recursive walks pay $\Theta(h)$ for the call stack, level-order pays for whatever's in the queue (worst case $\Theta(n/2)$ at the bottom row of a complete tree), and Morris is the only $O(1)$-extra-space option.
+
+For a balanced tree, $h = \Theta(\log n)$, so all of these except `level_order` use logarithmic extra space. For a pathological chain ($h = n - 1$), recursive traversals use $\Theta(n)$ stack space — exactly the case where Morris matters, since it doesn't blow up where a recursive walk would risk a `RecursionError`.
+
+### Is it optimal?
+
+Yes, by the most basic argument available. Any algorithm that *visits every node* of an $n$-node tree must do at least $\Omega(n)$ work, so the $\Theta(n)$ time bound is tight by inspection. For *space*, Morris is optimal in a stronger sense — $\Theta(1)$ extra space is the minimum for a traversal of an arbitrary tree, because any extra-space-free strategy must use the tree itself as scratch. Recursive traversals are suboptimal in space (they pay $\Theta(h)$ for the stack) but buy back simplicity. The serialize pair is optimal in *output size* — any unambiguous encoding of an $n$-node tree needs $\Theta(n)$ tokens, and the pre-order-with-nulls form achieves exactly $2n + 1$, within a constant of the lower bound.
+
+The deeper question — what tree *structure* you should choose for a given workload — is what the rest of Part III is about. Binary trees alone don't impose ordering on their values, so they can't speed up lookup; binary search trees (chapter 16) add that. Binary trees alone don't guarantee logarithmic height, so they can degenerate into chains; self-balancing trees (chapter 17) fix that.
+
+## One recursion shape, four orders
+
+Every node has at most two children — but the recursion has only one shape. The three depth-first traversals are the same three-line function with the visit position moved; level-order is the breadth-first cousin that swaps recursion for a queue; Morris in-order trades a constant-factor time penalty for $O(1)$ extra space by temporarily rewriting the tree. Every traversal is $\Theta(n)$, which is optimal because reporting every node has to read every node.
+
+The same recursion structure carries different semantics through one moved line. The position of the yield distinguishes pre-, in-, and post-order, and each position naturally matches a class of problem (copy the tree, sort the values, aggregate from leaves up). Recognizing that the data structure's shape *is* the recursion's shape is what makes tree algorithms feel less like memorization.
+
+$O(1)$-extra-space traversals exist when you're willing to mutate-and-restore. Morris's threaded walk is the canonical example, and the same discipline shows up in iterative deepening and in some in-place graph algorithms. The trick is to notice that the tree already holds enough wasted pointers to serve as its own scratch space — you just have to promise to put them back.
+
+The choice between traversal orders isn't aesthetic. Each one is the right answer for a different class of problem, and recognizing the workload that fits each order is the skill that tree-heavy code rewards.
+
+The chapter that follows is what happens when you *constrain* the values in a binary tree to be ordered by position — left descendants smaller, right descendants larger. Once that holds, in-order traversal outputs the values *sorted*, and lookup, insertion, and deletion all become $\Theta(\log n)$ on a balanced tree. That's the binary search tree.
+
+## Notes and further reading
+
+Binary trees and their traversals are covered in CLRS (4th ed.) chapter 12 as the substrate for binary search trees; the chapter's reconstruction-from-two-traversals exercise is exactly the textbook way to set up the deserialization problem this chapter handles with explicit nulls. Sedgewick and Wayne's *Algorithms* (4th ed.) §3.2 introduces binary search trees with traversal mechanics inline, and is the pedagogical inspiration for treating the tree's shape and the traversal's shape as the same object. The threaded-traversal trick is Joseph M. Morris's 1979 paper "Traversing Binary Trees Simply and Cheaply," published in *Information Processing Letters* — three pages, no jargon, worth reading in the original for the elegance of the construction. The serialize-with-nulls format is folklore in competitive-programming circles; LeetCode's "Serialize and Deserialize Binary Tree" problem (#297) is the standard exercise that crystallized it as the textbook approach.

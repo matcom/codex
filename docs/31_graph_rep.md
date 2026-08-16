@@ -1,0 +1,390 @@
+# Three ways to write the same graph
+
+A graph is a set of vertices and a set of edges between them, and the second sentence of every chapter in this part depends on which of three encodings of that pair you have in hand. The trie at the end of Part IV was already a graph — a set of nodes plus the parent-child edges between them — and Aho-Corasick added a second set of edges (the fail-links) over the same vertex set. Both algorithms worked because the structure could answer one question quickly: *given a node, what are its outgoing edges?* Chapter 32's breadth-first search will ask the same question, billions of times if the graph is large enough, and the answer's cost depends entirely on how the graph is stored. Two graphs with the same vertices and the same edges can be represented in ways that differ by orders of magnitude in space and by orders of magnitude in per-query time. **Representation is not a storage choice — it is a cost-shape choice, and it propagates through every algorithm built on top of it.**
+
+By the end of this chapter you will have implemented three concrete representations of a graph (edge list, adjacency matrix, adjacency list), seen the same six-vertex demo graph encoded in all three, watched the per-operation cost shape change as the representation changes, and met a fourth shape — the *implicit graph* — that stores no edges at all and computes them on demand. The rest of Part V leans on the adjacency-list class built here as its default, picks the matrix when density justifies it, and reaches for implicit-graph code when the vertex set is huge and the edges are derivable.
+
+## Vertices, edges, and four combinations
+
+A graph $G = (V, E)$ is a finite set of *vertices* $V$ paired with a finite set of *edges* $E$, where each edge is either an unordered pair $\{u, v\}$ of vertices (*undirected*) or an ordered pair $(u, v)$ (*directed*). When an edge carries a number attached to it — a cost, a distance, a capacity, a time — the graph is *weighted*; otherwise it is *unweighted*, which is just the special case where every edge has weight 1.
+
+Four combinations, then. Directed-weighted graphs are the most general; the other three are restrictions. Dijkstra's algorithm in chapter 34 wants directed-weighted, but works on undirected graphs by treating each undirected edge $\{u, v\}$ as the pair of directed edges $(u, v)$ and $(v, u)$ with the same weight. Breadth-first search in chapter 32 wants directed-unweighted, but works on weighted graphs by ignoring the weights. The chapters use whichever subset they need, and the representations here support all four.
+
+A few conventions I will hold to across the part. The number of vertices is $n$, the number of edges is $m$, and the symbols $u$, $v$, $w$ denote vertices (the symbol $w$ is also reused for *weight* in the rare lines where context makes the distinction obvious). The *neighbors* of a vertex $u$ — written $N(u)$ — are the vertices $v$ such that $(u, v) \in E$. The *degree* of $u$ is $|N(u)|$. For directed graphs, *out-neighbors* and *in-neighbors* are distinguished when it matters; *neighbors* without qualification means out-neighbors. A graph is *sparse* when $m = O(n)$ or $m = O(n \log n)$; *dense* when $m = \Theta(n^2)$. Most real graphs are sparse — social networks, road networks, web graphs, citation graphs all have a small constant or a logarithmic factor more edges than vertices — and that fact is what tips the representation choice toward the adjacency list in most chapters.
+
+## One graph to run through all three
+
+I want one graph that recurs across the part so the cost-shape comparisons are concrete. Six vertices labeled `"A"` through `"F"`, nine edges, weighted. The edges form a small mesh that is connected, has multiple paths between most vertex pairs, and has at least one bridge and at least one cycle.
+
+| edge | weight |
+|---|---|
+| A — B | 5 |
+| A — C | 3 |
+| B — C | 2 |
+| B — D | 6 |
+| C — D | 1 |
+| C — E | 4 |
+| D — E | 2 |
+| D — F | 3 |
+| E — F | 5 |
+
+I will use this graph undirected and weighted by default; chapters 33, 37, and 38 will reorient it as a directed or unweighted variant as they need.
+
+## Edge list: the rawest encoding
+
+The simplest representation stores no structure beyond what was given: a list of triples $(u, v, w)$, one per edge. That's it. No vertex set is stored separately — vertices are whichever labels appear in the edges. No adjacency information is precomputed. To find the neighbors of a vertex, you scan the whole list.
+
+```python {export=src/codex/graphs/edge_list.py}
+from collections.abc import Hashable, Iterable, Iterator
+
+
+class EdgeList[V: Hashable]:
+    """Graph stored as a flat list of (u, v, weight) edge triples.
+
+    Cheap to build, cheap to enumerate edges, expensive to query.
+    Best for Kruskal's MST (chapter 36), where the whole point is to
+    sort the edges once and walk them in order.
+    """
+
+    def __init__(self, directed: bool = False) -> None:
+        self._directed = directed
+        self._edges: list[tuple[V, V, float]] = []
+        self._vertices: set[V] = set()
+
+    def add_edge(self, u: V, v: V, weight: float = 1.0) -> None:
+        self._edges.append((u, v, weight))
+        self._vertices.add(u)
+        self._vertices.add(v)
+
+    def __len__(self) -> int:
+        return len(self._vertices)
+
+    def vertices(self) -> Iterable[V]:
+        return self._vertices
+
+    def edges(self) -> Iterator[tuple[V, V, float]]:
+        yield from self._edges
+
+    def neighbors(self, u: V) -> Iterator[V]:
+        for x, y, _ in self._edges:
+            if x == u:
+                yield y
+            elif not self._directed and y == u:
+                yield x
+```
+
+Four methods, one field that matters (`_edges`), and a derived set of vertices kept for the `vertices()` query. The directed flag controls whether undirected edges are walked in both directions during neighbor enumeration; the underlying edge list stores each undirected edge only once.
+
+The cost shape is the point. Adding an edge is $O(1)$. Enumerating all edges is $O(m)$, which is optimal — you have to touch every edge once. Asking "does the edge $(u, v)$ exist?" or "what are the neighbors of $u$?" both scan the whole edge list and cost $\Theta(m)$. That is bad for almost every algorithm in this part — BFS's inner loop asks for neighbors $n$ times across the whole scan, so BFS on an edge-list-backed graph runs in $\Theta(nm)$ instead of $\Theta(n + m)$. A factor of $n$ slowdown for picking the wrong representation. The edge list is the right call only when the algorithm itself wants to enumerate edges in some global order — Kruskal's MST in chapter 36 sorts the edge list by weight, then walks it; the global enumeration is the algorithm's loop, so an edge list pays for itself.
+
+```python
+from codex.graphs.edge_list import EdgeList
+
+g = EdgeList[str](directed=False)
+for u, v, w in [("A", "B", 5), ("A", "C", 3), ("B", "C", 2), ("B", "D", 6),
+                ("C", "D", 1), ("C", "E", 4), ("D", "E", 2), ("D", "F", 3),
+                ("E", "F", 5)]:
+    g.add_edge(u, v, w)
+
+print(f"|V| = {len(g)}, |E| = {sum(1 for _ in g.edges())}")
+print(f"neighbors of 'C': {sorted(g.neighbors('C'))}")
+print(f"neighbors of 'F': {sorted(g.neighbors('F'))}")
+```
+
+Six vertices, nine edges. Vertex `C` has four neighbors (it's the most-connected vertex in this mesh); vertex `F` has two. The neighbor query scanned all nine edges twice — once for each call — even though `C` and `F` each touch only a few of them. That scan cost is what the next two representations eliminate.
+
+## Adjacency matrix: $O(1)$ edge queries, $\Theta(n^2)$ space
+
+The adjacency matrix encodes the graph as a two-dimensional array. With $n$ vertices labeled $0$ through $n - 1$, the matrix is an $n \times n$ table where the entry at row $u$ and column $v$ holds the weight of the edge from $u$ to $v$, or some sentinel meaning "no edge." For an undirected graph the matrix is symmetric: entry $(u, v)$ equals entry $(v, u)$. For an unweighted graph the entries are 0 or 1.
+
+The strength of this representation is that the question "is there an edge from $u$ to $v$?" is answered by a single array read — $O(1)$, no scan, no hash lookup. The weakness is that the matrix uses $\Theta(n^2)$ space whether the graph is dense or sparse. For a million-vertex sparse graph with five million edges, the adjacency-list representation needs $\Theta(n + m) = \Theta(6 \cdot 10^6)$ slots and the adjacency matrix needs $\Theta(n^2) = \Theta(10^{12})$ slots — a million-fold blow-up on a graph the list representation handles trivially.
+
+I'm going to use `float('inf')` as the sentinel for "no edge" in the weighted case, because it composes well with weight comparisons: any real edge weight is less than infinity, so Dijkstra-style relaxation code can compare without a separate `has_edge` check. The user-facing methods accept arbitrary hashable vertex labels and translate them to row/column indices internally via a vertex-to-index map.
+
+```python {export=src/codex/graphs/adjacency_matrix.py}
+from collections.abc import Hashable, Iterable, Iterator, Sequence
+from math import inf
+
+
+class AdjacencyMatrix[V: Hashable]:
+    """Graph stored as an n x n matrix of edge weights, with float('inf')
+    for absent edges.
+
+    O(1) edge queries, O(n^2) space. Use when the graph is dense
+    (m = Theta(n^2)) or when the algorithm hammers has_edge / weight
+    lookups, like Floyd-Warshall in chapter 35.
+    """
+
+    def __init__(self, vertices: Sequence[V], directed: bool = False) -> None:
+        self._directed = directed
+        self._index: dict[V, int] = {v: i for i, v in enumerate(vertices)}
+        self._vertices: list[V] = list(vertices)
+        n = len(vertices)
+        self._matrix: list[list[float]] = [[inf] * n for _ in range(n)]
+```
+
+The constructor fixes the vertex set at construction time — once an `AdjacencyMatrix` is built, you can't add new vertices without rebuilding the matrix. That's a deliberate restriction: growing the matrix would mean re-allocating an $n^2$ table on every vertex insertion, and the resulting cost shape is bad enough that matrix-backed graphs simply don't support it. The adjacency list, which we'll build next, does.
+
+```python {export=src/codex/graphs/adjacency_matrix.py}
+    def __len__(self) -> int:
+        return len(self._vertices)
+
+    def vertices(self) -> Iterable[V]:
+        return self._vertices
+
+    def add_edge(self, u: V, v: V, weight: float = 1.0) -> None:
+        i, j = self._index[u], self._index[v]
+        self._matrix[i][j] = weight
+        if not self._directed:
+            self._matrix[j][i] = weight
+
+    def has_edge(self, u: V, v: V) -> bool:
+        return self._matrix[self._index[u]][self._index[v]] < inf
+
+    def weight(self, u: V, v: V) -> float:
+        return self._matrix[self._index[u]][self._index[v]]
+
+    def neighbors(self, u: V) -> Iterator[V]:
+        i = self._index[u]
+        for j, w in enumerate(self._matrix[i]):
+            if w < inf:
+                yield self._vertices[j]
+
+    def edges(self) -> Iterator[tuple[V, V, float]]:
+        for i, row in enumerate(self._matrix):
+            for j, w in enumerate(row):
+                if w < inf and (self._directed or i <= j):
+                    yield (self._vertices[i], self._vertices[j], w)
+```
+
+Six methods, all of them either $O(1)$ (single-cell reads and writes) or $O(n)$ (row scans for `neighbors`) or $O(n^2)$ (the full-matrix scan in `edges`). `neighbors(u)` walks an entire row of the matrix, including the absent edges — that's the inefficiency that sinks the adjacency matrix on sparse graphs. If the average vertex has 5 neighbors and $n$ is a million, every `neighbors` call reads a million entries to find five of them. The adjacency-list `neighbors` reads exactly five.
+
+```python
+from codex.graphs.adjacency_matrix import AdjacencyMatrix
+
+vertices = ["A", "B", "C", "D", "E", "F"]
+g = AdjacencyMatrix[str](vertices, directed=False)
+for u, v, w in [("A", "B", 5), ("A", "C", 3), ("B", "C", 2), ("B", "D", 6),
+                ("C", "D", 1), ("C", "E", 4), ("D", "E", 2), ("D", "F", 3),
+                ("E", "F", 5)]:
+    g.add_edge(u, v, w)
+
+print(f"|V| = {len(g)}")
+print(f"weight(C, D) = {g.weight('C', 'D')}  (single cell read, O(1))")
+print(f"weight(A, F) = {g.weight('A', 'F')}  (no edge -> inf, also O(1))")
+print(f"has_edge(B, E) = {g.has_edge('B', 'E')}  (B does not connect directly to E)")
+print(f"neighbors of 'C' (sorted): {sorted(g.neighbors('C'))}")
+print(f"neighbors of 'F' (sorted): {sorted(g.neighbors('F'))}")
+```
+
+Same neighbors as the edge list — `C` connects to four vertices, `F` to two — but the cost shape underneath has flipped. `weight(C, D)` is now a single cell read instead of a nine-edge scan. The price is the $6 \times 6 = 36$ cells of storage, of which only 18 hold real edge data (nine weights, doubled because the graph is undirected) and the rest are `inf`. On a graph this small the matrix wastes nothing; on a million-vertex sparse graph it wastes essentially all of its memory.
+
+Print it row by row and the shape shows itself.
+
+```python
+print(f"adjacency matrix (rows/cols = {vertices}):")
+print(f"        {'  '.join(vertices)}")
+for v in vertices:
+    row = [f"{g.weight(v, u):>3.0f}" if g.has_edge(v, u) else "  ."
+           for u in vertices]
+    print(f"   {v}   {' '.join(row)}")
+```
+
+The symmetry across the diagonal is the undirected-graph signature; the `.` cells are the absent edges. For a directed graph the matrix would not be symmetric, and that asymmetry is exactly what makes the matrix representation useful for directed algorithms — `out_neighbors(u)` walks row $u$, `in_neighbors(u)` walks column $u$, and both questions are equally cheap.
+
+## Adjacency list: the workhorse
+
+The adjacency list stores, for each vertex, the list (or dictionary) of its neighbors and their edge weights. It uses $\Theta(n + m)$ space — proportional to the actual graph, not to the matrix it could have been. Per-vertex queries are cheap: `neighbors(u)` returns exactly $|N(u)|$ vertices, no scanning of absent edges. Edge queries `has_edge(u, v)` require looking up $v$ in $u$'s adjacency container, which is $O(1)$ amortized if the container is a hash map, or $O(\log n)$ if it's a balanced tree. For the chapters in this part I'll use Python dictionaries, which gives the amortized $O(1)$ guarantee.
+
+The internal storage is a `dict[V, dict[V, float]]` — the outer dictionary maps each vertex to its neighbor dictionary, and each neighbor dictionary maps a destination vertex to the edge weight. This nested-dictionary layout makes the four common queries all cheap: vertex enumeration walks the outer dictionary's keys, neighbor enumeration walks an inner dictionary's keys, edge-existence is an inner-dictionary `in` test, and weight lookup is an inner-dictionary access.
+
+```python {export=src/codex/graphs/adjacency_list.py}
+from collections.abc import Hashable, Iterable, Iterator
+
+
+class AdjacencyList[V: Hashable]:
+    """Graph stored as a dictionary mapping each vertex to a dictionary
+    of (neighbor -> weight) entries.
+
+    O(1) amortized for has_edge, weight, and add_edge. O(deg(u)) for
+    neighbors(u). O(n + m) space. The default representation for almost
+    every chapter in Part V.
+    """
+
+    def __init__(self, directed: bool = False) -> None:
+        self._directed = directed
+        self._adj: dict[V, dict[V, float]] = {}
+```
+
+One field of substance. The dictionary is created empty; vertices are added implicitly when an edge first mentions them, or explicitly via `add_vertex` for isolated vertices that have no edges yet.
+
+```python {export=src/codex/graphs/adjacency_list.py}
+    def add_vertex(self, v: V) -> None:
+        if v not in self._adj:
+            self._adj[v] = {}
+
+    def add_edge(self, u: V, v: V, weight: float = 1.0) -> None:
+        self.add_vertex(u)
+        self.add_vertex(v)
+        self._adj[u][v] = weight
+        if not self._directed:
+            self._adj[v][u] = weight
+
+    def __len__(self) -> int:
+        return len(self._adj)
+
+    def vertices(self) -> Iterable[V]:
+        return self._adj.keys()
+
+    def has_edge(self, u: V, v: V) -> bool:
+        return u in self._adj and v in self._adj[u]
+
+    def weight(self, u: V, v: V) -> float:
+        return self._adj[u][v]
+
+    def degree(self, u: V) -> int:
+        return len(self._adj[u])
+
+    def neighbors(self, u: V) -> Iterator[V]:
+        yield from self._adj[u].keys()
+
+    def weighted_neighbors(self, u: V) -> Iterator[tuple[V, float]]:
+        yield from self._adj[u].items()
+
+    def edges(self) -> Iterator[tuple[V, V, float]]:
+        seen: set[tuple[V, V]] = set()
+        for u, nbrs in self._adj.items():
+            for v, w in nbrs.items():
+                if not self._directed and (v, u) in seen:
+                    continue
+                seen.add((u, v))
+                yield (u, v, w)
+```
+
+Ten methods, all of them either $O(1)$ amortized or proportional to exactly the work the caller asked for. `neighbors(u)` yields $|N(u)|$ items in $O(|N(u)|)$ time, never more. `edges()` yields each undirected edge once by maintaining a `seen` set during the walk; for a directed graph the `seen` check is bypassed. The `weighted_neighbors(u)` method exists because Dijkstra's loop in chapter 34 wants both the neighbor and the edge weight in one pass, and constructing tuples from two dictionary lookups would be wasteful.
+
+```python
+from codex.graphs.adjacency_list import AdjacencyList
+
+g = AdjacencyList[str](directed=False)
+for u, v, w in [("A", "B", 5), ("A", "C", 3), ("B", "C", 2), ("B", "D", 6),
+                ("C", "D", 1), ("C", "E", 4), ("D", "E", 2), ("D", "F", 3),
+                ("E", "F", 5)]:
+    g.add_edge(u, v, w)
+
+print(f"|V| = {len(g)}, |E| = {sum(1 for _ in g.edges())}")
+print(f"degree of C: {g.degree('C')} (the hub)")
+print(f"degree of F: {g.degree('F')} (a leaf-ish vertex)")
+print()
+print("neighborhood of C with weights:")
+for v, w in sorted(g.weighted_neighbors("C")):
+    print(f"   C -- {v}  (weight {w})")
+```
+
+Same graph again, same answer. `C` has four neighbors, `F` has two. The internal storage is nine entries in the outer dictionary's inner dictionaries (one per undirected edge, doubled to eighteen because each undirected edge appears in two adjacency entries). Space proportional to the actual edge count, not to $n^2$.
+
+## When does each representation win?
+
+The three representations have the same expressive power — every graph can be encoded in any of them, and the encodings can be translated into each other in $\Theta(n + m)$ time. They differ only in cost shape. The right summary table:
+
+| operation | edge list | adjacency matrix | adjacency list |
+|---|---|---|---|
+| space | $\Theta(m)$ | $\Theta(n^2)$ | $\Theta(n + m)$ |
+| add edge | $O(1)$ | $O(1)$ | $O(1)$ amortized |
+| has_edge | $\Theta(m)$ | $O(1)$ | $O(1)$ amortized |
+| neighbors(u) | $\Theta(m)$ | $\Theta(n)$ | $O(\deg u)$ |
+| iterate edges | $\Theta(m)$ | $\Theta(n^2)$ | $\Theta(n + m)$ |
+| degree(u) | $\Theta(m)$ | $\Theta(n)$ | $O(1)$ |
+
+Read it as a forecast for the chapters ahead. BFS and DFS (chapters 32 and 33) hit `neighbors(u)` once per vertex during a traversal — total cost $\Theta(\sum_u \deg u) = \Theta(m)$ on an adjacency list, $\Theta(n^2)$ on a matrix. For a sparse graph with $m = O(n)$, the difference is a factor of $n$. Dijkstra's algorithm (chapter 34) calls `weighted_neighbors` once per vertex popped from the priority queue and gets the same shape. Floyd-Warshall (chapter 35) is the exception — its $\Theta(n^3)$ triple loop does $\Theta(n^2)$ `weight` queries per iteration of the outer loop, and the matrix is the right shape for those. The matrix wins specifically when $m$ approaches $n^2$ or when the algorithm's structure asks $\Theta(n^2)$ many edge-existence questions regardless of $m$.
+
+The edge list's place is more specialized. Kruskal's MST (chapter 36) sorts all edges by weight in a single $O(m \log m)$ pass and then walks them in order, processing each edge exactly once. The natural representation for an algorithm whose outer loop is "for each edge in sorted order" is a list of edges; an adjacency list would require flattening before sorting, costing an extra $\Theta(m)$ pass.
+
+The rule of thumb most chapters in this part follow: **use the adjacency list as the default, switch to the matrix when the graph is dense, and reach for the edge list when the algorithm iterates edges in sorted order.**
+
+## The graph that stores nothing
+
+There's a fourth shape that doesn't appear in the table above because it doesn't store anything. An *implicit graph* is one where the vertex set is too large or too dynamic to materialize, and the edges are computed on demand from a function. The classic examples: the state graph of a sliding puzzle (vertices are puzzle configurations, edges are legal moves), the graph of all reachable webpages from a starting URL (vertices are URLs, edges are hyperlinks discovered by fetching the page), the graph of all length-$n$ words differing by exactly one letter (the word-ladder graph), the grid of cells in a maze (vertices are cells, edges are passable adjacencies).
+
+For an implicit graph, there is no `AdjacencyList` instance to query. The algorithm needs only one function: given a vertex, return its neighbors. Everything else — the vertex set, the edge set, the size of the graph — is either implicit or infinite. BFS and DFS in chapters 32 and 33 are written to accept a neighbor *function* in addition to (or instead of) a concrete graph instance, which is what lets them solve word-ladder puzzles and maze-shortest-path problems against graphs that are never fully materialized.
+
+```python {export=src/codex/graphs/implicit.py}
+from collections.abc import Callable, Iterable, Iterator
+
+type NeighborFn[V] = Callable[[V], Iterable[V]]
+```
+
+That single type alias is the entire interface. A `NeighborFn[V]` is a function from a vertex to an iterable of its neighbors; the graph itself is whatever produces that function. Chapter 32's BFS will accept a `NeighborFn[V]` and a starting vertex and walk outward; no graph object is required. To show the shape, here's a tiny implicit-graph example — the 4-connected grid that mazes are built on.
+
+```python {export=src/codex/graphs/implicit.py}
+def grid_neighbors(
+    width: int,
+    height: int,
+    blocked: frozenset[tuple[int, int]] = frozenset(),
+) -> NeighborFn[tuple[int, int]]:
+    """Return a NeighborFn for a width x height 4-connected grid with the
+    given blocked cells. The graph has width*height vertices but the cells
+    are never materialized as a collection; neighbors are computed on demand.
+    """
+    def neighbors(cell: tuple[int, int]) -> Iterator[tuple[int, int]]:
+        x, y = cell
+        for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+            nx, ny = x + dx, y + dy
+            if 0 <= nx < width and 0 <= ny < height and (nx, ny) not in blocked:
+                yield (nx, ny)
+    return neighbors
+```
+
+No vertices are stored. No edges are stored. The graph exists only through the closure that captures `width`, `height`, and `blocked`. Asking for the neighbors of a cell does a constant amount of work — four directions, four bounds checks. A million-by-million grid is a $10^{12}$-vertex graph and the closure occupies a few hundred bytes.
+
+```python
+from codex.graphs.implicit import grid_neighbors
+
+nbrs = grid_neighbors(width=4, height=3, blocked=frozenset({(1, 1), (2, 1)}))
+print(f"neighbors of (0, 0): {list(nbrs((0, 0)))}  (top-left corner: 2 neighbors)")
+print(f"neighbors of (1, 0): {list(nbrs((1, 0)))}  (top edge, (1,1) blocked below)")
+print(f"neighbors of (2, 2): {list(nbrs((2, 2)))}  (bottom edge, (2,1) blocked above)")
+print(f"neighbors of (3, 2): {list(nbrs((3, 2)))}  (bottom-right corner: 2 neighbors)")
+```
+
+Four queries, three or four neighbors each, no graph object anywhere. This is what BFS will walk in chapter 32 when it computes the shortest path through a maze — the maze's grid is the graph, the obstacle set is the edge mask, and nothing is allocated up front. The implicit-graph pattern is what makes graph algorithms apply to the dynamic search problems they were invented for; without it, BFS would be stuck on graphs small enough to fit in memory.
+
+## The three questions, applied
+
+### Is it correct?
+
+Each representation is correct if the encoding is *complete* — every edge in $E$ appears once (for directed) or implicitly twice (for undirected) — and *consistent* — the encoding agrees with the graph's directedness and weights. The edge list is correct by construction: it stores literally the edge set. The adjacency matrix is correct if, for every $u, v$, the entry $(u, v)$ holds the weight of edge $(u, v)$ if it exists and $\infty$ otherwise; the symmetric update in `add_edge` maintains this for undirected graphs. The adjacency list is correct if `self._adj[u][v]` returns the edge weight for every $(u, v) \in E$ and raises `KeyError` for every non-edge; the same symmetric-update discipline maintains it.
+
+The implicit-graph representation has a different correctness question: the `NeighborFn` is correct if, for every $u$, the function returns *exactly* the set $N(u)$ — no missing neighbors, no spurious ones. For the grid example, that's a bounds-and-blocked check on each of the four directions. For more interesting implicit graphs (the puzzle-state graph, the word-ladder graph), the neighbor function is the algorithm's only contract with the graph, so a bug in `neighbors` corrupts every traversal of the graph downstream.
+
+### How efficient is it?
+
+The cost table in the previous section is the efficiency answer. No representation escapes the space-time trade-off: cheap edge queries cost $\Theta(n^2)$ space, $\Theta(n + m)$ space costs amortized $O(1)$ per query, and bare-edge storage costs $\Theta(m)$ space but turns every neighbor query into a $\Theta(m)$ scan. No representation strictly dominates the others; the right choice depends on the algorithm.
+
+The implicit graph trades a different axis. It uses $\Theta(1)$ space per traversal step (no vertex set is precomputed) and pays for it with whatever cost the `NeighborFn` has per call. For a 4-connected grid the per-call cost is $O(1)$; for the word-ladder graph it's $O(n \cdot |\Sigma|)$ where $n$ is the word length; for the puzzle-state graph it depends on the move-generation function. The implicit graph wins by avoiding the up-front $\Theta(|V|)$ memory cost when the reachable set is much smaller than the full vertex set, which is the usual case for state-space search.
+
+### What's the optimal representation?
+
+There isn't one. The lower bound on representing a graph is $\Omega(\log \binom{n^2}{m}) = \Omega(m \log(n^2 / m))$ bits in the information-theoretic sense — that's how many bits it takes to distinguish one graph with $n$ vertices and $m$ edges from another. The adjacency list comes within a constant factor of that bound for sparse graphs (each edge takes $O(\log n)$ bits to encode), and the adjacency matrix is tight for dense graphs (one bit per cell, $n^2$ bits total). For any specific graph, one of these two representations is within a constant factor of optimal. The edge list is loose by a constant factor relative to the adjacency list, and the implicit graph is incomparable — its cost is *zero* up-front, paid in $\Theta(\text{calls to NeighborFn})$ instead.
+
+The deeper "optimality" question — *which representation should this chapter's algorithm use?* — has no single answer either, and the chapters that follow each pick their own. *The algorithm and the representation are designed together;* change one without changing the other and you waste a factor of $n$ somewhere.
+
+## What this chapter teaches
+
+**First, representation propagates through cost.** The same abstract graph encoded in two different ways yields algorithms with two different cost shapes. BFS is $\Theta(n + m)$ on an adjacency list and $\Theta(n^2)$ on a matrix; for a sparse graph that's the difference between minutes and days. The choice of representation isn't a hygiene decision made before the real work starts — it *is* the real work, in the sense that the rest of the algorithm's cost is determined by it. When you read a graph-algorithm pseudocode in a textbook that says "for each neighbor of $u$ do…", the cost of that loop varies by a factor of $n$ depending on what's stored under "graph."
+
+**Second, the right representation matches the algorithm's query pattern.** BFS, DFS, Dijkstra, and SCC all query neighbors of one vertex at a time, so they want the adjacency list. Floyd-Warshall queries weights of every vertex pair, so it wants the matrix. Kruskal sorts edges globally, so it wants the edge list. Implicit-graph search avoids materializing the graph at all, so it wants a neighbor function. The cost shape of the algorithm is determined by which question is the hot loop, and the representation should make exactly that question $O(1)$. When in doubt, look at the inner loop of the algorithm first, then pick the storage that makes the inner loop's per-iteration cost match its semantic content.
+
+A third observation worth holding, even though it won't pay off until later in the book: the *adjacency-list representation is the bridge between graphs and the data structures from Parts I-III*. The outer dictionary is a hash table (chapter 12). Each inner dictionary is also a hash table. The neighbor enumeration is the iteration order of a hash table's keys. Graph algorithms are mostly built out of the same data structures you've already seen, applied at a slightly higher level — that's why the chapters in this part can keep claiming "and now we use the heap from chapter 19" without apology. Graphs are not a different kind of object; they are a structure over the kinds of objects you already have.
+
+The choice of representation isn't bookkeeping you settle before writing the algorithm. It *is* the algorithm's inner-loop cost, and the inner loop is where the time goes.
+
+## Notes and further reading
+
+The three representations covered here are the textbook trio. CLRS chapter 22 introduces them in roughly this order, with the same cost-shape table I reproduced above; Sedgewick and Wayne's *Algorithms* (4th ed.) chapter 4 covers them with slightly more code, presenting the adjacency list as a list-of-lists rather than a dict-of-dicts. The list-of-lists variant has one constant-factor advantage (no hash overhead on neighbor enumeration) and one disadvantage (no $O(1)$ `has_edge`). For algorithms in this part that need fast edge-existence checks — Floyd-Warshall, augmenting-path algorithms — the dict-of-dicts pays for itself.
+
+For the implicit-graph idea, Russell and Norvig's *Artificial Intelligence: A Modern Approach* (chapter 3) treats state-space search as the canonical implicit-graph application, and the formal treatment of "graphs defined by a successor function" is theirs. The classic reference for graph-algorithm efficiency on different representations is Robert Tarjan's *Data Structures and Network Algorithms* (SIAM, 1983), which establishes the asymptotic bounds for the major algorithms parameterized by representation.
+
+For sparse graphs at production scale there are two refinements I won't cover here. The first is the *compressed sparse row* format (CSR) borrowed from sparse-matrix libraries, which stores the adjacency list as two flat arrays — one of vertex offsets, one of neighbor labels — for excellent cache behaviour during traversal; it sacrifices the $O(1)$ `add_edge` of the dict-based list. Most production graph libraries (NetworkX, igraph, graph-tool) offer CSR or CSR-like representations as a build-once-query-many option. The second refinement is *external-memory graph representations* — the graphs that live on disk because they don't fit in RAM, with edge lists stored in sorted order and processed in streaming passes. Frank McSherry's *Differential Dataflow* and the broader literature on streaming graph algorithms treat that family.
+
+In the next chapter I'll put the adjacency list to work on the simplest non-trivial graph algorithm: breadth-first traversal. The discipline from the queue chapter — first in, first out — turns out to be exactly what a graph traversal needs to enumerate vertices in order of distance from a source. As a side effect, BFS gives the first usable answer to whether two vertices are in the same connected component, computes the shortest path in unweighted graphs, and introduces the layered-frontier structure that chapter 38's augmenting-path algorithm depends on.

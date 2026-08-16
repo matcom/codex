@@ -1,0 +1,45 @@
+# Lessons from Part I {.unnumbered}
+
+The surprise of Part I is how little is genuinely new each time. The same five moves keep coming back, applied in different combinations against the same handful of structural questions. Linear search and Timsort look nothing alike on the page; pull them apart, and they're both reading the input one element at a time and deciding what to do with what they just saw. The vocabulary of algorithm design is small. What's hard is recognising which word applies.
+
+This is the short retrospective. The chapters have the algorithms; this essay names the patterns that kept showing up, the meta-lessons that survive the specifics, and the bridge into Part II, where the focus shifts from algorithmic moves to the data structures those moves act on.
+
+## The patterns that kept showing up
+
+**The adversary.** Chapter 1 introduced them — the malicious player who can rearrange the input the moment your algorithm isn't looking — and they kept reappearing throughout the part. The adversary is the lower-bound argument made dramatic, and they're remarkably robust: in chapter 5, the same adversary that forced linear search to be $\Omega(n)$ forces *any* selection algorithm to be $\Omega(n)$, because if you don't read every element, the adversary will set the unread one to the answer. In chapter 6, even the linear-time sorts respect the adversary's $\Omega(n)$ bound. The adversary doesn't care which model you're in. They just care that you've ignored an element you could have looked at.
+
+**The three questions.** Every algorithm chapter ended with the same three subheadings in the same order: *Is it correct? How efficient is it? Is it optimal?* I called it the book's cynosure in chapter 0, and after running it through six algorithm chapters I hope it feels less like a template and more like a discipline. Asking the third question — *can anything do better, in this model?* — is the move that separates implementing an algorithm from understanding it.
+
+**Inversions.** A pair of elements out of order. The local evidence that a sequence isn't sorted. The geometry that explains why bubble sort and quicksort have the asymptotic complexities they do. The inversion count showed up as the *distance from sortedness* in chapter 3, as the *local-vs-global decomposition* that organizes divide-and-conquer in chapter 4, and as the *side effect* that merge sort can count for free in $O(n \log n)$. The lens is sorting-specific — it won't carry forward into the rest of the book in the same form — but the idea underneath it (find a structural property of the input that the algorithm can attack incrementally) will keep coming back, in costumes you'll recognise after a moment of looking.
+
+**Recursion.** Every nontrivial algorithm after chapter 3 was recursive: binary search, merge sort, quick sort, quickselect, median of medians. Recursion is how a programmer says *"I solved the small case; the big case is the same algorithm on a smaller piece."* It's the cleanest expression of divide-and-conquer, and the recurrence analysis you learned to do — $T(n) = 2T(n/2) + O(n)$ giving $O(n \log n)$, $T(n) = T(n/2) + O(n)$ collapsing to $O(n)$ — is the algebra of recursive thinking. The two recurrences differ by a single coefficient. That coefficient is the difference between sorting and selection.
+
+**Randomization.** Quickselect was the first place randomization earned its keep, and it's the cleanest example I know of the *Las Vegas* style: the algorithm is always correct, but the cost depends on a random choice the algorithm itself makes. Randomization is a deliberate strategy for breaking adversarial input patterns. An adversary can construct a worst case for any deterministic algorithm by predicting its choices. They cannot construct a worst case for a randomized algorithm without predicting your random number generator, and they cannot predict that.
+
+**Looking inside.** The first six chapters of Part I treated elements as opaque — the algorithms could compare two of them but couldn't see what was inside. Chapter 6 was the exit: counting sort and radix sort look *into* the element, treating its value as an address or its digits as separate sortable keys, and that single change drops the lower bound from $\Omega(n \log n)$ to $\Omega(n)$. The pattern recurs throughout the rest of the book in different costumes: hash tables turn keys into addresses, tries decompose strings into characters, suffix arrays treat strings as positions in a meta-array.
+
+**Composition.** Chapter 7's lesson, and the one that goes furthest beyond this book. In theory you pick *the right algorithm*. In practice you *stitch the right moves together*: insertion sort for the small cases, quicksort for the recursive divide, merge sort for stability, heapsort for safety. The practitioner's skill isn't algorithm selection — it's algorithm composition, knowing which moves apply where.
+
+## Five meta-lessons
+
+None of these are new with this book; all are easier to articulate after seven chapters of seeing them in action.
+
+**1. Asymptotic complexity is a floor, not a recipe.** Knowing that an algorithm is $O(n \log n)$ doesn't tell you whether to use it; it tells you what the cost *cannot drop below*, given the model. Real software wins where the asymptotic model can't see: in cache effects, constant factors, branch prediction, the empirical distribution of real inputs. Timsort and introsort are $O(n \log n)$ algorithms whose engineering wins are below the asymptotic order's resolution.
+
+**2. Lower bounds belong to models.** The $\Omega(n \log n)$ comparison bound from chapter 4 was not a fact about sorting. It was a fact about *sorting using comparisons only*. Drop the comparison-only restriction and the bound goes away — chapter 6 was three pages of demonstrating exactly that. The lesson generalises: any time you see a lower bound, ask which model it's a bound in, and whether your problem really lives in that model.
+
+**3. Structure is information, and information is what algorithms convert into speed.** Linear search has $O(n)$ because the input is unstructured. Binary search has $O(\log n)$ because the input is sorted. Counting sort has $O(n)$ because the input range is bounded. Every speedup in Part I came from finding some property of the input the previous algorithm wasn't exploiting. The general move: *what does the input know about itself, that I'm not yet using?*
+
+**4. The right algorithm is rarely one algorithm.** Production sorting routines are compositions. The same pattern shows up everywhere serious code is written: hash tables compose chaining with open addressing depending on load; balanced trees compose rotations with size-based heuristics; graph algorithms compose BFS, DFS, and priority-based traversal depending on the question being asked. The theoretical algorithm is the starting point. The production algorithm is the composition.
+
+**5. Always ask the third question.** *Is this optimal? Can anything do better, in this model?* Make it a reflex — the thing you do the moment you've finished writing an algorithm. The answer doesn't have to be yes. The asking is what separates writing code that works from understanding the cost shape of the problem.
+
+## What's next
+
+Part II is a change of altitude. The seven chapters you just finished were about *algorithmic moves* — divide and conquer, exploit structure, randomize, look inside, compose. The next part is about the *substrates those moves act on*: the data structures that store and retrieve data efficiently, so that the algorithms in Parts III through IX have something to stand on.
+
+Linked lists, stacks, queues, hash tables, heaps, trees. None of these is an algorithm by itself; each is a contract — a set of operations with a cost shape — that algorithms in the rest of the book will lean on without thinking about. Hash tables make $O(n)$ algorithms possible for problems that were $O(n \log n)$ with comparison-based structures. Heaps make Dijkstra's shortest-path algorithm possible. Trees make ordered queries logarithmic and balanced operations cache-friendly.
+
+The lens shifts, but the moves don't. You'll see *exploit-the-intrinsic-structure-of-the-key* in hash tables. You'll see *throwing half away with every comparison* in balanced trees. You'll see *composition over selection* in every real-world data structure, where the production implementation is always a hybrid of two or three textbook ideas glued together with care.
+
+Seven chapters, five moves. They'll keep showing up — onward to Part II.

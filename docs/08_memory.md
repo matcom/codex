@@ -1,0 +1,212 @@
+# What contiguous memory buys you, and what it costs
+
+Memory is flat. Every algorithm in this book has to put its data somewhere on that flat tape, and the choice of where — contiguous block or scattered nodes — decides which operations get to be cheap. That's the trade that organizes the next seven chapters. You can have fast random access or you can have fast surgery in the middle, but you can't have both at full strength, because the two depend on incompatible memory layouts.
+
+A dynamic array — the same structure Python's `list` is built on — gives you amortized $O(1)$ append even though some individual appends cost $\Theta(n)$. The aggregate cost of $n$ appends is bounded by $2n$ copies; averaged over all of them, the cost per append is less than 2.
+
+**The accountant's view of amortization** is the picture that earns it. Cheap operations put dollars on the table; the rare expensive operation spends what's already there. The accountant flips through the ledger at year-end and doesn't care that some individual entries are spikes. What matters is that the column sums.
+
+That same accounting move comes back in chapter 12 when hash tables rehash, and again in chapter 14 when union-find's path compression amortizes its self-modification cost.
+
+## Contiguous or linked — pick one, get one
+
+The flat tape of memory holds bytes at integer addresses, and every data structure in this book is a way of deciding which bytes go where. There are exactly two atomic choices: put related items **next to each other** (contiguous), or put them **wherever there's room** and let each one hold a pointer to the next (linked). Everything else in Part II is some combination of these two atoms.
+
+Contiguous layout buys you **random access**: if you know the address of item 0 and you want item $i$, you just compute `address(0) + i * size_of_item` and dereference. That's one multiplication and one addition, regardless of $i$. Contiguous layout also buys you **locality**: items next to each other in memory end up next to each other in the CPU's cache, so walking the structure linearly is fast for reasons that have nothing to do with the algorithm and everything to do with hardware.
+
+The cost is that contiguous layout is a promise about *future addresses*. If you reserve a thousand slots, fill them, and then want a thousand-and-first item, you can't just keep going. The byte after slot 999 might already belong to something else. You have to find a fresh contiguous run of two thousand slots somewhere else, copy everything over, and update the address of slot 0. The cost of that copy is what the rest of the chapter is about.
+
+Linked layout (chapter 9) gives up random access entirely in exchange for never needing to make that promise. The next chapter implements it from scratch. This chapter implements the other atom — the one Python's `list` already gives you, transparently — and shows how the copy cost is hidden in plain sight.
+
+## Why growing one slot at a time is quadratic
+
+The simplest version of the contiguous-array idea is the **fixed-size array**: you pick a capacity up front, allocate that many slots, and that's all you ever get. If you fill it and want more, the answer is "you can't." For storing a known-size collection of items, that's enough. For building up a sequence one item at a time, when you don't know in advance how many items there'll be, it isn't.
+
+The naive escape is to grow the array by one slot each time it fills up. You allocate a new block of size $k+1$, copy the existing $k$ items into the first $k$ slots, write the new item into slot $k$, and free the old block. That works — the structure stays correct — but the cost is brutal.
+
+To append $n$ items starting from a fresh empty array, you copy $0 + 1 + 2 + \ldots + (n-1) = n(n-1)/2$ items in total, just for the resize work. That's $\Theta(n^2)$ total, or $\Theta(n)$ amortized per append. Linear-per-append is a death sentence for a data structure that's supposed to be the basic sequence type. If appending each character of a million-character string costs a trillion copies, the structure is useless.
+
+The fix is one number: instead of growing by one, you grow by a *factor*. Doubling the capacity each time the array fills up turns the aggregate copy work from $\Theta(n^2)$ into $\Theta(n)$, and the amortized cost per append drops from linear to constant.
+
+## Doubling turns linear into constant
+
+The dynamic array keeps two integers: the **size** (how many items are currently stored) and the **capacity** (how many slots are allocated). The invariant is `0 ≤ size ≤ capacity`. When `size == capacity` and you want to append, you allocate a new block of size `2 * capacity`, copy the old items, and update both numbers.
+
+Here's the structure from scratch.
+
+```python {export=src/codex/structures/array.py}
+class DynamicArray[T]:
+    def __init__(self, initial_capacity: int = 4) -> None:
+        self._capacity = initial_capacity
+        self._size = 0
+        self._items: list[T | None] = [None] * initial_capacity
+
+    def __len__(self) -> int:
+        return self._size
+
+    def __getitem__(self, i: int) -> T:
+        if not 0 <= i < self._size:
+            raise IndexError(f"index {i} out of range for size {self._size}")
+        return self._items[i]  # type: ignore[return-value]
+
+    def __setitem__(self, i: int, value: T) -> None:
+        if not 0 <= i < self._size:
+            raise IndexError(f"index {i} out of range for size {self._size}")
+        self._items[i] = value
+```
+
+I'm using Python's built-in `list` as the underlying contiguous storage, since that's exactly what a fixed-size array maps to at this level. A "real" implementation in C would call `malloc` to allocate `capacity * sizeof(T)` bytes; in Python, the `[None] * initial_capacity` line plays the same role. The point is that `_items` is treated as if it had a fixed size — never grown by Python's own list machinery, only by the explicit `_resize` you'll see in a moment.
+
+The interesting method is `append`. It checks whether there's room, calls `_resize` if not, and writes the new item into the next free slot.
+
+```python {export=src/codex/structures/array.py}
+    def append(self, value: T) -> None:
+        if self._size == self._capacity:
+            self._resize(self._capacity * 2)
+        self._items[self._size] = value
+        self._size += 1
+```
+
+The `_resize` helper is what makes amortization work. It allocates a new block of the requested capacity, copies every existing item into the first `size` slots, and replaces `_items`. That's a $\Theta(\text{size})$ operation; it's not constant time when it runs. The trick is that it runs rarely enough that the total work stays linear.
+
+```python {export=src/codex/structures/array.py}
+    def _resize(self, new_capacity: int) -> None:
+        new_items: list[T | None] = [None] * new_capacity
+        for i in range(self._size):
+            new_items[i] = self._items[i]
+        self._items = new_items
+        self._capacity = new_capacity
+```
+
+And `pop` removes the last item, optionally shrinking the array back down when it's gotten too empty. Shrinking when the array drops to a quarter of its capacity (rather than half) is the standard trick for avoiding pathological *thrashing*, where a sequence of alternating appends and pops at the boundary keeps triggering resizes. Quarter-shrink leaves enough slack that you have to do a non-trivial number of cheap ops between any two expensive ones.
+
+```python {export=src/codex/structures/array.py}
+    def pop(self) -> T:
+        if self._size == 0:
+            raise IndexError("pop from empty array")
+        self._size -= 1
+        value = self._items[self._size]
+        self._items[self._size] = None  # let the garbage collector reclaim it
+        if 0 < self._size <= self._capacity // 4 and self._capacity > 1:
+            self._resize(self._capacity // 2)
+        return value  # type: ignore[return-value]
+```
+
+The whole structure is about fifty lines. Most of it is bookkeeping; the algorithmic content lives in two places: the doubling line inside `append`, and the quarter-shrink line inside `pop`. Everything else is plumbing.
+
+Running it on a small example:
+
+```python
+from codex.structures.array import DynamicArray
+
+arr = DynamicArray[int](initial_capacity=2)
+for x in [10, 20, 30, 40, 50]:
+    arr.append(x)
+
+print([arr[i] for i in range(len(arr))])  # [10, 20, 30, 40, 50] — five items stored
+print(f"size: {len(arr)}, capacity: {arr._capacity}")  # size: 5, capacity: 8 — doubled twice
+```
+
+The array started with capacity 2, hit capacity at size 2, doubled to 4, hit capacity again at size 4, doubled to 8. Two resize events to absorb five appends.
+
+## Two writes per append, on average
+
+Appending $n$ items into a dynamic array costs at most $2n$ slot-copies in total. This holds for any small initial capacity, summed across every resize that happened along the way. Each individual append is therefore *amortized* $O(1)$, even though the resize-triggering ones are $\Theta(n)$ in the worst case.
+
+The argument is short. If you start with capacity 1 and double each time you fill up, the resizes happen at sizes $1, 2, 4, 8, \ldots$, with the last one at size $\leq n$. Each resize copies the current size's worth of items. The total copy work is:
+
+$$1 + 2 + 4 + \ldots + 2^{k-1} = 2^k - 1$$
+
+where $2^k$ is the smallest power of two greater than or equal to $n$. Since $2^k < 2n$, the total copy work is bounded by $2n - 1$, and the amortized cost per append is less than 2.
+
+That's the formal claim. The tactile version: **on average, each append pays for about two slot-writes — one for itself, and one to pre-fund a copy that hasn't happened yet.** The doubling discipline is what lets each cheap op contribute to a savings account that the rare expensive op draws down. Without doubling (say, you grew by an additive constant instead), the savings account fills up too slowly to keep pace, and the amortized cost climbs back to linear.
+
+A trace confirms the bound.
+
+```python
+from codex.structures.array import DynamicArray
+
+
+class TracingDynamicArray(DynamicArray):
+    def __init__(self, initial_capacity: int = 1) -> None:
+        super().__init__(initial_capacity)
+        self.copies_done = 0
+
+    def _resize(self, new_capacity: int) -> None:
+        self.copies_done += self._size
+        super()._resize(new_capacity)
+
+
+for n in [10, 100, 1_000, 10_000, 100_000]:
+    arr = TracingDynamicArray(initial_capacity=1)
+    for i in range(n):
+        arr.append(i)
+    ratio = arr.copies_done / n
+    print(f"n={n:>7}: {arr.copies_done:>7} copies, "
+          f"per-append ≈ {ratio:.3f} (bound: 2.000)")
+```
+
+Every row stays comfortably under the 2-per-append bound. The worst rows are the ones where $n$ is just over a power of two; that's where the analysis predicts the worst case to live. (For $n=100\,000$, the final capacity is $131\,072$, and the bound is loose. Pick $n$ right at a power of two and the ratio collapses toward 1.)
+
+And the resize events themselves — how many of them happen as a function of $n$? The doubling discipline says the count grows logarithmically.
+
+```python
+class CountingDynamicArray(DynamicArray):
+    def __init__(self, initial_capacity: int = 1) -> None:
+        super().__init__(initial_capacity)
+        self.resize_count = 0
+
+    def _resize(self, new_capacity: int) -> None:
+        self.resize_count += 1
+        super()._resize(new_capacity)
+
+
+for n in [10, 100, 1_000, 10_000, 100_000]:
+    arr = CountingDynamicArray(initial_capacity=1)
+    for i in range(n):
+        arr.append(i)
+    print(f"n={n:>7}: {arr.resize_count} resize events "
+          f"(≈ log₂ n = {n.bit_length() - 1})")
+```
+
+Logarithmic in $n$, exactly as predicted. Seventeen resize events to absorb a hundred thousand appends: fewer than two of every ten thousand appends triggered a resize at all, even though the table starts from a single slot. That's the deal. Each individual resize is expensive ($\Theta(n)$ in the worst case, when the last resize copies almost everything), but resizes are rare enough that their total cost stays linear.
+
+## The three questions, applied
+
+### Is it correct?
+
+The invariant is `0 ≤ size ≤ capacity`. It holds at construction (size is 0, capacity is whatever was passed in). It's preserved by `append`: the only way `append` runs is when the invariant holds going in, the `_resize` call is the only thing that changes `capacity`, and `_resize` always sets `capacity` to a value at least as big as the current size, after which `_size += 1` keeps the invariant intact. `pop` decrements size by one, then optionally halves capacity — but only when `size ≤ capacity / 4`, which means the new capacity is still at least $2 \cdot \text{size}$, preserving `size ≤ capacity`.
+
+The indexed access methods (`__getitem__`, `__setitem__`) check `0 ≤ i < size` and raise on violation, so they only return values from slots that were actually written. The `pop` method's "set the slot to `None`" line is the easy-to-miss correctness detail: without it, the popped value would stay reachable from the array and the garbage collector wouldn't be able to free it.
+
+### How efficient is it?
+
+The per-operation cost table:
+
+| Operation | Worst case | Amortized | Why |
+|-----------|------------|-----------|-----|
+| `__getitem__(i)`, `__setitem__(i, v)` | $O(1)$ | $O(1)$ | Pointer arithmetic; the whole point of contiguous storage. |
+| `append(x)` | $O(n)$ | $O(1)$ | The amortization argument above. |
+| `pop()` | $O(n)$ | $O(1)$ | Symmetric — the quarter-shrink discipline mirrors the doubling discipline. |
+| Insert at position $i$ (not implemented above) | $O(n)$ | $O(n)$ | Have to shift $n - i$ items right by one slot. No amortization saves you. |
+| Delete at position $i$ (not implemented) | $O(n)$ | $O(n)$ | Same reason — shift $n - i - 1$ items left. |
+
+The first three are the operations a dynamic array makes cheap. The last two are the operations it makes expensive — and they're the operations a linked list (chapter 9) makes cheap. That's the trade.
+
+Space is $O(n)$ with a constant factor between 1 and 2. The structure is always between half full and full (except during the brief window between a `pop` and the next `_resize`), which means you're paying at most twice the strictly necessary memory. That's the cost of letting `append` be amortized $O(1)$. Halve the slack and the amortized cost climbs; double it and the bound holds with a larger constant.
+
+### Is it optimal?
+
+For the operations a contiguous array is designed to make cheap (indexed access, append-at-end, pop-from-end) the answer is yes, and the argument is short. Random access at $O(1)$ is the *definition* of contiguous storage; you can't do better than constant time. Append-at-end at amortized $O(1)$ is matched by the lower bound: you have to at least write the new item into memory, which is $\Omega(1)$ work, and any contiguous-storage scheme that ever needs to grow has to copy at some point. The doubling discipline matches that lower bound up to a constant factor.
+
+For the operations a contiguous array makes expensive — insert and delete at arbitrary positions — the answer is no, and that's exactly where chapter 9 picks up. Linked storage makes insert-and-delete-given-a-node-handle $O(1)$, at the cost of giving up random access. Different layout, different operations cheap, same fundamental trade.
+
+The deeper point is that there's no single "best" sequence data structure. The dynamic array is optimal for *append-at-end-heavy* workloads. The linked list is optimal for *insert-in-the-middle-heavy* workloads. The choice is determined by what your callers do.
+
+## The amortization argument carries forward
+
+The amortization argument — the accountant's view of cost — is what carries forward to chapters 12 and 14. An individual operation's worst-case cost can be much higher than its amortized cost, and for analyzing data structures you care about the *long-run rate*, not the worst-case spike. Doubling is the cleanest example of how to engineer a structure where the rare expensive operation pays for itself with credit accumulated over the cheap ones. The same accountant handles hash-table rehashing and path compression in union-find. Each uses a slightly different flavor of amortized analysis (the aggregate method here, the accounting method and potential method later), all answering the same question: *over many operations, what does this cost on average?*
+
+## Notes and further reading
+
+The amortized analysis of dynamic-array doubling is CLRS (4th ed.) §17.4, which treats the same construction by both the aggregate method (used above) and the accounting method (used in CLRS chapter 12 for hash-table rehashing). Sedgewick & Wayne's *Algorithms* (4th ed.) §1.3 covers resizable arrays under the name "ResizingArrayStack" and works through the same doubling-and-halving discipline. The quarter-shrink rule for avoiding thrashing under alternating push/pop is folklore but appears explicitly in Sedgewick §1.3. CPython's `list` uses a slightly different growth schedule than strict doubling — it grows by roughly $1.125\times$ — for reasons documented in the CPython source `Objects/listobject.c`; the asymptotic behavior is the same, but the constant factor is tuned differently for real-world allocator behavior.

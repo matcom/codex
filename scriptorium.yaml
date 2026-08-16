@@ -1,0 +1,66 @@
+theme: book
+vars:
+  title: The Algorithm Codex
+  subtitle: A literate reference of common algorithms
+  author: Alejandro Piad-Morffis, Ph.D.
+  accent: "#7c3aed"
+files:
+  - docs/index.md
+  - docs/00_intro.md
+
+  - docs/part1.md
+  - docs/01_search.md
+  - docs/02_binary.md
+  - docs/03_sort.md
+  - docs/04_sort_fast.md
+  - docs/05_rankings.md
+  - docs/06_linear_sort.md
+  - docs/07_sort_practice.md
+  - docs/lessons_1.md
+
+  - docs/part2.md
+  - docs/08_memory.md
+  - docs/09_linked.md
+  - docs/10_stack.md
+  - docs/11_queue.md
+  - docs/12_hash.md
+  - docs/13_bloom.md
+  - docs/14_union_find.md
+  - docs/lessons_2.md
+
+  - docs/part3.md
+  - docs/15_binary_trees.md
+  - docs/16_bst.md
+  - docs/17_avl.md
+  - docs/18_treap.md
+  - docs/19_heap.md
+  - docs/20_trie.md
+  - docs/21_segment.md
+  - docs/22_fenwick.md
+  - docs/lessons_3.md
+
+  - docs/part4.md
+  - docs/23_brute.md
+  - docs/24_automaton.md
+  - docs/25_kmp.md
+  - docs/26_boyer_moore.md
+  - docs/27_rabin_karp.md
+  - docs/28_aho_corasick.md
+  - docs/29_suffix_array.md
+  - docs/30_edit_distance.md
+  - docs/lessons_4.md
+
+  - docs/part5.md
+  - docs/31_graph_rep.md
+  - docs/32_bfs.md
+  - docs/33_dfs.md
+  - docs/34_dijkstra.md
+  - docs/35_relaxation.md
+  - docs/36_mst.md
+  - docs/37_topo_scc.md
+  - docs/38_flow.md
+  - docs/lessons_5.md
+
+  - docs/appendix-python.md
+  - docs/appendix-notation.md
+  - docs/appendix-math.md

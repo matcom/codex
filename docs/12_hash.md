@@ -1,0 +1,439 @@
+# Every key has an address, the function is the map
+
+A hash table is what you get when you let the key compute its own address. You hand the function the string `"alice"` — eight bytes of letters — and it hands back the integer 47, which is a slot number in an array of 64. That single move (turning an arbitrary value into an integer in the range $\{0, 1, \ldots, m-1\}$ and using that integer as a memory location) is the chapter's biggest asymptotic lever. Every data structure you've seen so far either stored items at integer indices you chose (arrays) or at pointer-linked addresses chosen by the allocator (linked lists). The hash table chooses the address from the *content* of the item itself.
+
+That move makes constant-time membership testing possible: *expected* constant time, with a caveat about load factors and adversarial inputs that the chapter spends its energy on. Without it, asking "is `"alice"` in this collection?" costs $O(n)$ on an unstructured array (chapter 1) or $O(\log n)$ on a sorted one (chapter 2). With it, you compute the address and look directly. The asymptotic gap is the largest single jump in the book.
+
+Two designs handle the inevitable collisions: **chaining** (colliding keys live in a linked chain at the slot) and **open addressing** (colliding keys probe forward to a free slot, via linear, quadratic, or double hashing). Both rehash when the *load factor* — items divided by slots — crosses a threshold. Billions of possible strings, a few thousand slots: collisions are arithmetic, not bad luck, and what you do about them is the design decision the rest of the chapter explores.
+
+## What a dictionary needs to do, and how arrays can't quite
+
+The contract is three operations: insert `(key, value)`, look up by `key`, delete by `key`. All three should be cheap — ideally constant time. Arrays alone can't do this: a naive array of pairs is $O(n)$ on lookup, a sorted array is $\Theta(n)$ on insertion because of the shifting. Neither hits all three at constant.
+
+The hash table breaks the bottleneck by *not sorting and not searching*. It computes the address of each item from the item itself, with a deterministic function. If two items compute to the same address — a *collision* — you have to do something, and that something is the design decision the rest of the chapter explores.
+
+## Keys as addresses
+
+A hash function $h$ takes a key from some (potentially infinite) key-space and returns an integer in $\{0, 1, \ldots, m-1\}$, where $m$ is the table's capacity. Three properties matter: **determinism** (same key, same output, always), **uniformity** (keys spread evenly so no slot gets disproportionate collisions), and **speed** ($h$ runs on every operation).
+
+Python's built-in `hash` function satisfies all three for the standard types — `str`, `int`, `tuple`, `frozenset`. Reducing its output to $\{0, \ldots, m-1\}$ is one modular operation: `hash(k) % m`. The formal "uniform hashing assumption" says keys land approximately uniformly in slots. In plain terms: if you have $n$ items in a table of $m$ slots, each slot holds $n/m$ items on average. That ratio $n/m$ is the *load factor*, the single number that controls how well the table performs.
+
+Collisions are not pathological; they are guaranteed. Key-space (all strings, all integers) is much bigger than address-space (a few thousand slots), so by pigeonhole two keys *must* eventually land in the same slot. The two strategies for handling that give the two hash-table flavors below.
+
+## A linked list per slot
+
+The simplest strategy: each slot holds a chain of `(key, value)` entries, all of which hashed to that slot. Insertion appends (or, to keep code short, prepends) to the chain; lookup walks the chain; deletion unhooks. Collisions don't go anywhere; they pile up in chains.
+
+The entry type holds a key, a value, and a pointer to the next entry in its chain.
+
+```python {export=src/codex/structures/hash.py}
+from dataclasses import dataclass
+from typing import Iterator
+
+
+@dataclass
+class _Entry[K, V]:
+    key: K
+    value: V
+    next: "_Entry[K, V] | None" = None
+```
+
+The hash map itself stores an array of chain heads, with `None` representing an empty slot. The constructor allocates that array; `_hash` computes the slot for a key.
+
+```python {export=src/codex/structures/hash.py}
+class ChainedHashMap[K, V]:
+    LOAD_FACTOR_MAX = 0.75
+
+    def __init__(self, initial_capacity: int = 8) -> None:
+        self._capacity = initial_capacity
+        self._slots: list[_Entry[K, V] | None] = [None] * initial_capacity
+        self._size = 0
+
+    def __len__(self) -> int:
+        return self._size
+
+    def _hash(self, key: K) -> int:
+        return hash(key) % self._capacity
+```
+
+`__setitem__` does insertion or update: the canonical "upsert." It walks the chain for the key's slot looking for an existing entry; if found, it updates in place; if not, it prepends a new entry and increments the size. After the insertion, if the load factor has crossed the threshold, the table doubles.
+
+```python {export=src/codex/structures/hash.py}
+    def __setitem__(self, key: K, value: V) -> None:
+        slot = self._hash(key)
+        cur = self._slots[slot]
+        while cur is not None:
+            if cur.key == key:
+                cur.value = value
+                return
+            cur = cur.next
+        self._slots[slot] = _Entry(key, value, self._slots[slot])
+        self._size += 1
+        if self._size > self._capacity * self.LOAD_FACTOR_MAX:
+            self._resize(self._capacity * 2)
+```
+
+`__getitem__` and `__contains__` both walk the chain looking for the key. The only difference is what they return on absence — a `KeyError` versus `False`.
+
+```python {export=src/codex/structures/hash.py}
+    def __getitem__(self, key: K) -> V:
+        cur = self._slots[self._hash(key)]
+        while cur is not None:
+            if cur.key == key:
+                return cur.value
+            cur = cur.next
+        raise KeyError(key)
+
+    def __contains__(self, key: K) -> bool:
+        cur = self._slots[self._hash(key)]
+        while cur is not None:
+            if cur.key == key:
+                return True
+            cur = cur.next
+        return False
+```
+
+`__delitem__` is the only operation that needs the chain's *predecessor*, to unhook the target by rewriting the predecessor's `next` pointer. Same pattern as chapter 9's `delete_after`.
+
+```python {export=src/codex/structures/hash.py}
+    def __delitem__(self, key: K) -> None:
+        slot = self._hash(key)
+        cur = self._slots[slot]
+        prev: _Entry[K, V] | None = None
+        while cur is not None:
+            if cur.key == key:
+                if prev is None:
+                    self._slots[slot] = cur.next
+                else:
+                    prev.next = cur.next
+                self._size -= 1
+                return
+            prev = cur
+            cur = cur.next
+        raise KeyError(key)
+```
+
+Iteration walks every chain in every slot.
+
+```python {export=src/codex/structures/hash.py}
+    def __iter__(self) -> Iterator[K]:
+        for head in self._slots:
+            cur = head
+            while cur is not None:
+                yield cur.key
+                cur = cur.next
+```
+
+And `_resize` is the bookkeeping that grows the table. Allocate a new slot array of the requested capacity, re-insert every entry (which re-hashes against the new capacity, since `_hash` uses `self._capacity` modulus), and replace the old slot array.
+
+```python {export=src/codex/structures/hash.py}
+    def _resize(self, new_capacity: int) -> None:
+        old_slots = self._slots
+        self._capacity = new_capacity
+        self._slots = [None] * new_capacity
+        self._size = 0
+        for head in old_slots:
+            cur = head
+            while cur is not None:
+                self[cur.key] = cur.value
+                cur = cur.next
+```
+
+Eight methods, about fifty lines of code. A realistic-ish workload exercises the chain distribution.
+
+```python
+from codex.structures.hash import ChainedHashMap
+
+words = ["alice", "bob", "carol", "dave", "eve", "frank", "grace",
+         "heidi", "ivan", "judy", "ken", "linda", "mike", "nora",
+         "oscar", "peggy", "quinn", "rita", "steve", "tina"]
+
+table = ChainedHashMap[str, int]()
+for i, w in enumerate(words):
+    table[w] = i
+
+print(f"size: {len(table)}, capacity: {table._capacity}")
+
+# Chain length per slot
+chain_lens = []
+for head in table._slots:
+    length = 0
+    cur = head
+    while cur is not None:
+        length += 1
+        cur = cur.next
+    chain_lens.append(length)
+print(f"chain lengths: {chain_lens}")
+print(f"max chain: {max(chain_lens)}, empty slots: {chain_lens.count(0)}")
+```
+
+The chains stay short. Most slots hold one or zero entries; a couple hold two; nothing hits three. That's the load factor doing its job: the table doubled twice on the way to absorbing 20 items, and the final load factor is well below 1.
+
+A quick spot-check on the lookup contract:
+
+```python
+print(table["alice"])          # 0 — the first word inserted
+print(table["grace"])          # 6
+print("alice" in table)        # True
+print("zachary" in table)      # False
+
+del table["alice"]
+print("alice" in table)        # False — deleted
+print(len(table))              # 19
+```
+
+Insert, lookup, delete — the three-operation contract held up. The chains absorbed all the collisions silently.
+
+## Probing for the next free slot
+
+Chaining is straightforward but pays a real cost: every entry sits in its own heap-allocated node, with the pointer overhead and cache-locality penalty that linked structures always carry. The alternative is to keep the entries directly inside the slot array — no separate chain nodes — and handle collisions by *probing* to a different slot whenever the natural one is occupied.
+
+Three probing strategies, all defined here as small free functions. Each takes the primary hash $h_1$, the secondary hash $h_2$ (used by double hashing), the probe iteration $i$, and the table capacity. It returns the slot to inspect at probe step $i$.
+
+```python {export=src/codex/structures/hash.py}
+def linear_probe(h1: int, h2: int, i: int, capacity: int) -> int:
+    return (h1 + i) % capacity
+
+
+def quadratic_probe(h1: int, h2: int, i: int, capacity: int) -> int:
+    return (h1 + i * i) % capacity
+
+
+def double_hash_probe(h1: int, h2: int, i: int, capacity: int) -> int:
+    return (h1 + i * h2) % capacity
+```
+
+Linear probing walks one slot at a time. Quadratic spreads out: slot $i^2$ ahead. Double hashing strides by an amount that depends on the *key itself*, so two different keys with the same primary hash will probe different secondary sequences. Linear is the simplest to understand and suffers most from *primary clustering* (long runs of occupied slots, made worse by each new collision). Quadratic spreads better but only reaches half the table without care. Double hashing is the textbook winner: different keys travel different paths through the slot array, so clusters can't compound.
+
+Deletion in an open-addressed table is the subtle bit. You can't just blank a slot, because a future lookup probing past it would think the chain has ended. The standard fix is a **tombstone**: a special sentinel marking the slot as "was occupied, now empty." Lookups probe past tombstones; insertions can reuse them.
+
+`_TOMBSTONE` is the sentinel; `Probe` is the type alias for the probing-strategy functions defined just above.
+
+```python {export=src/codex/structures/hash.py}
+from typing import Callable
+
+_TOMBSTONE = object()
+Probe = Callable[[int, int, int, int], int]
+```
+
+Now the hash map itself. Slots hold either `None` (never occupied), `_TOMBSTONE` (was occupied, now empty), or a `(key, value)` tuple.
+
+```python {export=src/codex/structures/hash.py}
+class OpenAddressedHashMap[K, V]:
+    LOAD_FACTOR_MAX = 0.5  # tighter than chaining — open addressing degrades faster
+
+    def __init__(self, initial_capacity: int = 8, probe: Probe = linear_probe) -> None:
+        self._capacity = initial_capacity
+        self._slots: list[tuple[K, V] | object | None] = [None] * initial_capacity
+        self._size = 0
+        self._probe = probe
+
+    def __len__(self) -> int:
+        return self._size
+
+    def _hashes(self, key: K) -> tuple[int, int]:
+        h1 = hash(key) % self._capacity
+        # second hash must be odd so it's coprime to a power-of-2 capacity
+        h2 = hash((key, "salt")) | 1
+        return h1, h2
+```
+
+The fundamental search subroutine — used by every operation — walks the probe sequence and returns either `(slot, True)` if it found the key, or `(slot, False)` with the first usable slot (a `None` or the earliest tombstone seen) if it didn't.
+
+```python {export=src/codex/structures/hash.py}
+    def _find_slot(self, key: K) -> tuple[int, bool]:
+        h1, h2 = self._hashes(key)
+        first_tomb = -1
+        for i in range(self._capacity):
+            slot = self._probe(h1, h2, i, self._capacity)
+            entry = self._slots[slot]
+            if entry is None:
+                return (first_tomb if first_tomb >= 0 else slot), False
+            if entry is _TOMBSTONE:
+                if first_tomb < 0:
+                    first_tomb = slot
+                continue
+            if entry[0] == key:  # type: ignore[index]
+                return slot, True
+        raise RuntimeError("hash table full — should have been resized")
+```
+
+Note the "return the first tombstone on failure" detail. That's what makes deletions garbage-collect themselves over time — when you next insert a key whose probe sequence passes through the tombstone, you reclaim the slot. Without that optimization, tombstones would accumulate forever.
+
+The four public operations are short, since `_find_slot` does all the heavy lifting.
+
+```python {export=src/codex/structures/hash.py}
+    def __setitem__(self, key: K, value: V) -> None:
+        slot, found = self._find_slot(key)
+        if found:
+            self._slots[slot] = (key, value)
+            return
+        self._slots[slot] = (key, value)
+        self._size += 1
+        if self._size > self._capacity * self.LOAD_FACTOR_MAX:
+            self._resize(self._capacity * 2)
+
+    def __getitem__(self, key: K) -> V:
+        slot, found = self._find_slot(key)
+        if not found:
+            raise KeyError(key)
+        return self._slots[slot][1]  # type: ignore[index,return-value]
+
+    def __contains__(self, key: K) -> bool:
+        _, found = self._find_slot(key)
+        return found
+
+    def __delitem__(self, key: K) -> None:
+        slot, found = self._find_slot(key)
+        if not found:
+            raise KeyError(key)
+        self._slots[slot] = _TOMBSTONE
+        self._size -= 1
+```
+
+And `_resize`, which is structurally identical to the chained version — allocate, re-insert, replace.
+
+```python {export=src/codex/structures/hash.py}
+    def _resize(self, new_capacity: int) -> None:
+        old_slots = self._slots
+        self._capacity = new_capacity
+        self._slots = [None] * new_capacity
+        self._size = 0
+        for entry in old_slots:
+            if entry is not None and entry is not _TOMBSTONE:
+                k, v = entry  # type: ignore[misc]
+                self[k] = v
+```
+
+Now compare the three probing strategies on the same workload. To make clustering visible, I'll insert 20 keys into a table large enough to avoid resizing, and print the slot occupation as a string.
+
+```python
+from codex.structures.hash import (
+    OpenAddressedHashMap,
+    linear_probe,
+    quadratic_probe,
+    double_hash_probe,
+)
+
+words = ["alice", "bob", "carol", "dave", "eve", "frank", "grace",
+         "heidi", "ivan", "judy", "ken", "linda", "mike", "nora",
+         "oscar", "peggy", "quinn", "rita", "steve", "tina"]
+
+
+def visualize(probe, name):
+    table: OpenAddressedHashMap[str, int] = OpenAddressedHashMap(
+        initial_capacity=64, probe=probe
+    )
+    for i, w in enumerate(words):
+        table[w] = i
+    occupied = "".join("X" if e is not None else "." for e in table._slots)
+    runs = sorted(
+        (len(s) for s in occupied.replace(".", " ").split() if s),
+        reverse=True,
+    )
+    print(f"{name:>15}: {occupied}")
+    print(f"{'':>15}  longest runs: {runs[:5]}")
+
+
+visualize(linear_probe, "linear")
+visualize(quadratic_probe, "quadratic")
+visualize(double_hash_probe, "double hash")
+```
+
+The longer runs in the linear row are *primary clusters* — once two keys collide, any future key hashing into the run extends it. Quadratic breaks the runs because the steps are non-adjacent. Double hashing breaks them more thoroughly because two keys colliding at $h_1$ almost certainly have different $h_2$, so they probe different secondary sequences. The pattern matches Knuth's analysis: linear's expected probe length under load $\alpha$ is $\frac{1}{2}\left(1 + \frac{1}{(1-\alpha)^2}\right)$, which blows up much faster than double hashing's $\frac{1}{1 - \alpha}$.
+
+## Load factor is the single dial
+
+The load factor $\alpha = n/m$ is the single parameter that controls performance. With chaining, expected chain length is $\alpha$ and expected operation cost is $1 + \alpha$. With open addressing, expected probe length blows up as $\alpha \to 1$, faster than chaining's linear blow-up. That's why the chained `LOAD_FACTOR_MAX` is 0.75 and the open-addressed one is 0.5.
+
+When load factor crosses the threshold, the table doubles. Every entry gets re-hashed against the new capacity (the modulus changed, so old slot assignments are stale) and re-inserted: $\Theta(n)$ work concentrated in one operation, exactly the shape that drove chapter 8's `append` analysis.
+
+The same amortization argument carries over. Resize events happen at sizes $\Theta(1), \Theta(2), \Theta(4), \ldots, \Theta(n/2)$; total work across all resizes is $\Theta(n)$; amortized cost per insertion is $O(1)$. Individual insertions are expected $O(1)$, a vanishingly small fraction of them trigger resizes, and the amortized total stays expected $O(1)$.
+
+```python
+from codex.structures.hash import ChainedHashMap
+
+
+class CountingHashMap(ChainedHashMap[int, int]):
+    def __init__(self, initial_capacity: int = 8) -> None:
+        super().__init__(initial_capacity)
+        self.resize_events: list[tuple[int, int]] = []  # (size, new_capacity)
+
+    def _resize(self, new_capacity: int) -> None:
+        self.resize_events.append((self._size, new_capacity))
+        super()._resize(new_capacity)
+
+
+table = CountingHashMap(initial_capacity=8)
+for i in range(100):
+    table[i] = i * i
+print(f"final capacity: {table._capacity}, final size: {len(table)}")
+print(f"resize events: {table.resize_events}")
+```
+
+Five resize events to absorb 100 insertions, with capacities doubling 8 → 16 → 32 → 64 → 128 → 256. Log-many in the input size, exactly as the doubling discipline predicts.
+
+The worst case the chained table can't dodge is **adversarial collisions** — keys deliberately constructed to all hash to the same slot. With CPython's default `hash` and a table of capacity 8, the integers $0, 8, 16, 24, \ldots$ all collide.
+
+```python
+table: ChainedHashMap[int, int] = ChainedHashMap(initial_capacity=8)
+# disable resizing so the test sees the worst case
+table.LOAD_FACTOR_MAX = 999.0
+keys = [8 * k for k in range(100)]
+for k in keys:
+    table[k] = k
+
+# all 100 entries land in slot 0 because 8*k mod 8 == 0
+chain_lens = []
+for head in table._slots:
+    n = 0
+    cur = head
+    while cur is not None:
+        n += 1
+        cur = cur.next
+    chain_lens.append(n)
+print(f"chain lengths: {chain_lens}")
+print(f"slot 0 has {chain_lens[0]} entries — the table degraded to a linked list")
+```
+
+All 100 entries landed in slot 0. Lookups now cost $\Theta(n)$: the table degraded silently into the linked list it was supposed to outperform. Production systems defend against this with universal hashing or cryptographic hash functions. The expected $O(1)$ contract is genuine but conditional on the input being non-adversarial.
+
+## The three questions, applied
+
+### Is it correct?
+
+Both hash maps satisfy the dictionary contract: after `table[k] = v`, the call `table[k]` returns `v`; after `del table[k]`, the call `k in table` returns `False`. The chained version is correct because `_hash(k)` deterministically locates the right chain, and the chain walk reaches every entry with that hash. The open-addressed version is correct because the probe sequence is deterministic — the same key always traces the same probe path, so `__getitem__` follows the same path `__setitem__` used to find a slot.
+
+The tombstone rule is what makes deletion correct in the open-addressed table. Probing past a `None` correctly terminates the lookup (there's no key in this probe sequence past this point); probing past a tombstone continues (the key might still be further down the sequence). Without that distinction, deletion would break lookups for any key that probed *through* a deleted slot.
+
+### How efficient is it?
+
+The expected costs, under the uniform hashing assumption:
+
+| Operation | Chaining | Open addressing | Notes |
+|-----------|----------|-----------------|-------|
+| `__setitem__`, `__getitem__`, `__contains__`, `__delitem__` | $O(1 + \alpha)$ expected | $O\!\left(\frac{1}{1 - \alpha}\right)$ expected | $\alpha$ = load factor |
+| Resize | $\Theta(n)$ worst | $\Theta(n)$ worst | Amortizes to $O(1)$ |
+| Iteration | $\Theta(n + m)$ | $\Theta(m)$ | $m$ = capacity |
+
+With the chaining table's load factor capped at 0.75, expected operation cost is $O(1.75) = O(1)$. With open addressing capped at 0.5, expected cost is $O(2) = O(1)$. Both are constant in the amortized expected sense.
+
+The space cost is roughly $\Theta(n)$ for both, with a small multiplicative constant. Chaining pays extra for per-entry pointer overhead. Open addressing pays extra for the empty slots — at 50% load factor, half the slot array is empty by construction.
+
+The worst case for both is $\Theta(n)$ per operation, when adversarial inputs force every key to the same slot (chaining) or to the same probe sequence (open addressing). That worst case is rare in practice but exploitable under certain conditions — see the universal hashing pointer below.
+
+### Is it optimal?
+
+For point lookup, *yes in expectation*. Any algorithm that supports membership testing has to read at least the key it's looking for, so $\Omega(1)$ amortized is the trivial lower bound on operations that touch a single key, and hash tables hit it. No comparison-based structure can do better than $\Theta(\log n)$ for sorted lookup. The hash table beats that by escaping the comparison model entirely. Linear-time sorting in chapter 6 made the same move.
+
+What hash tables *cannot* do is range queries: "give me all keys between `"alice"` and `"frank"`." The hash function scrambles key order on purpose; adjacency in the slot array has no relationship to adjacency in the key space. For that workload you need a *balanced search tree*, which is where Part III picks up. Trees give you $\Theta(\log n)$ per operation, worse than the hash table's $\Theta(1)$, but they preserve key order and support range queries that hash tables fundamentally can't.
+
+## Escaping the comparison model
+
+Every Part I sorting and search algorithm operated by comparing items. Hash tables don't. They compute on key content, treat the result as an address, skip the comparison-tree lower bound. The same move underlies counting and radix sort from chapter 6, and returns in Part IV (hashing-based pattern matching) and Part IX (Bloom filters revisited, Count-Min sketch, HyperLogLog).
+
+Hash tables convert the dictionary contract into expected $\Theta(1)$ per operation. Chaining handles collisions with per-slot linked chains; open addressing handles them by probing. Both keep load factor below a threshold via doubling-and-rehashing, amortizing the rebuild cost to $O(1)$ per insertion. The expected-constant promise is genuine but conditional on uniform hashing, and breaks under adversarial inputs.
+
+## Notes and further reading
+
+The hash-table construction is CLRS (4th ed.) §11, which covers both chaining and open addressing in detail and develops the universal hashing framework that defends against adversarial inputs (§11.3.3). Sedgewick & Wayne's *Algorithms* (4th ed.) §3.4 covers the same material with a different sequencing emphasis — chaining first, then linear probing, with quadratic and double hashing relegated to exercises. Knuth's *The Art of Computer Programming* Vol. 3 §6.4 has the canonical analysis of open-addressing probe-length expectations under uniform hashing. The hash-flooding attack — the practical security failure that motivates universal hashing in production systems — is documented in Crosby and Wallach's 2003 USENIX paper "Denial of Service via Algorithmic Complexity Attacks." CPython's `dict` uses open addressing with a custom probe sequence (perturbation-based) that interpolates between linear and double hashing; the source is `Objects/dictobject.c` and is worth reading once.

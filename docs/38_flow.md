@@ -1,0 +1,187 @@
+# Flow networks and the max-flow min-cut theorem
+
+Two quantities measure how well a directed graph can route material from a source to a sink: the maximum amount that can flow simultaneously, and the minimum capacity of any set of edges whose removal separates source from sink entirely. These two quantities are always equal. Proving that equality requires constructing the flow: the augmenting-path procedure that finds the maximum flow terminates precisely when it has located the minimum cut. The algorithm and the theorem arrive together.
+
+By the end of this chapter you will have implemented Edmonds-Karp, the BFS variant of the augmenting-path procedure that runs in $O(nm^2)$ and is the standard algorithm for the problem. You will understand the residual graph, which makes the algorithm correct; the max-flow min-cut theorem, which gives the algorithm its termination condition; and why BFS augmentation — rather than any-path augmentation — is essential for the polynomial time guarantee. Flow networks are where graph algorithms meet linear programming duality: the max-flow min-cut theorem is LP duality made constructive.
+
+## Sending flow through a capacity network
+
+A flow network is a directed graph with two distinguished vertices — a source $s$ and a sink $t$ — and a *capacity* $c(u, v) \geq 0$ on each directed edge. A valid *flow* assigns a non-negative value $f(u, v)$ to each edge satisfying two constraints:
+
+- **Capacity constraint:** $0 \leq f(u, v) \leq c(u, v)$ for every edge.
+- **Flow conservation:** for every vertex $v$ other than $s$ and $t$, the total flow into $v$ equals the total flow out of $v$.
+
+The *value* of the flow is the net flow out of the source: $\sum_v f(s, v) - \sum_v f(v, s)$. The goal is to find a flow of maximum value.
+
+The flow value is bounded by any *cut*: a partition of the vertices into two sets $S$ and $T = V \setminus S$ with $s \in S$ and $t \in T$. The capacity of the cut is $\sum_{u \in S, v \in T} c(u, v)$. All flow from source to sink must cross every cut, so no flow can exceed any cut's capacity. The surprising half of the theorem — the achievability half — says the maximum is always attained: there exists a flow whose value equals the minimum cut capacity.
+
+## The residual graph turns flow into a reachability problem
+
+Given a current flow, the *residual graph* captures how much more flow the network can handle and in which directions. For each edge $(u, v)$ with capacity $c$ and current flow $f$:
+
+- A *forward* arc $(u, v)$ with residual capacity $c - f$: can push up to $c - f$ more units forward.
+- A *backward* arc $(v, u)$ with residual capacity $f$: can cancel up to $f$ units of existing flow by routing backward.
+
+An *augmenting path* is any source-to-sink path in the residual graph where every arc has positive residual capacity. The *bottleneck* of the path is the minimum residual capacity along it. Pushing that many units along the path — increasing forward arcs, decreasing backward arcs — increases the total flow value by exactly the bottleneck amount while preserving both constraints.
+
+The Ford-Fulkerson method repeats: find any augmenting path, push the bottleneck along it, update the residual graph. Terminate when no augmenting path exists. At termination, every vertex reachable from the source in the residual graph forms the $S$ side of a cut, and that cut's capacity equals the current flow value. The flow is maximum; the cut is minimum. The Python implementation maintains this residual table directly.
+
+## Pushing flow along augmenting paths
+
+A single residual-capacity table fuses forward and backward arcs. Augmenting along a path updates the table in-place: forward arcs lose capacity, backward arcs gain it.
+
+```python {export=src/codex/graphs/flow.py}
+from collections.abc import Hashable, Iterable
+from collections import deque
+
+type FlowEdge[V] = tuple[V, V, float]
+
+
+def edmonds_karp[V: Hashable](
+    source: V,
+    sink: V,
+    vertices: Iterable[V],
+    capacities: Iterable[FlowEdge[V]],
+) -> tuple[float, dict[tuple[V, V], float]]:
+    """Edmonds-Karp maximum flow (BFS augmenting paths). O(nm^2) time.
+    Returns (max_flow_value, flow) where flow[(u, v)] is the flow on each
+    original edge. Assumes no antiparallel edges in capacities.
+    """
+    vlist = list(vertices)
+    cap: dict[V, dict[V, float]] = {v: {} for v in vlist}
+    for u, v, c in capacities:
+        cap.setdefault(u, {})
+        cap.setdefault(v, {})
+        cap[u][v] = cap[u].get(v, 0.0) + c   # merge parallel edges
+        cap[v].setdefault(u, 0.0)              # ensure reverse arc exists
+
+    res: dict[V, dict[V, float]] = {u: dict(nb) for u, nb in cap.items()}
+```
+
+The initial residual graph is a copy of the capacity table with zero-capacity reverse arcs added for every original edge. Reverse arcs start at zero: no flow has been pushed yet, so no cancellation is possible. Now the main loop.
+
+```python {export=src/codex/graphs/flow.py}
+    max_flow = 0.0
+    while True:
+        parent: dict[V, V | None] = {source: None}
+        queue: deque[V] = deque([source])
+        while queue and sink not in parent:
+            u = queue.popleft()
+            for v, r in res[u].items():
+                if v not in parent and r > 0:
+                    parent[v] = u
+                    queue.append(v)
+        if sink not in parent:
+            break
+
+        path_flow: float = float("inf")
+        v = sink
+        while parent[v] is not None:
+            u = parent[v]  # type: ignore
+            path_flow = min(path_flow, res[u][v])
+            v = u
+
+        v = sink
+        while parent[v] is not None:
+            u = parent[v]  # type: ignore
+            res[u][v] -= path_flow
+            res[v][u] = res[v].get(u, 0.0) + path_flow
+            v = u
+        max_flow += path_flow
+
+    flow: dict[tuple[V, V], float] = {
+        (u, v): c - res[u].get(v, 0.0)
+        for u, nb in cap.items()
+        for v, c in nb.items()
+        if c > 0
+    }
+    return max_flow, flow
+```
+
+The BFS loop is the BFS from chapter 32, reading residual capacities instead of adjacency. The path-tracing loop runs twice: once to find the bottleneck, once to apply it. The flow extraction reconstructs per-edge flow from the difference between original capacity and remaining residual: $f(u, v) = c(u, v) - \text{res}(u, v)$.
+
+Run it on a six-vertex example.
+
+```python
+from codex.graphs.flow import edmonds_karp
+
+edges = [
+    ("s", "a", 10), ("s", "b", 10),
+    ("a", "c", 4), ("a", "b", 2), ("a", "t", 8),
+    ("b", "d", 9),
+    ("c", "t", 10),
+    ("d", "t", 10),
+]
+vertices = ["s", "a", "b", "c", "d", "t"]
+max_flow, flow = edmonds_karp("s", "t", vertices, edges)
+print(f"max flow: {max_flow:.0f}")
+print()
+cap_map = {(u, v): c for u, v, c in edges}
+for (u, v), f in sorted(flow.items()):
+    if f > 0:
+        print(f"  {u} -> {v}: {f:.0f} / {cap_map[u, v]:.0f}")
+```
+
+The maximum flow is 19. The algorithm augments along three BFS-shortest paths: $s \to a \to t$ (8 units), $s \to a \to c \to t$ (2 units), and $s \to b \to d \to t$ (9 units). After termination, the residual graph can reach $b$ from $s$ (one unit of spare capacity on $s \to b$) but cannot reach $a$, $c$, $d$, or $t$. The reachable set is $\{s, b\}$. The minimum cut $({\{s, b\}}, \{a, c, d, t\})$ has capacity $c(s, a) + c(b, d) = 10 + 9 = 19$, confirming that flow value equals cut capacity. That works for this example, but why does BFS guarantee termination in polynomial time?
+
+## Why shortest augmenting paths converge in $O(nm)$ augmentations
+
+Ford-Fulkerson with arbitrary path selection is not a polynomial algorithm. With real-valued capacities it may fail to terminate: a carefully constructed example uses irrational capacities to produce infinitely many augmentations converging to a value less than the true maximum. With integer capacities it terminates but may need $2U$ augmentations — exponential in the input bit-length — where $U$ is the maximum capacity value.
+
+Edmonds-Karp fixes both problems by requiring BFS to select the *shortest* augmenting path (fewest edges) at each step. The key property: with BFS augmentation, the distance from the source to any vertex in the residual graph never decreases across augmentations. This is not obvious — an augmentation adds backward arcs that could create new short paths. The argument is that a backward arc $(v, u)$ created by augmenting along $(u, v)$ can only be used in a future path if it hasn't already been "consumed," and using that backward arc lengthens any path that traverses it compared to the path that created it.
+
+From this monotonicity: each edge $(u, v)$ becomes a *bottleneck* — the minimum-residual arc on the path — at most $O(n)$ times. Every time $(u, v)$ is a bottleneck, its residual drops to zero, so any future path using it must first traverse the backward arc $(v, u)$, which requires the shortest path from $s$ to $v$ to lengthen by at least 2. Since path lengths are bounded by $n$, each edge becomes a bottleneck at most $O(n)$ times. With $m$ edges and at most $O(n)$ bottleneck events each, the total number of augmentations is $O(nm)$. Each augmentation runs a BFS in $O(m)$ time. Total: $O(nm^2)$.
+
+The $O(nm^2)$ bound depends only on graph size, not on capacity values. That is what makes Edmonds-Karp a polynomial algorithm when Ford-Fulkerson is not.
+
+## Maximum flow equals minimum cut
+
+The reachability argument that terminates the algorithm also proves the theorem. When BFS finds no augmenting path, let $S$ be the set of vertices reachable from the source in the residual graph. By construction, $s \in S$ and $t \notin S$.
+
+Examine the cut $(S, V \setminus S)$. For any original edge $(u, v)$ with $u \in S$ and $v \notin S$: if the residual capacity $c(u, v) - f(u, v)$ were positive, $v$ would be reachable from $s$ in the residual graph, contradicting $v \notin S$. Every forward edge from $S$ to $T$ is therefore saturated: $f(u, v) = c(u, v)$. For any original edge $(v, u)$ with $v \notin S$ and $u \in S$: if $f(v, u) > 0$, the backward arc $(u, v)$ in the residual graph would put $v$ in the reachable set, contradicting $v \notin S$. So $f(v, u) = 0$.
+
+The flow value equals the net flow from $S$ to $T$:
+
+$$|f| = \sum_{u \in S, v \in T} f(u, v) - \sum_{u \in T, v \in S} f(v, u) = \sum_{u \in S, v \in T} c(u, v) - 0 = \text{cap}(S, T)$$
+
+The flow value equals the capacity of this cut. Since every flow is bounded above by every cut's capacity, and this flow matches this cut's capacity, both are optimal: the flow is maximum, and the cut is minimum.
+
+This argument is the constructive proof of the max-flow min-cut theorem. Every flow is bounded by every cut; a flow that saturates a cut achieves the bound; therefore maximum flow equals minimum cut capacity. The augmenting-path termination condition and the LP-duality result are the same statement.
+
+## The three questions, applied
+
+### Is it correct?
+
+Each augmentation preserves feasibility. The bottleneck is at most the residual capacity of every arc on the path, so no arc's residual drops below zero. For every non-source, non-sink vertex on the path, the incoming and outgoing flow changes cancel, preserving conservation. At termination, the reachability argument constructs a min-cut of capacity equal to the current flow value, proving the flow is maximum by the upper-bound argument.
+
+The *integrality theorem* follows directly: if all capacities are integers, every augmentation pushes integer flow (path_flow is the minimum of integer residual values), so the final flow assigns integer values to every edge. Integer flows correspond to combinatorial objects — a flow of value $k$ through a unit-capacity network equals $k$ edge-disjoint paths, which is the connection to matching and connectivity.
+
+### How efficient is it?
+
+Edmonds-Karp runs in $O(nm^2)$ time and $O(n + m)$ space. The $O(nm)$ augmentation bound times $O(m)$ per BFS gives the time bound. Space is dominated by the residual table ($O(n + m)$) and the BFS parent table ($O(n)$).
+
+The Dinic algorithm improves on Edmonds-Karp by computing an entire *blocking flow* in the layered graph before advancing to the next BFS distance, reducing the total work to $O(n^2 m)$ on general graphs and $O(m \sqrt{n})$ on unit-capacity graphs. For bipartite matching — where unit capacities make the flow value equal the matching size — $O(m \sqrt{n})$ is the Hopcroft-Karp bound and the practical standard. Push-relabel algorithms (Goldberg and Tarjan, 1988) achieve $O(n^2 \sqrt{m})$ on general graphs and outperform augmenting-path methods on dense instances.
+
+### Is it optimal?
+
+The fastest known max-flow algorithms achieve $\tilde{O}(m)$ time using sophisticated dynamic data structures (Chen et al., 2022, using randomization). For unit-capacity graphs, $O(m \sqrt{n})$ from Hopcroft-Karp is optimal under standard conjectures about triangle detection. For practical purposes, Edmonds-Karp is competitive on sparse graphs with moderate capacity values; Dinic's algorithm is the standard for larger instances.
+
+## What this chapter teaches
+
+**The residual graph is the central object.** Every step of Edmonds-Karp is a BFS on the residual graph, not on the original. The residual encodes both "room to push forward" and "room to cancel backward" for every edge. The backward arcs are what enables the algorithm to recover from locally suboptimal choices — they are not mere bookkeeping. An augmenting-path algorithm without backward arcs would find a maximal but not necessarily maximum flow.
+
+**BFS converts an exponential procedure into a polynomial one.** Ford-Fulkerson with arbitrary path selection is not a polynomial algorithm in the input size. Forcing BFS removes the capacity-dependent blowup: the $O(nm)$ augmentation bound depends only on the graph's vertex and edge counts. This is a recurring pattern: when a greedy iteration works in principle but not in polynomial time, choosing the right inner subroutine fixes the complexity without changing the outer structure. Dijkstra (greedy + heap) and Edmonds-Karp (augmenting path + BFS) are both instances.
+
+**Max-flow min-cut is LP duality made constructive.** The max-flow LP and the min-cut LP are dual programs; strong duality says their optima are equal. The max-flow min-cut theorem is that equality, and the augmenting-path argument is the constructive proof: the algorithm terminates when it simultaneously certifies a flow (primal feasible) and a cut (dual feasible) of the same value. This constructive proof structure — finding a primal solution and a dual certificate together — appears in Kruskal's MST (greedy solution + cut property certificate), Dijkstra's shortest path (tentative distances + relaxation certificate), and Tarjan's SCC (DFS tree + low-link certificate). The max-flow min-cut theorem makes the LP interpretation explicit.
+
+## Notes and further reading
+
+L.R. Ford Jr. and D.R. Fulkerson introduced augmenting paths in "Maximal Flow Through a Network" (*Canadian Journal of Mathematics* 8:399–404, 1956). The max-flow min-cut theorem was proved independently by Ford and Fulkerson and by P. Elias, A. Feinstein, and C.E. Shannon in the same year. Jack Edmonds and Richard Karp showed in 1972 that BFS augmentation gives $O(nm)$ augmentations and $O(nm^2)$ time in "Theoretical Improvements in Algorithmic Efficiency for Network Flow Problems" (*JACM* 19(2):248–264). CLRS chapter 26 covers Ford-Fulkerson, Edmonds-Karp, and push-relabel with complete proofs.
+
+E.A. Dinic's blocking-flow algorithm appeared in "Algorithm for Solution of a Problem of Maximum Flow in a Network" (*Soviet Mathematics Doklady* 11:1277–1280, 1970). John Hopcroft and Richard Karp's $O(m \sqrt{n})$ bipartite matching algorithm (1973, *SIAM Journal on Computing* 2(4):225–231) achieves the same bound for unit-capacity flows. Andrew Goldberg and Robert Tarjan's push-relabel framework appeared in "A New Approach to the Maximum-Flow Problem" (*JACM* 35(4):921–940, 1988).
+
+Bipartite maximum matching reduces to max-flow by adding a supersource connected to every left vertex and a supersink connected from every right vertex, all with unit capacity. A flow of value $k$ in the resulting network corresponds to a matching of size $k$. The same reduction connects max-flow to assignment problems, network reliability, and project scheduling. Sedgewick and Wayne's *Algorithms* (4th ed.) §6.4 covers the reductions and their flow formulations.
+
+The 2022 near-linear-time result is "Maximum Flow and Minimum-Cost Flow in Almost-Linear Time" by Chen, Kyng, Liu, Peng, Gutenberg, and Sachdeva (*IEEE FOCS 2022*). It achieves $m^{1+o(1)}$ time using interior-point methods and dynamic data structures; the $o(1)$ in the exponent depends on polylogarithmic factors. The algorithm is not practical — the constant factors are enormous — but it settles a 50-year open question about the gap between $O(nm)$ and $O(m)$.
+
+In the next chapter I'll close Part V with a synthesis of the five graph algorithm families — BFS/DFS for reachability, relaxation for shortest paths, cuts for spanning trees, DFS timestamps for structural decomposition, and augmenting paths for flow. Each rests on one invariant, and each invariant is a specialization of the same principle: an algorithm is correct when its termination condition simultaneously proves its own optimality.
